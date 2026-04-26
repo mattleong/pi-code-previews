@@ -1,8 +1,5 @@
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { bundledThemes } from "shiki";
 import { getObjectValue } from "./data.js";
-
-export const SETTINGS_STATE_TYPE = "code-preview-settings";
 
 export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
 
@@ -15,7 +12,7 @@ export interface CodePreviewSettings {
 	readLineNumbers: boolean;
 }
 
-export let codePreviewSettings: CodePreviewSettings = {
+export const defaultCodePreviewSettings: CodePreviewSettings = {
 	shikiTheme: "dark-plus",
 	diffIntensity: "subtle",
 	readCollapsedLines: 20,
@@ -24,16 +21,10 @@ export let codePreviewSettings: CodePreviewSettings = {
 	readLineNumbers: true,
 };
 
+export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
+
 export function setCodePreviewSettings(next: CodePreviewSettings) {
 	codePreviewSettings = next;
-}
-
-export function restoreSettings(ctx: ExtensionContext) {
-	for (const entry of ctx.sessionManager.getBranch()) {
-		if (entry.type === "custom" && entry.customType === SETTINGS_STATE_TYPE) {
-			codePreviewSettings = normalizeSettings(entry.data);
-		}
-	}
 }
 
 export function normalizeSettings(data: unknown): CodePreviewSettings {

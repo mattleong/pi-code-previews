@@ -65,6 +65,12 @@ Settings include:
 - edit diff preview line count
 - read line numbers
 
+Settings are stored globally in:
+
+```text
+~/.pi/agent/code-previews.json
+```
+
 ## Scope
 
 `pi-code-previews` is limited to TUI preview rendering for pi's existing `bash`, `read`, `write`, and `edit` tools.

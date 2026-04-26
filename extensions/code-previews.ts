@@ -2,24 +2,18 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { getSettingsListTheme } from "@mariozechner/pi-coding-agent";
 import { SettingsList } from "@mariozechner/pi-tui";
 import { registerToolRenderers } from "../src/renderers.js";
+import { loadSettingsFromDisk, saveSettingsToDisk } from "../src/settings-store.js";
 import { createSettingsItems } from "../src/settings-ui.js";
-import { SETTINGS_STATE_TYPE, restoreSettings, setCodePreviewSettings, codePreviewSettings, updateSetting, type CodePreviewSettings } from "../src/settings.js";
+import { setCodePreviewSettings, codePreviewSettings, updateSetting } from "../src/settings.js";
 import { initializeShiki } from "../src/shiki.js";
 
 /**
  * Syntax-highlighted code previews for pi.
  */
 export default async function codePreviews(pi: ExtensionAPI) {
+	const savedSettings = await loadSettingsFromDisk();
+	if (savedSettings) setCodePreviewSettings(savedSettings);
 	await initializeShiki(codePreviewSettings.shikiTheme);
-
-	function persistSettings() {
-		pi.appendEntry<CodePreviewSettings>(SETTINGS_STATE_TYPE, codePreviewSettings);
-	}
-
-	pi.on("session_start", async (_event, ctx) => {
-		restoreSettings(ctx);
-		await initializeShiki(codePreviewSettings.shikiTheme);
-	});
 
 	pi.registerCommand("code-preview-settings", {
 		description: "Configure code preview settings",
@@ -30,7 +24,9 @@ export default async function codePreviews(pi: ExtensionAPI) {
 					const previousTheme = codePreviewSettings.shikiTheme;
 					setCodePreviewSettings(updateSetting(codePreviewSettings, id, value));
 					if (codePreviewSettings.shikiTheme !== previousTheme) void initializeShiki(codePreviewSettings.shikiTheme);
-					persistSettings();
+					void saveSettingsToDisk(codePreviewSettings).catch((error) => {
+						ctx.ui.notify(`Failed to save code preview settings: ${error instanceof Error ? error.message : String(error)}`, "warning");
+					});
 				}, () => done(undefined));
 				return list;
 			});

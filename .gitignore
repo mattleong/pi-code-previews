@@ -3,3 +3,6 @@ node_modules/
 *.log
 .pi/npm/
 .pi/git/
+.pi/agent/code-previews.json
+.pi/code-previews.json
+code-previews.json
