@@ -1,5 +1,5 @@
 {
-  "name": "pi-tool-previews",
+  "name": "pi-code-previews",
   "version": "0.1.0",
   "description": "Syntax-highlighted previews for pi tool calls.",
   "type": "module",
@@ -8,17 +8,17 @@
     "pi-package",
     "pi-extension",
     "syntax-highlighting",
-    "tool-preview",
+    "code-preview",
     "coding-agent"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mattleong/pi-tool-previews.git"
+    "url": "git+https://github.com/mattleong/pi-code-previews.git"
   },
   "bugs": {
-    "url": "https://github.com/mattleong/pi-tool-previews/issues"
+    "url": "https://github.com/mattleong/pi-code-previews/issues"
   },
-  "homepage": "https://github.com/mattleong/pi-tool-previews#readme",
+  "homepage": "https://github.com/mattleong/pi-code-previews#readme",
   "files": [
     "extensions",
     "src",

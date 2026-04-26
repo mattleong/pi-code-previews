@@ -1,6 +1,6 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-tui";
-import { toolPreviewSettings } from "./settings.js";
+import { codePreviewSettings } from "./settings.js";
 import { renderWithShiki } from "./shiki.js";
 
 const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
@@ -119,10 +119,10 @@ function dimAnsi(text: string): string {
 function diffLineBg(kind: "add" | "remove", line: string): string {
 	// Full-width subtle backgrounds for changed lines. Re-apply after foreground
 	// resets emitted by Shiki so token coloring does not punch holes in the bg.
-	if (toolPreviewSettings.diffIntensity === "off") return line;
+	if (codePreviewSettings.diffIntensity === "off") return line;
 	const bg = kind === "add"
-		? toolPreviewSettings.diffIntensity === "medium" ? "\x1b[48;2;22;68;40m" : "\x1b[48;2;10;42;26m"
-		: toolPreviewSettings.diffIntensity === "medium" ? "\x1b[48;2;78;36;40m" : "\x1b[48;2;50;24;30m";
+		? codePreviewSettings.diffIntensity === "medium" ? "\x1b[48;2;22;68;40m" : "\x1b[48;2;10;42;26m"
+		: codePreviewSettings.diffIntensity === "medium" ? "\x1b[48;2;78;36;40m" : "\x1b[48;2;50;24;30m";
 	return bg + line.replace(/\x1b\[39m/g, `\x1b[39m${bg}`) + "\x1b[49m";
 }
 

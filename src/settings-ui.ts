@@ -1,14 +1,14 @@
 import { getSelectListTheme } from "@mariozechner/pi-coding-agent";
 import { Container, SelectList, Spacer, Text, type SelectItem, type SettingItem } from "@mariozechner/pi-tui";
 import { bundledThemes } from "shiki";
-import type { ToolPreviewSettings } from "./settings.js";
+import type { CodePreviewSettings } from "./settings.js";
 
-export function createSettingsItems(current: ToolPreviewSettings): SettingItem[] {
+export function createSettingsItems(current: CodePreviewSettings): SettingItem[] {
 	return [
 		{
 			id: "shikiTheme",
 			label: "Syntax theme",
-			description: "Theme used for Shiki syntax highlighting in tool previews.",
+			description: "Theme used for Shiki syntax highlighting in code previews.",
 			currentValue: current.shikiTheme,
 			submenu: (currentValue, done) => new ThemeSelectSubmenu(currentValue, done),
 		},
@@ -72,7 +72,7 @@ class ThemeSelectSubmenu extends Container {
 		this.selectList.onCancel = () => done(undefined);
 
 		this.addChild(new Text("Syntax theme", 0, 0));
-		this.addChild(new Text("Select a Shiki theme for tool previews.", 0, 0));
+		this.addChild(new Text("Select a Shiki theme for code previews.", 0, 0));
 		this.addChild(new Spacer(1));
 		this.addChild(this.selectList);
 		this.addChild(new Spacer(1));

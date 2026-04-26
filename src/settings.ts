@@ -2,11 +2,11 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { bundledThemes } from "shiki";
 import { getObjectValue } from "./data.js";
 
-export const SETTINGS_STATE_TYPE = "tool-preview-settings";
+export const SETTINGS_STATE_TYPE = "code-preview-settings";
 
 export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
 
-export interface ToolPreviewSettings {
+export interface CodePreviewSettings {
 	shikiTheme: string;
 	diffIntensity: DiffBackgroundIntensity;
 	readCollapsedLines: number;
@@ -15,7 +15,7 @@ export interface ToolPreviewSettings {
 	readLineNumbers: boolean;
 }
 
-export let toolPreviewSettings: ToolPreviewSettings = {
+export let codePreviewSettings: CodePreviewSettings = {
 	shikiTheme: "dark-plus",
 	diffIntensity: "subtle",
 	readCollapsedLines: 20,
@@ -24,33 +24,33 @@ export let toolPreviewSettings: ToolPreviewSettings = {
 	readLineNumbers: true,
 };
 
-export function setToolPreviewSettings(next: ToolPreviewSettings) {
-	toolPreviewSettings = next;
+export function setCodePreviewSettings(next: CodePreviewSettings) {
+	codePreviewSettings = next;
 }
 
 export function restoreSettings(ctx: ExtensionContext) {
 	for (const entry of ctx.sessionManager.getBranch()) {
 		if (entry.type === "custom" && entry.customType === SETTINGS_STATE_TYPE) {
-			toolPreviewSettings = normalizeSettings(entry.data);
+			codePreviewSettings = normalizeSettings(entry.data);
 		}
 	}
 }
 
-export function normalizeSettings(data: unknown): ToolPreviewSettings {
+export function normalizeSettings(data: unknown): CodePreviewSettings {
 	const shikiTheme = getObjectValue(data, "shikiTheme");
 	const diffIntensity = getObjectValue(data, "diffIntensity");
 	const readLineNumbers = getObjectValue(data, "readLineNumbers");
 	return {
-		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : toolPreviewSettings.shikiTheme,
-		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : toolPreviewSettings.diffIntensity,
-		readCollapsedLines: coerceNumber(getObjectValue(data, "readCollapsedLines"), toolPreviewSettings.readCollapsedLines),
-		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), toolPreviewSettings.writeCollapsedLines),
-		editCollapsedLines: coerceNumber(getObjectValue(data, "editCollapsedLines"), toolPreviewSettings.editCollapsedLines),
-		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : toolPreviewSettings.readLineNumbers,
+		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : codePreviewSettings.shikiTheme,
+		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : codePreviewSettings.diffIntensity,
+		readCollapsedLines: coerceNumber(getObjectValue(data, "readCollapsedLines"), codePreviewSettings.readCollapsedLines),
+		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), codePreviewSettings.writeCollapsedLines),
+		editCollapsedLines: coerceNumber(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
+		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
 	};
 }
 
-export function updateSetting(current: ToolPreviewSettings, id: string, value: string): ToolPreviewSettings {
+export function updateSetting(current: CodePreviewSettings, id: string, value: string): CodePreviewSettings {
 	const next = { ...current };
 	if (id === "shikiTheme" && isBundledThemeName(value)) next.shikiTheme = value;
 	else if (id === "diffIntensity" && isDiffBackgroundIntensity(value)) next.diffIntensity = value;

@@ -1,6 +1,6 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { createHighlighter } from "shiki";
-import { setToolPreviewSettings, toolPreviewSettings } from "./settings.js";
+import { setCodePreviewSettings, codePreviewSettings } from "./settings.js";
 
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
 const loadedShikiLanguages = new Set<string>();
@@ -41,11 +41,11 @@ export async function initializeShiki(theme: string) {
 		const nextHighlighter = await createHighlighter({ themes: [theme], langs: [...PRELOADED_SHIKI_LANGUAGES] });
 		previousHighlighter?.dispose();
 		shikiHighlighter = nextHighlighter;
-		setToolPreviewSettings({ ...toolPreviewSettings, shikiTheme: theme });
+		setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: theme });
 		loadedShikiLanguages.clear();
 		for (const lang of PRELOADED_SHIKI_LANGUAGES) loadedShikiLanguages.add(lang);
 	} catch (error) {
-		console.warn("[pi-tool-previews] Shiki failed to initialize; previews will be plain text.", error);
+		console.warn("[pi-code-previews] Shiki failed to initialize; previews will be plain text.", error);
 		shikiHighlighter = undefined;
 	}
 }
@@ -67,7 +67,7 @@ export function renderWithShiki(code: string, lang: string | undefined): string[
 				.catch(() => {})
 				.finally(() => pendingShikiLanguages.delete(shikiLang));
 		}
-		const tokens = shikiHighlighter.codeToTokensBase(code, { lang: shikiLang as never, theme: toolPreviewSettings.shikiTheme as never });
+		const tokens = shikiHighlighter.codeToTokensBase(code, { lang: shikiLang as never, theme: codePreviewSettings.shikiTheme as never });
 		return tokens.map((line) => line.map((token) => ansiFromToken(token)).join(""));
 	} catch {
 		return undefined;

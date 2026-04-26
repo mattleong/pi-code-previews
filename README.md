@@ -1,8 +1,8 @@
-# pi-tool-previews
+# pi-code-previews
 
 Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `edit` tools.
 
-`pi-tool-previews` preserves the original behavior of pi's tools and only changes how their calls and results are rendered.
+`pi-code-previews` preserves the original behavior of pi's tools and only changes how their calls and results are rendered.
 
 ## Features
 
@@ -11,7 +11,7 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 - Syntax-highlighted `write` content previews, including empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
 - Rich TextMate/VS Code-style highlighting powered by Shiki.
-- `/tool-preview-settings` command for theme and preview display settings.
+- `/code-preview-settings` command for theme and preview display settings.
 - Keeps pi's colored tool backgrounds so tool calls remain easy to parse.
 - Delegates execution to pi's built-in tools; only rendering is changed.
 
@@ -20,19 +20,19 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 Install from GitHub:
 
 ```bash
-pi install git:github.com/mattleong/pi-tool-previews
+pi install git:github.com/mattleong/pi-code-previews
 ```
 
 Install a pinned tag or release:
 
 ```bash
-pi install git:github.com/mattleong/pi-tool-previews@v0.1.0
+pi install git:github.com/mattleong/pi-code-previews@v0.1.0
 ```
 
 To try it for one run without installing:
 
 ```bash
-pi -e git:github.com/mattleong/pi-tool-previews
+pi -e git:github.com/mattleong/pi-code-previews
 ```
 
 After installing, restart pi or run:
@@ -53,7 +53,7 @@ Once installed, the extension automatically enhances previews for pi's built-in 
 Configure preview appearance inside pi with:
 
 ```text
-/tool-preview-settings
+/code-preview-settings
 ```
 
 Settings include:
@@ -67,7 +67,7 @@ Settings include:
 
 ## Scope
 
-`pi-tool-previews` is limited to TUI preview rendering for pi's existing `bash`, `read`, `write`, and `edit` tools.
+`pi-code-previews` is limited to TUI preview rendering for pi's existing `bash`, `read`, `write`, and `edit` tools.
 
 It does not:
 
@@ -87,7 +87,7 @@ Syntax highlighting is powered by Shiki. If a language is not available, the pre
 
 ## Security
 
-Pi extensions run with full system permissions. Review `extensions/tool-previews.ts` before installing any fork of this package.
+Pi extensions run with full system permissions. Review `extensions/code-previews.ts` before installing any fork of this package.
 
 ## License
 

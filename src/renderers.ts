@@ -4,7 +4,7 @@ import { Container, Text } from "@mariozechner/pi-tui";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
 import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimTrailingEmptyLines } from "./format.js";
-import { toolPreviewSettings } from "./settings.js";
+import { codePreviewSettings } from "./settings.js";
 import { normalizeShikiLanguage, renderHighlightedText } from "./shiki.js";
 
 export function registerToolRenderers(pi: ExtensionAPI, cwd: string) {
@@ -98,7 +98,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 				firstLine,
 				theme,
 			);
-			const limit = expanded ? lines.length : toolPreviewSettings.readCollapsedLines;
+			const limit = expanded ? lines.length : codePreviewSettings.readCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
 
 			let text = preview.lines.length ? preview.lines.join("\n") : theme.fg("muted", "Empty file");
@@ -128,7 +128,7 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 			const content = typeof args.content === "string" ? args.content : "";
 			const lang = getLanguageFromPath(path);
 			const lines = trimTrailingEmptyLines(renderHighlightedText(content, lang, theme));
-			const limit = context.expanded ? lines.length : toolPreviewSettings.writeCollapsedLines;
+			const limit = context.expanded ? lines.length : codePreviewSettings.writeCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
 
 			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${theme.fg("accent", path || "...")}`;
@@ -185,7 +185,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const filePath = getPathArg(context.args);
 			const lang = getLanguageFromPath(filePath);
 			const summary = summarizeDiff(diff);
-			const limit = expanded ? summary.totalLines : toolPreviewSettings.editCollapsedLines;
+			const limit = expanded ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);
 
 			let text = `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
@@ -201,7 +201,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 }
 
 function withOptionalReadLineNumbers(lines: string[], firstLine: number, theme: Theme): string[] {
-	if (!toolPreviewSettings.readLineNumbers || lines.length === 0) return lines;
+	if (!codePreviewSettings.readLineNumbers || lines.length === 0) return lines;
 	const lastLine = firstLine + lines.length - 1;
 	const width = String(lastLine).length;
 	return lines.map((line, index) => {
