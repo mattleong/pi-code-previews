@@ -105,9 +105,9 @@ function createSettingsItems(current: ToolPreviewSettings): SettingItem[] {
 	return [
 		{ id: "shikiTheme", label: "Syntax theme", currentValue: current.shikiTheme, values: Object.keys(bundledThemes).sort() },
 		{ id: "diffIntensity", label: "Diff background", currentValue: current.diffIntensity, values: ["off", "subtle", "medium"] },
-		{ id: "readCollapsedLines", label: "Collapsed read lines", currentValue: String(current.readCollapsedLines), values: ["10", "20", "40", "80"] },
-		{ id: "writeCollapsedLines", label: "Collapsed write lines", currentValue: String(current.writeCollapsedLines), values: ["10", "20", "40", "80"] },
-		{ id: "editCollapsedLines", label: "Collapsed edit diff lines", currentValue: String(current.editCollapsedLines), values: ["60", "100", "160", "240"] },
+		{ id: "readCollapsedLines", label: "Read preview lines", currentValue: String(current.readCollapsedLines), values: ["10", "20", "40", "80"] },
+		{ id: "writeCollapsedLines", label: "Write preview lines", currentValue: String(current.writeCollapsedLines), values: ["10", "20", "40", "80"] },
+		{ id: "editCollapsedLines", label: "Edit diff preview lines", currentValue: String(current.editCollapsedLines), values: ["60", "100", "160", "240"] },
 		{ id: "readLineNumbers", label: "Read line numbers", currentValue: current.readLineNumbers ? "on" : "off", values: ["on", "off"] },
 	];
 }
@@ -179,16 +179,16 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 		},
 
 		renderResult(result, { expanded, isPartial }, theme) {
-			if (isPartial) return new Text(theme.fg("warning", "Running..."), 0, 0);
+			if (isPartial) return new Text(theme.fg("warning", "Running…"), 0, 0);
 			const output = getTextContent(result.content).trim();
 			const lines = output ? output.split("\n").map((line) => theme.fg(result.isError ? "error" : "toolOutput", line)) : [];
 			const limit = expanded ? lines.length : 8;
 			const preview = previewLines(lines, limit, theme);
 			let text = preview.lines.length ? preview.lines.join("\n") : theme.fg("muted", "No output");
-			if (preview.hidden > 0) text += previewFooter(theme, `showing ${preview.shown} of ${lines.length} output lines • ${keyHint("app.tools.expand", "expand")}`);
+			if (preview.hidden > 0) text += previewFooter(theme, `Showing ${preview.shown} of ${lines.length} output lines · ${keyHint("app.tools.expand", "expand")}`);
 			const details = result.details as { truncation?: { truncated?: boolean }; fullOutputPath?: string } | undefined;
-			if (details?.truncation?.truncated) text += previewFooter(theme, "output truncated by bash tool");
-			if (details?.fullOutputPath) text += previewFooter(theme, `full output: ${details.fullOutputPath}`);
+			if (details?.truncation?.truncated) text += previewFooter(theme, "Output truncated by bash");
+			if (details?.fullOutputPath) text += previewFooter(theme, `Full output: ${details.fullOutputPath}`);
 			return new Text(text, 0, 0);
 		},
 	});
@@ -219,7 +219,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
-			if (isPartial) return new Text(theme.fg("warning", "Reading..."), 0, 0);
+			if (isPartial) return new Text(theme.fg("warning", "Reading…"), 0, 0);
 			const firstText = getTextContent(result.content);
 			if (result.isError || firstText.startsWith("Error")) {
 				return new Text(theme.fg("error", firstText.split("\n")[0] || "Read failed"), 0, 0);
@@ -243,11 +243,11 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 			const limit = expanded ? lines.length : toolPreviewSettings.readCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
 
-			let text = preview.lines.join("\n");
-			if (preview.hidden > 0) text += previewFooter(theme, `showing ${preview.shown} of ${lines.length} lines • ${keyHint("app.tools.expand", "expand")}`);
+			let text = preview.lines.length ? preview.lines.join("\n") : theme.fg("muted", "Empty file");
+			if (preview.hidden > 0) text += previewFooter(theme, `Showing ${preview.shown} of ${lines.length} lines · ${keyHint("app.tools.expand", "expand")}`);
 
 			const truncation = (result.details as { truncation?: { truncated?: boolean } } | undefined)?.truncation;
-			if (truncation?.truncated) text += previewFooter(theme, "output truncated by read tool");
+			if (truncation?.truncated) text += previewFooter(theme, "Output truncated by read");
 			return new Text(text, 0, 0);
 		},
 	});
@@ -276,10 +276,10 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 
 			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${theme.fg("accent", path || "...")}`;
 			if (content) {
-				text += theme.fg("dim", ` • ${formatBytes(content.length)}, ${lines.length} line${lines.length === 1 ? "" : "s"}`);
-				if (lang) text += theme.fg("dim", ` • ${normalizeShikiLanguage(lang)}`);
+				text += theme.fg("dim", ` · ${formatBytes(content.length)} · ${lines.length} line${lines.length === 1 ? "" : "s"}`);
+				if (lang) text += theme.fg("dim", ` · ${normalizeShikiLanguage(lang)}`);
 				text += `\n${preview.lines.join("\n")}`;
-				if (preview.hidden > 0) text += previewFooter(theme, `showing ${preview.shown} of ${lines.length} lines • ${keyHint("app.tools.expand", "expand")}`);
+				if (preview.hidden > 0) text += previewFooter(theme, `Showing ${preview.shown} of ${lines.length} lines · ${keyHint("app.tools.expand", "expand")}`);
 			}
 			return new Text(text, 0, 0);
 		},
@@ -314,7 +314,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
-			if (isPartial) return new Text(theme.fg("warning", "Editing..."), 0, 0);
+			if (isPartial) return new Text(theme.fg("warning", "Editing…"), 0, 0);
 
 			const firstText = getTextContent(result.content);
 			if (result.isError || firstText.startsWith("Error")) {
@@ -333,10 +333,10 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 
 			let text = `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
 			text += theme.fg("dim", ` in ${filePath || "file"}`);
-			text += theme.fg("dim", ` • ${summary.hunks} hunk${summary.hunks === 1 ? "" : "s"}`);
+			text += theme.fg("dim", ` · ${summary.hunks} hunk${summary.hunks === 1 ? "" : "s"}`);
 			if (!expanded) text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			text += `\n${rendered}`;
-			if (summary.totalLines > limit) text += previewFooter(theme, `showing ${limit} of ${summary.totalLines} diff lines • ${keyHint("app.tools.expand", "expand")}`);
+			if (summary.totalLines > limit) text += previewFooter(theme, `Showing ${limit} of ${summary.totalLines} diff lines · ${keyHint("app.tools.expand", "expand")}`);
 
 			return new FullWidthDiffText(text);
 		},
@@ -382,7 +382,7 @@ function previewLines(lines: string[], limit: number, theme: Theme): { lines: st
 	return {
 		lines: [
 			...lines.slice(0, head),
-			theme.fg("muted", `      ··· ${hidden} lines hidden ···`),
+			theme.fg("muted", `      --- ${hidden} lines hidden ---`),
 			...lines.slice(lines.length - tail),
 		],
 		shown: head + tail,
@@ -544,7 +544,7 @@ function renderSyntaxHighlightedDiff(diff: string, lang: string | undefined, the
 
 function renderSeparator(line: string, theme: Theme): string {
 	const trimmed = line.trim();
-	if (trimmed === "...") return theme.fg("muted", "      ··· unchanged lines hidden ···");
+	if (trimmed === "...") return theme.fg("muted", "      --- unchanged lines hidden ---");
 	if (trimmed.startsWith("@@")) return theme.fg("accent", theme.bold(line));
 	if (trimmed.startsWith("---") || trimmed.startsWith("+++")) return theme.fg("muted", line);
 	if (trimmed.startsWith("diff ") || trimmed.startsWith("index ")) return theme.fg("muted", line);
