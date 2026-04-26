@@ -17,6 +17,10 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 
 ## Screenshot
 
+Before: 
+<img width="1549" height="1133" alt="Screenshot 2026-04-26 at 1 20 00 PM" src="https://github.com/user-attachments/assets/d68c10a8-b931-4e9a-8144-24558605c045" />
+
+After: 
 <img width="1548" height="1097" alt="Screenshot 2026-04-26 at 1 18 42 PM" src="https://github.com/user-attachments/assets/5d18b219-c73f-4347-bd8c-a0bf179edf8d" />
 
 ## Install
