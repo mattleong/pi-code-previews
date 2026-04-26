@@ -2,13 +2,13 @@
 
 Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `edit` tools.
 
-This package preserves the original behavior of those tools and only changes how their calls/results are rendered.
+`pi-tool-previews` preserves the original behavior of pi's tools and only changes how their calls and results are rendered.
 
 ## Features
 
 - Syntax-highlighted `bash` command previews.
 - Syntax-highlighted `read` output based on file extension, with line numbers enabled by default.
-- Syntax-highlighted `write` content previews.
+- Syntax-highlighted `write` content previews, including empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
 - Rich TextMate/VS Code-style highlighting powered by Shiki.
 - `/tool-preview-settings` command for theme and preview display settings.
@@ -17,59 +17,73 @@ This package preserves the original behavior of those tools and only changes how
 
 ## Install
 
-From GitHub:
+Install from GitHub:
 
 ```bash
 pi install git:github.com/mattleong/pi-tool-previews
 ```
 
-Or try it for one run without installing:
-
-```bash
-pi -e git:github.com/mattleong/pi-tool-previews
-```
-
-If you pin releases/tags:
+Install a pinned tag or release:
 
 ```bash
 pi install git:github.com/mattleong/pi-tool-previews@v0.1.0
 ```
 
-## Local development
-
-Install dependencies, then run from this repo:
+To try it for one run without installing:
 
 ```bash
-npm install
-pi -e ./extensions/tool-previews.ts
+pi -e git:github.com/mattleong/pi-tool-previews
 ```
 
-Or install the package locally:
+After installing, restart pi or run:
 
-```bash
-pi install .
+```text
+/reload
 ```
 
-After changing the extension, run `/reload` in pi.
+## Usage
+
+Once installed, the extension automatically enhances previews for pi's built-in tools:
+
+- `bash`
+- `read`
+- `write`
+- `edit`
+
+Configure preview appearance inside pi with:
+
+```text
+/tool-preview-settings
+```
+
+Settings include:
+
+- syntax theme
+- diff background intensity
+- read preview line count
+- write preview line count
+- edit diff preview line count
+- read line numbers
 
 ## Scope
 
-`pi-tool-previews` is limited to syntax-highlighted previews for pi's existing `bash`, `read`, `write`, and `edit` tools. It does not change tool execution, add new tool capabilities, sandbox tool calls, or modify files outside the behavior of pi's original tools.
+`pi-tool-previews` is limited to TUI preview rendering for pi's existing `bash`, `read`, `write`, and `edit` tools.
+
+It does not:
+
+- change tool execution
+- add new tools
+- change tool parameters
+- sandbox or approve tool calls
+- alter model behavior
+- provide linting, formatting, diagnostics, autocomplete, or other code intelligence
+- modify files outside the behavior of pi's original tools
 
 ## How it works
 
-The package manifest in `package.json` exposes the extension through pi's package system:
+The extension re-registers pi's built-in `bash`, `read`, `write`, and `edit` tools with the same names and parameters. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering.
 
-```json
-{
-  "keywords": ["pi-package"],
-  "pi": {
-    "extensions": ["./extensions"]
-  }
-}
-```
-
-The extension re-registers the built-in `bash`, `read`, `write`, and `edit` tools with the same names. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering. Syntax highlighting is powered by Shiki; if a language is not available, the preview falls back to plain text rather than another highlighter.
+Syntax highlighting is powered by Shiki. If a language is not available, the preview falls back to plain text.
 
 ## Security
 

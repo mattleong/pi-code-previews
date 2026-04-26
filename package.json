@@ -21,9 +21,15 @@
   "homepage": "https://github.com/mattleong/pi-tool-previews#readme",
   "files": [
     "extensions",
+    "src",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "tsconfig.json"
   ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "pack:dry": "npm pack --dry-run"
+  },
   "dependencies": {
     "shiki": "^4.0.2"
   },
@@ -35,5 +41,8 @@
     "extensions": [
       "./extensions"
     ]
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }
