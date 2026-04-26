@@ -1,0 +1,38 @@
+{
+  "name": "pi-syntax-highlight-tools",
+  "version": "0.1.0",
+  "description": "Syntax-highlighted read, write, and edit tool previews for pi.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "syntax-highlighting",
+    "coding-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattleong/pi-syntax-highlight-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mattleong/pi-syntax-highlight-tools/issues"
+  },
+  "homepage": "https://github.com/mattleong/pi-syntax-highlight-tools#readme",
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "shiki": "^4.0.2"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  }
+}
