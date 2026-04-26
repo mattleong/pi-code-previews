@@ -1,13 +1,6 @@
 import type { EditToolDetails, ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
-import {
-	createEditTool,
-	createReadTool,
-	createWriteTool,
-	getLanguageFromPath,
-	highlightCode,
-	keyHint,
-} from "@mariozechner/pi-coding-agent";
-import { Container, Text } from "@mariozechner/pi-tui";
+import { createEditTool, createReadTool, createWriteTool, getLanguageFromPath, keyHint } from "@mariozechner/pi-coding-agent";
+import { Container, Text, truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-tui";
 import { createHighlighter } from "shiki";
 
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
@@ -41,8 +34,8 @@ export default async function syntaxHighlightToolPreviews(pi: ExtensionAPI) {
 				"diff",
 			],
 		});
-	} catch {
-		// Fall back to pi's built-in highlighter if Shiki is unavailable.
+	} catch (error) {
+		console.warn("[pi-syntax-highlight-tools] Shiki failed to initialize; previews will be plain text.", error);
 		shikiHighlighter = undefined;
 	}
 
@@ -191,9 +184,39 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			if (!expanded) text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			text += `\n${rendered}`;
 
-			return new Text(text, 0, 0);
+			return new FullWidthDiffText(text);
 		},
 	});
+}
+
+const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
+const DIFF_REMOVE_MARKER = "\u0000PI_DIFF_REMOVE\u0000";
+
+class FullWidthDiffText implements Component {
+	constructor(private readonly text: string) {}
+
+	render(width: number): string[] {
+		return this.text.split("\n").map((rawLine) => {
+			const kind = rawLine.startsWith(DIFF_ADD_MARKER)
+				? "add"
+				: rawLine.startsWith(DIFF_REMOVE_MARKER)
+					? "remove"
+					: undefined;
+			const line = kind === "add"
+				? rawLine.slice(DIFF_ADD_MARKER.length)
+				: kind === "remove"
+					? rawLine.slice(DIFF_REMOVE_MARKER.length)
+					: rawLine;
+
+			if (!kind) return truncateToWidth(line, width, "");
+
+			const truncated = truncateToWidth(line, width, "");
+			const padding = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+			return diffLineBg(kind, truncated + padding);
+		});
+	}
+
+	invalidate(): void {}
 }
 
 function getPathArg(args: unknown): string {
@@ -214,14 +237,7 @@ function renderHighlightedText(text: string, lang: string | undefined, theme: Th
 	const normalized = text.replace(/\t/g, "   ");
 	if (!lang) return normalized.split("\n").map((line) => theme.fg("toolOutput", line));
 	if (lang === "markdown") return renderMarkdownWithHighlightedFences(normalized, theme);
-	const rich = renderWithShiki(normalized, lang);
-	if (rich) return rich;
-	if (isShellLanguage(lang)) return highlightShell(normalized, theme);
-	try {
-		return highlightCode(normalized, lang);
-	} catch {
-		return normalized.split("\n");
-	}
+	return renderWithShiki(normalized, lang) ?? normalized.split("\n").map((line) => theme.fg("toolOutput", line));
 }
 
 function renderWithShiki(code: string, lang: string | undefined): string[] | undefined {
@@ -311,11 +327,7 @@ function renderMarkdownWithHighlightedFences(markdown: string, theme: Theme): st
 		if (inFence) {
 			fenceBuffer.push(line);
 		} else {
-			try {
-				out.push(...highlightCode(line, "markdown"));
-			} catch {
-				out.push(theme.fg("toolOutput", line));
-			}
+			out.push(...(renderWithShiki(line, "markdown") ?? [theme.fg("toolOutput", line)]));
 		}
 	}
 
@@ -332,39 +344,6 @@ function normalizeFenceLanguage(lang: string | undefined): string | undefined {
 	if (!first) return undefined;
 	if (first === "console" || first === "terminal" || first === "shell-session") return "bash";
 	return first;
-}
-
-function isShellLanguage(lang: string | undefined): boolean {
-	return lang === "bash" || lang === "sh" || lang === "shell" || lang === "zsh";
-}
-
-function highlightShell(code: string, theme: Theme): string[] {
-	return code.split("\n").map((line) => {
-		if (!line.trim()) return "";
-		const trimmedStart = line.match(/^\s*/)?.[0] ?? "";
-		const rest = line.slice(trimmedStart.length);
-		if (rest.startsWith("#")) return theme.fg("syntaxComment", line);
-
-		// Highlight heredoc delimiters and quoted strings first, then color command words.
-		let rendered = rest.replace(/<<\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1/g, (_m, quote, marker) => {
-			return `<<${quote}${theme.fg("syntaxString", marker)}${quote}`;
-		});
-		rendered = rendered.replace(/(['"])(?:(?!\1).)*\1/g, (match) => theme.fg("syntaxString", match));
-
-		// Color the first command in a pipeline/list and commands after control operators.
-		rendered = rendered.replace(/(^|[|;&(){}]\s*)([A-Za-z_./-][A-Za-z0-9_./:-]*)(?=\s|$)/g, (match, prefix, command) => {
-			if (command === "then" || command === "do" || command === "done" || command === "fi" || command === "else") {
-				return `${prefix}${theme.fg("syntaxKeyword", command)}`;
-			}
-			return `${prefix}${theme.fg("syntaxFunction", command)}`;
-		});
-
-		// Common shell keywords may not appear command-position in all cases.
-		rendered = rendered.replace(/\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|in)\b/g, (kw) =>
-			theme.fg("syntaxKeyword", kw),
-		);
-		return trimmedStart + rendered;
-	});
 }
 
 function trimTrailingEmptyLines(lines: string[]): string[] {
@@ -398,13 +377,24 @@ function renderSyntaxHighlightedDiff(diff: string, lang: string | undefined, the
 		const content = parsed.content.replace(/\t/g, "   ");
 		const highlighted = highlightSingleLine(content, lang, theme);
 
-		if (parsed.kind === "+") out.push(`${theme.fg("toolDiffAdded", `+${parsed.lineNumber} `)}${highlighted}`);
-		else if (parsed.kind === "-") out.push(`${theme.fg("toolDiffRemoved", `-${parsed.lineNumber} `)}${highlighted}`);
-		else out.push(`${theme.fg("toolDiffContext", ` ${parsed.lineNumber} `)}${highlighted || theme.fg("toolDiffContext", "")}`);
+		if (parsed.kind === "+") {
+			out.push(`${DIFF_ADD_MARKER}${theme.fg("toolDiffAdded", `+${parsed.lineNumber} `)}${highlighted}`);
+		} else if (parsed.kind === "-") {
+			out.push(`${DIFF_REMOVE_MARKER}${theme.fg("toolDiffRemoved", `-${parsed.lineNumber} `)}${highlighted}`);
+		} else {
+			out.push(`${theme.fg("toolDiffContext", ` ${parsed.lineNumber} `)}${highlighted || theme.fg("toolDiffContext", "")}`);
+		}
 	}
 
 	if (lines.length > limit) out.push(theme.fg("muted", `… ${lines.length - limit} more diff lines`));
 	return out.join("\n");
+}
+
+function diffLineBg(kind: "add" | "remove", line: string): string {
+	// Full-width subtle backgrounds for changed lines. Re-apply after foreground
+	// resets emitted by Shiki so token coloring does not punch holes in the bg.
+	const bg = kind === "add" ? "\x1b[48;2;16;48;31m" : "\x1b[48;2;58;30;34m";
+	return bg + line.replace(/\x1b\[39m/g, `\x1b[39m${bg}`) + "\x1b[49m";
 }
 
 function parseDiffLine(line: string): { kind: "+" | "-" | " "; lineNumber: string; content: string } | null {
@@ -414,12 +404,5 @@ function parseDiffLine(line: string): { kind: "+" | "-" | " "; lineNumber: strin
 }
 
 function highlightSingleLine(line: string, lang: string | undefined, theme: Theme): string {
-	const rich = renderWithShiki(line, lang);
-	if (rich?.[0] !== undefined) return rich[0];
-	if (isShellLanguage(lang)) return highlightShell(line, theme)[0] ?? line;
-	try {
-		return highlightCode(line, lang)[0] ?? line;
-	} catch {
-		return line;
-	}
+	return renderWithShiki(line, lang)?.[0] ?? theme.fg("toolOutput", line);
 }

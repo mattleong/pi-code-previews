@@ -6,7 +6,7 @@ A pi package that adds syntax-highlighted previews for the built-in `read`, `wri
 
 - Syntax-highlighted `read` output based on file extension.
 - Syntax-highlighted `write` content previews.
-- Syntax-highlighted `edit` diff previews.
+- Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights.
 - Rich TextMate/VS Code-style highlighting powered by Shiki, including fenced Markdown code blocks and `bash`/`sh`/`shell` fences.
 - Keeps pi's colored tool backgrounds so tool calls remain easy to parse.
 - Delegates execution to pi's built-in tools; only rendering is changed.
@@ -31,13 +31,12 @@ If you pin releases/tags:
 pi install git:github.com/mattleong/pi-syntax-highlight-tools@v0.1.0
 ```
 
-> Replace `mattleong` with the actual GitHub owner after publishing.
-
 ## Local development
 
-Run from this repo:
+Install dependencies, then run from this repo:
 
 ```bash
+npm install
 pi -e ./extensions/syntax-highlight-tools.ts
 ```
 
@@ -62,7 +61,7 @@ The package manifest in `package.json` exposes the extension through pi's packag
 }
 ```
 
-The extension re-registers the built-in `read`, `write`, and `edit` tools with the same names. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering.
+The extension re-registers the built-in `read`, `write`, and `edit` tools with the same names. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering. Syntax highlighting is powered by Shiki; if a language is not available, the preview falls back to plain text rather than another highlighter.
 
 ## Security
 
