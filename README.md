@@ -15,6 +15,10 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 - Keeps pi's colored tool backgrounds so tool calls remain easy to parse.
 - Delegates execution to pi's built-in tools; only rendering is changed.
 
+## Screenshot
+
+<img width="1548" height="1097" alt="Screenshot 2026-04-26 at 1 18 42 PM" src="https://github.com/user-attachments/assets/5d18b219-c73f-4347-bd8c-a0bf179edf8d" />
+
 ## Install
 
 Install from GitHub:
