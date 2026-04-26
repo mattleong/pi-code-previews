@@ -8,16 +8,16 @@ export interface CodePreviewSettings {
 	diffIntensity: DiffBackgroundIntensity;
 	readCollapsedLines: number;
 	writeCollapsedLines: number;
-	editCollapsedLines: number;
+	editCollapsedLines: number | "all";
 	readLineNumbers: boolean;
 }
 
 export const defaultCodePreviewSettings: CodePreviewSettings = {
 	shikiTheme: "dark-plus",
 	diffIntensity: "subtle",
-	readCollapsedLines: 20,
-	writeCollapsedLines: 20,
-	editCollapsedLines: 100,
+	readCollapsedLines: 10,
+	writeCollapsedLines: 10,
+	editCollapsedLines: "all",
 	readLineNumbers: true,
 };
 
@@ -36,7 +36,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : codePreviewSettings.diffIntensity,
 		readCollapsedLines: coerceNumber(getObjectValue(data, "readCollapsedLines"), codePreviewSettings.readCollapsedLines),
 		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), codePreviewSettings.writeCollapsedLines),
-		editCollapsedLines: coerceNumber(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
+		editCollapsedLines: coerceEditPreviewLines(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
 		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
 	};
 }
@@ -47,12 +47,17 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	else if (id === "diffIntensity" && isDiffBackgroundIntensity(value)) next.diffIntensity = value;
 	else if (id === "readCollapsedLines") next.readCollapsedLines = Number(value);
 	else if (id === "writeCollapsedLines") next.writeCollapsedLines = Number(value);
-	else if (id === "editCollapsedLines") next.editCollapsedLines = Number(value);
+	else if (id === "editCollapsedLines") next.editCollapsedLines = value === "all" ? "all" : Number(value);
 	else if (id === "readLineNumbers") next.readLineNumbers = value === "on";
 	return next;
 }
 
 function coerceNumber(value: unknown, fallback: number): number {
+	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function coerceEditPreviewLines(value: unknown, fallback: number | "all"): number | "all" {
+	if (value === "all") return "all";
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 

@@ -185,7 +185,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const filePath = getPathArg(context.args);
 			const lang = getLanguageFromPath(filePath);
 			const summary = summarizeDiff(diff);
-			const limit = expanded ? summary.totalLines : codePreviewSettings.editCollapsedLines;
+			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);
 
 			let text = `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;

@@ -36,9 +36,9 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
 		{
 			id: "editCollapsedLines",
 			label: "Edit diff preview lines",
-			description: "Maximum edit diff lines shown before collapsing.",
+			description: "Maximum edit diff lines shown before collapsing. `all` matches pi's built-in edit diff behavior.",
 			currentValue: String(current.editCollapsedLines),
-			values: ["60", "100", "160", "240"],
+			values: ["all", "60", "100", "160", "240"],
 		},
 		{
 			id: "readLineNumbers",
