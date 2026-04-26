@@ -1,23 +1,24 @@
 {
-  "name": "pi-syntax-highlight-tools",
+  "name": "pi-tool-previews",
   "version": "0.1.0",
-  "description": "Syntax-highlighted read, write, and edit tool previews for pi.",
+  "description": "Syntax-highlighted previews for pi tool calls.",
   "type": "module",
   "license": "MIT",
   "keywords": [
     "pi-package",
     "pi-extension",
     "syntax-highlighting",
+    "tool-preview",
     "coding-agent"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mattleong/pi-syntax-highlight-tools.git"
+    "url": "git+https://github.com/mattleong/pi-tool-previews.git"
   },
   "bugs": {
-    "url": "https://github.com/mattleong/pi-syntax-highlight-tools/issues"
+    "url": "https://github.com/mattleong/pi-tool-previews/issues"
   },
-  "homepage": "https://github.com/mattleong/pi-syntax-highlight-tools#readme",
+  "homepage": "https://github.com/mattleong/pi-tool-previews#readme",
   "files": [
     "extensions",
     "README.md",
