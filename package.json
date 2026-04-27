@@ -19,6 +19,9 @@
     "url": "https://github.com/mattleong/pi-code-previews/issues"
   },
   "homepage": "https://github.com/mattleong/pi-code-previews#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "extensions",
     "src",

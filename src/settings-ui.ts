@@ -55,11 +55,18 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
 			values: ["on", "off"],
 		},
 		{
+			id: "syntaxHighlighting",
+			label: "Syntax highlighting",
+			description: "Use Shiki token colors in code previews. Turn off for plainer, lower-noise previews.",
+			currentValue: current.syntaxHighlighting ? "on" : "off",
+			values: ["on", "off"],
+		},
+		{
 			id: "resetToDefaults",
-			label: "Reset to defaults",
+			label: "Restore defaults",
 			description: "Restore the default code preview settings.",
-			currentValue: "keep",
-			values: ["keep", "reset"],
+			currentValue: "keep current",
+			values: ["keep current", "reset now"],
 		},
 	];
 }

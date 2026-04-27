@@ -65,13 +65,14 @@ Configure preview appearance inside pi with:
 Settings include:
 
 - syntax theme
+- syntax highlighting on/off
 - diff background intensity
 - read preview line count
 - write preview line count
 - edit diff preview line count
 - read line numbers
 - bash visual warnings
-- reset to defaults
+- restore defaults
 
 Settings are stored globally in:
 

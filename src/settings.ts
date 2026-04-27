@@ -11,6 +11,7 @@ export interface CodePreviewSettings {
 	editCollapsedLines: number | "all";
 	readLineNumbers: boolean;
 	bashWarnings: boolean;
+	syntaxHighlighting: boolean;
 }
 
 export const defaultCodePreviewSettings: CodePreviewSettings = {
@@ -21,6 +22,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
 	editCollapsedLines: "all",
 	readLineNumbers: true,
 	bashWarnings: true,
+	syntaxHighlighting: true,
 };
 
 export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
@@ -34,6 +36,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 	const diffIntensity = getObjectValue(data, "diffIntensity");
 	const readLineNumbers = getObjectValue(data, "readLineNumbers");
 	const bashWarnings = getObjectValue(data, "bashWarnings");
+	const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
 	return {
 		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : codePreviewSettings.shikiTheme,
 		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : codePreviewSettings.diffIntensity,
@@ -42,6 +45,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 		editCollapsedLines: coerceEditPreviewLines(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
 		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
 		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : codePreviewSettings.bashWarnings,
+		syntaxHighlighting: typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : codePreviewSettings.syntaxHighlighting,
 	};
 }
 
@@ -54,7 +58,8 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	else if (id === "editCollapsedLines") next.editCollapsedLines = value === "all" ? "all" : Number(value);
 	else if (id === "readLineNumbers") next.readLineNumbers = value === "on";
 	else if (id === "bashWarnings") next.bashWarnings = value === "on";
-	else if (id === "resetToDefaults" && value === "reset") return { ...defaultCodePreviewSettings };
+	else if (id === "syntaxHighlighting") next.syntaxHighlighting = value === "on";
+	else if (id === "resetToDefaults" && value === "reset now") return { ...defaultCodePreviewSettings };
 	return next;
 }
 

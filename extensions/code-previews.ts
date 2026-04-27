@@ -22,11 +22,16 @@ export default async function codePreviews(pi: ExtensionAPI) {
 			await ctx.ui.custom((_tui, _theme, _kb, done) => {
 				const list = new SettingsList(items, items.length + 2, getSettingsListTheme(), (id, value) => {
 					const previousTheme = codePreviewSettings.shikiTheme;
+					const resetRequested = id === "resetToDefaults" && value === "reset now";
 					setCodePreviewSettings(updateSetting(codePreviewSettings, id, value));
 					if (codePreviewSettings.shikiTheme !== previousTheme) void initializeShiki(codePreviewSettings.shikiTheme);
-					void saveSettingsToDisk(codePreviewSettings).catch((error) => {
-						ctx.ui.notify(`Failed to save code preview settings: ${error instanceof Error ? error.message : String(error)}`, "warning");
-					});
+					void saveSettingsToDisk(codePreviewSettings)
+						.then(() => {
+							if (resetRequested) ctx.ui.notify("Code preview settings reset to defaults", "info");
+						})
+						.catch((error) => {
+							ctx.ui.notify(`Failed to save code preview settings: ${error instanceof Error ? error.message : String(error)}`, "warning");
+						});
 				}, () => done(undefined));
 				return list;
 			});

@@ -55,12 +55,12 @@ export async function initializeShiki(theme: string) {
 
 export function renderHighlightedText(text: string, lang: string | undefined, theme: Theme): string[] {
 	const normalized = text.replace(/\t/g, "   ");
-	if (!lang) return normalized.split("\n").map((line) => theme.fg("toolOutput", line));
+	if (!codePreviewSettings.syntaxHighlighting || !lang) return normalized.split("\n").map((line) => theme.fg("toolOutput", line));
 	return renderWithShiki(normalized, lang) ?? normalized.split("\n").map((line) => theme.fg("toolOutput", line));
 }
 
 export function renderWithShiki(code: string, lang: string | undefined): string[] | undefined {
-	if (!shikiHighlighter || !lang) return undefined;
+	if (!codePreviewSettings.syntaxHighlighting || !shikiHighlighter || !lang) return undefined;
 	const shikiLang = normalizeShikiLanguage(lang);
 	try {
 		if (!loadedShikiLanguages.has(shikiLang) && !pendingShikiLanguages.has(shikiLang)) {

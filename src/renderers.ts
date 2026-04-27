@@ -193,13 +193,10 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);
 
-			let text = renderDisplayPath(filePath, cwd, theme, "file");
-			text += metadata(theme, [
-				describeEditShape(summary),
-				countLabel(summary.hunks, "hunk"),
-				`${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`,
-				summary.totalLines > limit ? `showing ${limit}/${summary.totalLines} diff lines` : undefined,
-			]);
+			let text = theme.fg("muted", describeEditShape(summary));
+			text += editSummarySeparator(theme) + theme.fg("muted", countLabel(summary.hunks, "hunk"));
+			text += editSummarySeparator(theme) + `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
+			if (summary.totalLines > limit) text += editSummarySeparator(theme) + theme.fg("muted", `showing ${limit}/${summary.totalLines} diff lines`);
 			if (!expanded) text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			text += `\n${rendered}`;
 			if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
@@ -207,6 +204,10 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			return new FullWidthDiffText(text);
 		},
 	});
+}
+
+function editSummarySeparator(theme: Theme): string {
+	return theme.fg("muted", " · ");
 }
 
 function describeEditShape(summary: ReturnType<typeof summarizeDiff>): string {
