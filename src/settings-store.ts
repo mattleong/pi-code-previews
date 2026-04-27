@@ -1,24 +1,26 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { normalizeSettings, type CodePreviewSettings } from "./settings.js";
+import { codePreviewSettings, normalizeSettings, type CodePreviewSettings } from "./settings.js";
 
 export function getSettingsPath(): string {
 	return join(homedir(), ".pi", "agent", "code-previews.json");
 }
 
 export async function loadSettingsFromDisk(): Promise<CodePreviewSettings | undefined> {
-	let merged: Record<string, unknown> | undefined;
+	let loaded = false;
+	let effective = codePreviewSettings;
 	for (const settingsPath of [join(homedir(), ".pi", "settings.json"), join(process.cwd(), ".pi", "settings.json"), getSettingsPath()]) {
 		try {
 			const content = await readFile(settingsPath, "utf8");
-			merged = { ...(merged ?? {}), ...extractCodePreviewSettings(JSON.parse(content)) };
+			effective = normalizeSettings(extractCodePreviewSettings(JSON.parse(content)), effective);
+			loaded = true;
 		} catch (error) {
 			if (isFileNotFound(error)) continue;
 			console.warn(`[pi-code-previews] Failed to load settings from ${settingsPath}.`, error);
 		}
 	}
-	return merged ? normalizeSettings(merged) : undefined;
+	return loaded ? effective : undefined;
 }
 
 export async function saveSettingsToDisk(settings: CodePreviewSettings): Promise<void> {

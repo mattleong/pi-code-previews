@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { diffLines } from "diff";
+import { formatBytes } from "./format.js";
 
 export type StructuredDiffLine = { kind: "context" | "add" | "remove" | "separator"; oldLine?: number; newLine?: number; content: string };
 export interface StructuredDiffHunk { header: string; lines: StructuredDiffLine[] }
@@ -71,6 +72,14 @@ export function createSimpleDiff(before: string, after: string): string {
 
 export function createStructuredDiff(before: string, after: string): StructuredDiffHunk[] {
 	const changes = diffLines(before, after);
+	const hasChangeAfter = changes.map(() => false);
+	let futureChangeSeen = false;
+	for (let index = changes.length - 1; index >= 0; index--) {
+		hasChangeAfter[index] = futureChangeSeen;
+		const change = changes[index]!;
+		if (change.added || change.removed) futureChangeSeen = true;
+	}
+
 	const lines: StructuredDiffLine[] = [];
 	let oldLine = 1;
 	let newLine = 1;
@@ -83,7 +92,7 @@ export function createStructuredDiff(before: string, after: string): StructuredD
 		const chunkLines = splitDiffLines(change.value);
 
 		if (!change.added && !change.removed) {
-			const hasFutureChange = changes.slice(index + 1).some((next) => next.added || next.removed);
+			const hasFutureChange = hasChangeAfter[index] ?? false;
 			if (!emittedChange && hasFutureChange) {
 				const start = Math.max(0, chunkLines.length - context);
 				for (let offset = start; offset < chunkLines.length; offset++) lines.push({ kind: "context", oldLine: oldLine + offset, newLine: newLine + offset, content: chunkLines[offset] ?? "" });
@@ -113,12 +122,6 @@ function skippedExistingFile(reason: string, byteLength: number | undefined): Ex
 function formatSkipReason(reason: string, byteLength: number | undefined, maxBytes = MAX_WRITE_DIFF_BYTES): string {
 	if (byteLength === undefined) return reason;
 	return `${reason} (${formatBytes(byteLength)} > ${formatBytes(maxBytes)})`;
-}
-
-function formatBytes(bytes: number): string {
-	if (bytes < 1024) return `${bytes} bytes`;
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatStructuredDiff(hunks: StructuredDiffHunk[]): string {

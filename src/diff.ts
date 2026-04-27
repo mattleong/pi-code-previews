@@ -3,6 +3,7 @@ import { truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-
 import { diffWords } from "diff";
 import { codePreviewSettings } from "./settings.js";
 import { renderWithShiki } from "./shiki.js";
+import { escapeControlChars } from "./terminal-text.js";
 
 const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
 const DIFF_REMOVE_MARKER = "\u0000PI_DIFF_REMOVE\u0000";
@@ -89,40 +90,76 @@ export function summarizeDiff(diff: string): {
 }
 
 export function renderSyntaxHighlightedDiff(diff: string, lang: string | undefined, theme: Theme, limit: number, invalidate?: () => void): string {
-	const lines = diff.split("\n");
-	const out: string[] = [];
+	return renderDiff(diff, {
+		lang,
+		theme,
+		limit,
+		invalidate,
+		syntaxHighlight: true,
+		emphasizeChangedPairs: true,
+	});
+}
 
-	for (let i = 0; i < Math.min(lines.length, limit); i++) {
+export function renderPlainDiff(diff: string, theme: Theme, limit: number): string {
+	return renderDiff(diff, {
+		theme,
+		limit,
+		syntaxHighlight: false,
+		emphasizeChangedPairs: false,
+	});
+}
+
+type DiffRenderOptions = {
+	lang?: string;
+	theme: Theme;
+	limit: number;
+	invalidate?: () => void;
+	syntaxHighlight: boolean;
+	emphasizeChangedPairs: boolean;
+};
+
+function renderDiff(diff: string, options: DiffRenderOptions): string {
+	const lines = diff.split("\n");
+	const max = Math.min(lines.length, Math.max(0, Math.floor(options.limit)));
+	const out: string[] = [];
+	const lang = options.syntaxHighlight ? options.lang : undefined;
+
+	for (let i = 0; i < max; i++) {
 		const line = lines[i]!;
 		const parsed = parseDiffLine(line);
 		if (!parsed) {
-			out.push(renderSeparator(line, theme));
+			out.push(renderSeparator(line, options.theme));
 			continue;
 		}
 
-		if (isRemovedDiffLine(parsed) && i + 1 < lines.length) {
-			const next = parseDiffLine(lines[i + 1]!);
-			if (isAddedDiffLine(next)) {
-				const pair = renderChangedPair(parsed, next, lang, theme, invalidate);
-				out.push(pair.removed, pair.added);
-				i++;
-				continue;
+		if (options.emphasizeChangedPairs && isChangedDiffLine(parsed)) {
+			const block: ParsedDiffLine[] = [];
+			let end = i;
+			while (end < max) {
+				const next = parseDiffLine(lines[end]!);
+				if (!next || !isChangedDiffLine(next)) break;
+				block.push(next);
+				end++;
 			}
+			out.push(...renderChangeBlock(block, lang, options.theme, options.invalidate));
+			i = end - 1;
+			continue;
 		}
 
-		out.push(renderDiffParsedLine(parsed, lang, theme, invalidate));
+		out.push(renderDiffParsedLine(parsed, lang, options.theme, options.invalidate));
 	}
 
 	return out.join("\n");
 }
 
 function renderSeparator(line: string, theme: Theme): string {
-	const trimmed = line.trim();
+	const safeLine = escapeControlChars(line);
+	const trimmed = safeLine.trim();
 	if (trimmed === "...") return theme.fg("muted", "      --- unchanged lines hidden ---");
-	if (trimmed.startsWith("@@")) return theme.fg("accent", theme.bold(line));
-	if (trimmed.startsWith("---") || trimmed.startsWith("+++")) return theme.fg("muted", line);
-	if (trimmed.startsWith("diff ") || trimmed.startsWith("index ")) return theme.fg("muted", line);
-	return theme.fg("toolDiffContext", line);
+	if (trimmed.startsWith("@@")) return theme.fg("accent", theme.bold(safeLine));
+	if (trimmed.startsWith("---") || trimmed.startsWith("+++")) return theme.fg("muted", safeLine);
+	if (trimmed.startsWith("diff ") || trimmed.startsWith("index ")) return theme.fg("muted", safeLine);
+	return theme.fg("toolDiffContext", safeLine);
 }
 
 function renderDiffParsedLine(
@@ -137,22 +174,104 @@ function renderDiffParsedLine(
 	return dimAnsi(`${theme.fg("toolDiffContext", ` ${parsed.lineNumber} │ `)}${highlighted || theme.fg("toolDiffContext", "")}`);
 }
 
-function renderChangedPair(
-	removed: RemovedDiffLine,
-	added: AddedDiffLine,
-	lang: string | undefined,
-	theme: Theme,
-	invalidate?: () => void,
-): { removed: string; added: string } {
-	const removedLine = renderDiffParsedLine(removed, lang, theme, invalidate);
-	const addedLine = renderDiffParsedLine(added, lang, theme, invalidate);
-	// Compute ranges against the same tab-normalized text that Shiki renders.
-	// Otherwise files indented with tabs shift the emphasis range by multiple cells.
-	const ranges = changedRanges(normalizeDiffContent(removed.content), normalizeDiffContent(added.content));
-	return {
-		removed: emphasizeChangedSpans(removedLine, ranges.removed, "remove"),
-		added: emphasizeChangedSpans(addedLine, ranges.added, "add"),
-	};
+function renderChangeBlock(block: ParsedDiffLine[], lang: string | undefined, theme: Theme, invalidate?: () => void): string[] {
+	const removed = block.flatMap((line, index) => isRemovedDiffLine(line) ? [{ index, line }] : []);
+	const added = block.flatMap((line, index) => isAddedDiffLine(line) ? [{ index, line }] : []);
+	const emphasis = new Map<number, { ranges: Array<[number, number]>; kind: "add" | "remove" }>();
+
+	for (const [removedIndex, addedIndex] of matchChangedLines(removed, added)) {
+		const removedLine = block[removedIndex] as RemovedDiffLine;
+		const addedLine = block[addedIndex] as AddedDiffLine;
+		// Compute ranges against the same tab-normalized text that Shiki renders.
+		// Otherwise files indented with tabs shift the emphasis range by multiple cells.
+		const ranges = changedRanges(normalizeDiffContent(removedLine.content), normalizeDiffContent(addedLine.content));
+		emphasis.set(removedIndex, { ranges: ranges.removed, kind: "remove" });
+		emphasis.set(addedIndex, { ranges: ranges.added, kind: "add" });
+	}
+
+	return block.map((line, index) => {
+		const rendered = renderDiffParsedLine(line, lang, theme, invalidate);
+		const match = emphasis.get(index);
+		return match ? emphasizeChangedSpans(rendered, match.ranges, match.kind) : rendered;
+	});
+}
+
+type IndexedChangedLine<T extends AddedDiffLine | RemovedDiffLine> = { index: number; line: T };
+
+function matchChangedLines(
+	removed: Array<IndexedChangedLine<RemovedDiffLine>>,
+	added: Array<IndexedChangedLine<AddedDiffLine>>,
+): Array<[number, number]> {
+	if (removed.length === 0 || added.length === 0) return [];
+	const removedTokens = removed.map(({ line }) => similarityTokens(normalizeDiffContent(line.content)));
+	const addedTokens = added.map(({ line }) => similarityTokens(normalizeDiffContent(line.content)));
+	if (removed.length * added.length > MAX_CHANGED_LINE_PAIR_CELLS) return matchChangedLinesByPosition(removed, added, removedTokens, addedTokens);
+	const scores = removedTokens.map((tokens) => addedTokens.map((addedLineTokens) => tokenSimilarity(tokens, addedLineTokens)));
+	const dp = Array.from({ length: removed.length + 1 }, () => Array.from({ length: added.length + 1 }, () => 0));
+
+	for (let i = 1; i <= removed.length; i++) {
+		for (let j = 1; j <= added.length; j++) {
+			const score = scores[i - 1]?.[j - 1] ?? 0;
+			const pair = score >= MIN_CHANGED_LINE_PAIR_SCORE ? dp[i - 1]![j - 1]! + score + 0.01 : Number.NEGATIVE_INFINITY;
+			dp[i]![j] = Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!, pair);
+		}
+	}
+
+	const pairs: Array<[number, number]> = [];
+	let i = removed.length;
+	let j = added.length;
+	while (i > 0 && j > 0) {
+		const score = scores[i - 1]?.[j - 1] ?? 0;
+		const pair = score >= MIN_CHANGED_LINE_PAIR_SCORE ? dp[i - 1]![j - 1]! + score + 0.01 : Number.NEGATIVE_INFINITY;
+		if (Math.abs(dp[i]![j]! - pair) < 1e-9) {
+			pairs.push([removed[i - 1]!.index, added[j - 1]!.index]);
+			i--;
+			j--;
+		} else if (dp[i - 1]![j]! >= dp[i]![j - 1]!) {
+			i--;
+		} else {
+			j--;
+		}
+	}
+
+	return pairs.reverse();
+}
+
+const MIN_CHANGED_LINE_PAIR_SCORE = 0.45;
+const MAX_CHANGED_LINE_PAIR_CELLS = 20000;
+
+function matchChangedLinesByPosition(
+	removed: Array<IndexedChangedLine<RemovedDiffLine>>,
+	added: Array<IndexedChangedLine<AddedDiffLine>>,
+	removedTokens: string[][],
+	addedTokens: string[][],
+): Array<[number, number]> {
+	const pairs: Array<[number, number]> = [];
+	for (let index = 0; index < Math.min(removed.length, added.length); index++) {
+		if (tokenSimilarity(removedTokens[index] ?? [], addedTokens[index] ?? []) >= MIN_CHANGED_LINE_PAIR_SCORE) {
+			pairs.push([removed[index]!.index, added[index]!.index]);
+		}
+	}
+	return pairs;
+}
+
+function tokenSimilarity(beforeTokens: string[], afterTokens: string[]): number {
+	if (beforeTokens.length === 0 || afterTokens.length === 0) return beforeTokens.length === afterTokens.length ? 1 : 0;
+	const remaining = new Map<string, number>();
+	for (const token of beforeTokens) remaining.set(token, (remaining.get(token) ?? 0) + 1);
+	let shared = 0;
+	for (const token of afterTokens) {
+		const count = remaining.get(token) ?? 0;
+		if (count === 0) continue;
+		shared++;
+		if (count === 1) remaining.delete(token);
+		else remaining.set(token, count - 1);
+	}
+	return (2 * shared) / (beforeTokens.length + afterTokens.length);
+}
+
+function similarityTokens(text: string): string[] {
+	return text.match(/[A-Za-z_$][\w$]*|\d+(?:\.\d+)?|===|!==|=>|==|!=|<=|>=|&&|\|\||[^\s]/g) ?? [];
 }
 
 function dimAnsi(text: string): string {
@@ -301,6 +420,10 @@ function isRemovedDiffLine(line: ParsedDiffLine | null): line is RemovedDiffLine
 	return line?.kind === "-";
 }
 
+function isChangedDiffLine(line: ParsedDiffLine): line is AddedDiffLine | RemovedDiffLine {
+	return line.kind === "+" || line.kind === "-";
+}
+
 function highlightSingleLine(line: string, lang: string | undefined, theme: Theme, invalidate?: () => void): string {
-	return renderWithShiki(line, lang, invalidate)?.[0] ?? theme.fg("toolOutput", line);
+	return renderWithShiki(line, lang, invalidate)?.[0] ?? theme.fg("toolOutput", escapeControlChars(line));
 }

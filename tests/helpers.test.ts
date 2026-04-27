@@ -3,9 +3,11 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Theme } from "@mariozechner/pi-coding-agent";
+import type { Component } from "@mariozechner/pi-tui";
 import { test } from "node:test";
 import { getBashWarnings } from "../src/bash-warnings.js";
-import { summarizeDiff } from "../src/diff.js";
+import { renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../src/diff.js";
+import { trimSingleTrailingNewline } from "../src/format.js";
 import { resolvePreviewLanguage } from "../src/language.js";
 import { parseGrepOutputLine } from "../src/grep-rendering.js";
 import { renderPathListLines } from "../src/path-list-rendering.js";
@@ -59,7 +61,7 @@ test("formatDisplayPath shortens paths relative to cwd", () => {
 	assert.equal(formatDisplayPath("src/file.ts", "/tmp/project"), "src/file.ts");
 });
 
-test("parseGrepOutputLine handles hyphenated filenames and context lines", () => {
+test("parseGrepOutputLine handles hyphenated filenames, context lines, and empty matches", () => {
 	assert.deepEqual(parseGrepOutputLine("src/foo-1-bar.ts:42: const x = 1;"), {
 		path: "src/foo-1-bar.ts",
 		lineNumber: "42",
@@ -70,6 +72,18 @@ test("parseGrepOutputLine handles hyphenated filenames and context lines", () =>
 		path: "src/foo-1-bar.ts",
 		lineNumber: "43",
 		code: "return x;",
+		kind: "context",
+	});
+	assert.deepEqual(parseGrepOutputLine("src/blank.ts:3: "), {
+		path: "src/blank.ts",
+		lineNumber: "3",
+		code: "",
+		kind: "match",
+	});
+	assert.deepEqual(parseGrepOutputLine("src/blank.ts-4- "), {
+		path: "src/blank.ts",
+		lineNumber: "4",
+		code: "",
 		kind: "context",
 	});
 });
@@ -135,6 +149,85 @@ test("settings normalization and reset preserve defaults", () => {
 	assert.deepEqual(updateSetting(normalized, "resetToDefaults", "reset now"), defaultCodePreviewSettings);
 });
 
+test("settings normalization falls back to accumulated settings for invalid overrides", () => {
+	const fallback = { ...defaultCodePreviewSettings, shikiTheme: "github-dark", readCollapsedLines: 40 };
+	const invalidOverride = normalizeSettings({ shikiTheme: "not-a-theme", readCollapsedLines: -1 }, fallback);
+	assert.equal(invalidOverride.shikiTheme, "github-dark");
+	assert.equal(invalidOverride.readCollapsedLines, 40);
+
+	const validOverride = normalizeSettings({ shikiTheme: "dark-plus", readCollapsedLines: 20 }, fallback);
+	assert.equal(validOverride.shikiTheme, "dark-plus");
+	assert.equal(validOverride.readCollapsedLines, 20);
+});
+
+test("trimSingleTrailingNewline preserves leading and meaningful trailing spaces", () => {
+	assert.equal(trimSingleTrailingNewline("  indented\n"), "  indented");
+	assert.equal(trimSingleTrailingNewline("   \n"), "   ");
+	assert.equal(trimSingleTrailingNewline("line\r\n"), "line");
+	assert.equal(trimSingleTrailingNewline("line\n\n"), "line\n");
+});
+
+test("plain diff escapes terminal control characters", () => {
+	const rendered = renderPlainDiff("+1 hello \x1b[31mred\x00", testTheme(), 1);
+	assert.doesNotMatch(rendered, /\x1b\[31m/);
+	assert.match(rendered, /␛\[31mred�/);
+});
+
+test("diff renderers honor limits at remove/add boundaries", () => {
+	const diff = "-1 old\n+1 new";
+	assert.equal(renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 1).split("\n").length, 1);
+	assert.equal(renderPlainDiff(diff, testTheme(), 1).split("\n").length, 1);
+});
+
+test("word emphasis pairs the most similar lines inside change blocks", () => {
+	const diff = "-1 const trimmed = line.trim();\n+1 const safeLine = escapeControlChars(line);\n+2 const trimmed = safeLine.trim();";
+	const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 3).split("\n");
+	assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;64;132;82m/);
+	assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1msafeLine/);
+	assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mline/);
+});
+
+test("registered bash and grep renderers preserve whitespace-sensitive output", () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "bash,grep";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const bash = registered.find((tool) => tool.name === "bash");
+		const grep = registered.find((tool) => tool.name === "grep");
+		assert.ok(bash?.renderResult);
+		assert.ok(grep?.renderResult);
+
+		const bashOutput = renderComponent(bash.renderResult(
+			{ content: [{ type: "text", text: "  indented\n" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: {}, isError: false, invalidate: () => undefined, state: {} },
+		), "  indented".length);
+		assert.equal(stripAnsi(bashOutput), "  indented");
+
+		const blankBashOutput = stripAnsi(renderComponent(bash.renderResult(
+			{ content: [{ type: "text", text: "   \n" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: {}, isError: false, invalidate: () => undefined, state: {} },
+		)));
+		assert.doesNotMatch(blankBashOutput, /No output/);
+
+		const grepOutput = stripAnsi(renderComponent(grep.renderResult(
+			{ content: [{ type: "text", text: "src/blank.ts:3: \n" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { pattern: "^$" }, isError: false, invalidate: () => undefined, state: {} },
+		)));
+		assert.match(grepOutput, /src\/blank\.ts/);
+		assert.match(grepOutput, /\s3 │ /);
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
+	}
+});
+
 test("registered edit renderer preserves built-in metadata and prepareArguments shim", () => {
 	const previous = process.env.CODE_PREVIEW_TOOLS;
 	process.env.CODE_PREVIEW_TOOLS = "edit";
@@ -152,6 +245,10 @@ test("registered edit renderer preserves built-in metadata and prepareArguments 
 		else process.env.CODE_PREVIEW_TOOLS = previous;
 	}
 });
+
+function renderComponent(component: Component, width = 100): string {
+	return component.render(width).join("\n");
+}
 
 function stripAnsi(text: string): string {
 	return text.replace(/\x1b\[[0-9;]*m/g, "");

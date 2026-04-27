@@ -4,8 +4,8 @@ import { Container, Text } from "@mariozechner/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "./async-preview.js";
 import { getBashWarnings } from "./bash-warnings.js";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
-import { FullWidthDiffText, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
-import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimTrailingEmptyLines } from "./format.js";
+import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
+import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimSingleTrailingNewline, trimTrailingEmptyLines } from "./format.js";
 import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
 import { getSecretWarnings } from "./secret-warnings.js";
@@ -47,7 +47,7 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Running…"), 0, 0);
-			const output = getTextContent(result.content).trim();
+			const output = trimSingleTrailingNewline(getTextContent(result.content));
 			const lines = output ? output.split("\n").map((line) => theme.fg(context.isError ? "error" : "toolOutput", line)) : [];
 			const limit = expanded ? lines.length : 8;
 			const preview = previewLines(lines, limit, theme);
@@ -244,16 +244,18 @@ function renderWriteDiffPreview(before: string, content: string, path: string, e
 	const summary = summarizeDiff(diff);
 	const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 	let text = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeEditShape(summary))}${editSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
-	text += renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
+	const skipSyntaxHighlight = shouldSkipHighlight(diff);
+	text += skipSyntaxHighlight ? renderPlainDiff(diff, theme, limit) : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
 	if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
-	if (shouldSkipHighlight(diff)) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
+	if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
 	return new FullWidthDiffText(text, theme);
 }
 
 function renderEditDiffPreview(diff: string, lang: string | undefined, limit: number, totalLines: number, theme: Theme, invalidate?: () => void): FullWidthDiffText {
-	let text = renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
+	const skipSyntaxHighlight = shouldSkipHighlight(diff);
+	let text = skipSyntaxHighlight ? renderPlainDiff(diff, theme, limit) : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
 	if (totalLines > limit) text += showingFooter(theme, limit, totalLines, "diff lines");
-	if (shouldSkipHighlight(diff)) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
+	if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
 	return new FullWidthDiffText(text, theme);
 }
 

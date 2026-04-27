@@ -22,7 +22,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
 	diffIntensity: envDiffIntensity("CODE_PREVIEW_DIFF_INTENSITY", "subtle"),
 	readCollapsedLines: envNumber("CODE_PREVIEW_READ_LINES", 10),
 	writeCollapsedLines: envNumber("CODE_PREVIEW_WRITE_LINES", 10),
-	editCollapsedLines: envEditLines("CODE_PREVIEW_EDIT_LINES", "all"),
+	editCollapsedLines: envEditLines("CODE_PREVIEW_EDIT_LINES", 160),
 	grepCollapsedLines: envNumber("CODE_PREVIEW_GREP_LINES", 15),
 	pathListCollapsedLines: envNumber("CODE_PREVIEW_PATH_LIST_LINES", 20),
 	readLineNumbers: envBoolean("CODE_PREVIEW_READ_LINE_NUMBERS", true),
@@ -37,7 +37,7 @@ export function setCodePreviewSettings(next: CodePreviewSettings) {
 	codePreviewSettings = next;
 }
 
-export function normalizeSettings(data: unknown): CodePreviewSettings {
+export function normalizeSettings(data: unknown, fallback: CodePreviewSettings = codePreviewSettings): CodePreviewSettings {
 	const shikiTheme = getObjectValue(data, "shikiTheme");
 	const diffIntensity = getObjectValue(data, "diffIntensity");
 	const readLineNumbers = getObjectValue(data, "readLineNumbers");
@@ -45,17 +45,17 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 	const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
 	const secretWarnings = getObjectValue(data, "secretWarnings");
 	return {
-		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : codePreviewSettings.shikiTheme,
-		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : codePreviewSettings.diffIntensity,
-		readCollapsedLines: coerceNumber(getObjectValue(data, "readCollapsedLines"), codePreviewSettings.readCollapsedLines),
-		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), codePreviewSettings.writeCollapsedLines),
-		editCollapsedLines: coerceEditPreviewLines(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
-		grepCollapsedLines: coerceNumber(getObjectValue(data, "grepCollapsedLines"), codePreviewSettings.grepCollapsedLines),
-		pathListCollapsedLines: coerceNumber(getObjectValue(data, "pathListCollapsedLines"), codePreviewSettings.pathListCollapsedLines),
-		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
-		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : codePreviewSettings.bashWarnings,
-		syntaxHighlighting: typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : codePreviewSettings.syntaxHighlighting,
-		secretWarnings: typeof secretWarnings === "boolean" ? secretWarnings : codePreviewSettings.secretWarnings,
+		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : fallback.shikiTheme,
+		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : fallback.diffIntensity,
+		readCollapsedLines: coerceNumber(getObjectValue(data, "readCollapsedLines"), fallback.readCollapsedLines),
+		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), fallback.writeCollapsedLines),
+		editCollapsedLines: coerceEditPreviewLines(getObjectValue(data, "editCollapsedLines"), fallback.editCollapsedLines),
+		grepCollapsedLines: coerceNumber(getObjectValue(data, "grepCollapsedLines"), fallback.grepCollapsedLines),
+		pathListCollapsedLines: coerceNumber(getObjectValue(data, "pathListCollapsedLines"), fallback.pathListCollapsedLines),
+		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : fallback.readLineNumbers,
+		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : fallback.bashWarnings,
+		syntaxHighlighting: typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : fallback.syntaxHighlighting,
+		secretWarnings: typeof secretWarnings === "boolean" ? secretWarnings : fallback.secretWarnings,
 	};
 }
 

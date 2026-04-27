@@ -2,7 +2,7 @@ import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { createFindToolDefinition, createGrepToolDefinition, createLsToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { getTextContent } from "./data.js";
-import { metadata, previewFooter, previewLines, showingFooter } from "./format.js";
+import { metadata, previewFooter, previewLines, showingFooter, trimSingleTrailingNewline } from "./format.js";
 import { renderGrepOutputLines } from "./grep-rendering.js";
 import { renderPathListLines } from "./path-list-rendering.js";
 import { renderDisplayPath } from "./paths.js";
@@ -31,7 +31,7 @@ export function registerGrep(pi: ExtensionAPI, cwd: string) {
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Searching…"), 0, 0);
-			const output = getTextContent(result.content).trim();
+			const output = trimSingleTrailingNewline(getTextContent(result.content));
 			if (context.isError || output.startsWith("Error")) {
 				return new Text(theme.fg("error", output.split("\n")[0] || "Grep failed"), 0, 0);
 			}
@@ -67,7 +67,7 @@ export function registerFind(pi: ExtensionAPI, cwd: string) {
 		},
 		renderResult(result, { expanded, isPartial }, theme) {
 			if (isPartial) return new Text(theme.fg("warning", "Finding…"), 0, 0);
-			const output = getTextContent(result.content).trim();
+			const output = trimSingleTrailingNewline(getTextContent(result.content));
 			if (!output || output === "No files found matching pattern") return new Text(theme.fg("muted", output || "No files found"), 0, 0);
 			const lines = renderPathListLines(output, cwd, theme);
 			const limit = expanded ? lines.length : codePreviewSettings.pathListCollapsedLines;
@@ -92,7 +92,7 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
 		},
 		renderResult(result, { expanded, isPartial }, theme) {
 			if (isPartial) return new Text(theme.fg("warning", "Listing…"), 0, 0);
-			const output = getTextContent(result.content).trim();
+			const output = trimSingleTrailingNewline(getTextContent(result.content));
 			if (!output || output === "(empty directory)") return new Text(theme.fg("muted", "Empty directory"), 0, 0);
 			const lines = renderPathListLines(output, cwd, theme);
 			const limit = expanded ? lines.length : codePreviewSettings.pathListCollapsedLines;

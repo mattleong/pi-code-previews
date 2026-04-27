@@ -1,6 +1,9 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { createHighlighter } from "shiki";
 import { setCodePreviewSettings, codePreviewSettings } from "./settings.js";
+import { escapeControlChars } from "./terminal-text.js";
+
+export { escapeControlChars } from "./terminal-text.js";
 
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
 const loadedShikiLanguages = new Set<string>();
@@ -61,8 +64,9 @@ export async function initializeShiki(theme: string) {
 
 export function renderHighlightedText(text: string, lang: string | undefined, theme: Theme, invalidate?: () => void): string[] {
 	const normalized = text.replace(/\t/g, "   ");
-	if (!codePreviewSettings.syntaxHighlighting || !lang || shouldSkipHighlight(normalized)) return normalized.split("\n").map((line) => theme.fg("toolOutput", line));
-	return renderWithShiki(normalized, lang, invalidate) ?? normalized.split("\n").map((line) => theme.fg("toolOutput", line));
+	const plain = () => normalized.split("\n").map((line) => theme.fg("toolOutput", escapeControlChars(line)));
+	if (!codePreviewSettings.syntaxHighlighting || !lang || shouldSkipHighlight(normalized)) return plain();
+	return renderWithShiki(normalized, lang, invalidate) ?? plain();
 }
 
 export function renderWithShiki(code: string, lang: string | undefined, invalidate?: () => void): string[] | undefined {
@@ -187,8 +191,3 @@ function ansiFg(hex: string): string {
 	return `\x1b[38;2;${(n >> 16) & 255};${(n >> 8) & 255};${n & 255}m`;
 }
 
-export function escapeControlChars(text: string): string {
-	return text
-		.replace(/\x1b/g, "␛")
-		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "�");
-}
