@@ -30,7 +30,6 @@ export default async function codePreviews(pi: ExtensionAPI) {
 				`Loaded languages: ${status.loadedLanguages}`,
 				`Pending languages: ${status.pendingLanguages}`,
 				`Max highlight chars: ${status.maxHighlightChars}`,
-				`Inline images: ${codePreviewSettings.inlineImages}`,
 				`Path icons: ${codePreviewSettings.pathIcons}`,
 				`Settings file: ${getSettingsPath()}`,
 			];
@@ -89,7 +88,6 @@ function syncSettingsListValues(list: SettingsList): void {
 	list.updateValue("grepCollapsedLines", String(codePreviewSettings.grepCollapsedLines));
 	list.updateValue("pathListCollapsedLines", String(codePreviewSettings.pathListCollapsedLines));
 	list.updateValue("readLineNumbers", codePreviewSettings.readLineNumbers ? "on" : "off");
-	list.updateValue("inlineImages", codePreviewSettings.inlineImages);
 	list.updateValue("pathIcons", codePreviewSettings.pathIcons);
 	list.updateValue("bashWarnings", codePreviewSettings.bashWarnings ? "on" : "off");
 	list.updateValue("syntaxHighlighting", codePreviewSettings.syntaxHighlighting ? "on" : "off");

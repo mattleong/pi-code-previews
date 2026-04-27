@@ -2,7 +2,6 @@ import { bundledThemes } from "shiki";
 import { getObjectValue } from "./data.js";
 
 export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
-export type InlineImageMode = "auto" | "off";
 export type PathIconMode = "off" | "unicode" | "nerd";
 
 export interface CodePreviewSettings {
@@ -17,7 +16,6 @@ export interface CodePreviewSettings {
 	bashWarnings: boolean;
 	syntaxHighlighting: boolean;
 	secretWarnings: boolean;
-	inlineImages: InlineImageMode;
 	pathIcons: PathIconMode;
 }
 
@@ -33,7 +31,6 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
 	bashWarnings: envBoolean("CODE_PREVIEW_BASH_WARNINGS", true),
 	syntaxHighlighting: envBoolean("CODE_PREVIEW_SYNTAX", true),
 	secretWarnings: envBoolean("CODE_PREVIEW_SECRET_WARNINGS", true),
-	inlineImages: envInlineImageMode("CODE_PREVIEW_INLINE_IMAGES", "auto"),
 	pathIcons: envPathIconMode("CODE_PREVIEW_PATH_ICONS", "unicode"),
 };
 
@@ -50,7 +47,6 @@ export function normalizeSettings(data: unknown, fallback: CodePreviewSettings =
 	const bashWarnings = getObjectValue(data, "bashWarnings");
 	const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
 	const secretWarnings = getObjectValue(data, "secretWarnings");
-	const inlineImages = getObjectValue(data, "inlineImages");
 	const pathIcons = getObjectValue(data, "pathIcons");
 	return {
 		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : fallback.shikiTheme,
@@ -64,7 +60,6 @@ export function normalizeSettings(data: unknown, fallback: CodePreviewSettings =
 		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : fallback.bashWarnings,
 		syntaxHighlighting: typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : fallback.syntaxHighlighting,
 		secretWarnings: typeof secretWarnings === "boolean" ? secretWarnings : fallback.secretWarnings,
-		inlineImages: isInlineImageMode(inlineImages) ? inlineImages : fallback.inlineImages,
 		pathIcons: isPathIconMode(pathIcons) ? pathIcons : fallback.pathIcons,
 	};
 }
@@ -82,7 +77,6 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	else if (id === "bashWarnings") next.bashWarnings = value === "on";
 	else if (id === "syntaxHighlighting") next.syntaxHighlighting = value === "on";
 	else if (id === "secretWarnings") next.secretWarnings = value === "on";
-	else if (id === "inlineImages" && isInlineImageMode(value)) next.inlineImages = value;
 	else if (id === "pathIcons" && isPathIconMode(value)) next.pathIcons = value;
 	else if (id === "resetToDefaults" && value === "reset now") return { ...defaultCodePreviewSettings };
 	return next;
@@ -116,11 +110,6 @@ function envDiffIntensity(name: string, fallback: DiffBackgroundIntensity): Diff
 	return isDiffBackgroundIntensity(value) ? value : fallback;
 }
 
-function envInlineImageMode(name: string, fallback: InlineImageMode): InlineImageMode {
-	const value = process.env[name]?.toLowerCase();
-	return isInlineImageMode(value) ? value : fallback;
-}
-
 function envPathIconMode(name: string, fallback: PathIconMode): PathIconMode {
 	const value = process.env[name]?.toLowerCase();
 	return isPathIconMode(value) ? value : fallback;
@@ -143,10 +132,6 @@ function coerceEditPreviewLines(value: unknown, fallback: number | "all"): numbe
 
 function isDiffBackgroundIntensity(value: unknown): value is DiffBackgroundIntensity {
 	return value === "off" || value === "subtle" || value === "medium";
-}
-
-function isInlineImageMode(value: unknown): value is InlineImageMode {
-	return value === "auto" || value === "off";
 }
 
 function isPathIconMode(value: unknown): value is PathIconMode {

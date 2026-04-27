@@ -63,13 +63,6 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
 			values: ["on", "off"],
 		},
 		{
-			id: "inlineImages",
-			label: "Inline image previews",
-			description: "Render images read by the read tool inline when the terminal supports it.",
-			currentValue: current.inlineImages,
-			values: ["auto", "off"],
-		},
-		{
 			id: "pathIcons",
 			label: "Find/ls path icons",
 			description: "Choose icons for find and ls path-list previews. Nerd mode requires a Nerd Font.",

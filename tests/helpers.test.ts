@@ -273,28 +273,25 @@ test("registered edit call previews proposed edits before execution", () => {
 	}
 });
 
-test("registered read renderer can render inline image escape sequences", () => {
+test("registered read renderer leaves image rendering to pi", () => {
 	const previousTools = process.env.CODE_PREVIEW_TOOLS;
-	const previousProtocol = process.env.CODE_PREVIEW_IMAGE_PROTOCOL;
 	process.env.CODE_PREVIEW_TOOLS = "read";
-	process.env.CODE_PREVIEW_IMAGE_PROTOCOL = "iterm2";
 	try {
 		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
 		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
 		const read = registered.find((tool) => tool.name === "read");
 		assert.ok(read?.renderResult);
 		const rendered = renderComponent(read.renderResult(
-			{ content: [{ type: "text", text: "Read image file" }, { type: "image", data: Buffer.from("png").toString("base64"), mimeType: "image/png" }] },
+			{ content: [{ type: "text", text: "Read image file [image/png]" }, { type: "image", data: Buffer.from("png").toString("base64"), mimeType: "image/png" }] },
 			{ expanded: true, isPartial: false },
 			testTheme(),
 			{ args: { path: "asset.png" }, isError: false, invalidate: () => undefined, state: {} },
 		));
-		assert.match(rendered, /\x1b\]1337;File=/);
+		assert.equal(stripAnsi(rendered).trimEnd(), "image [image/png]");
+		assert.doesNotMatch(rendered, /\x1b\]1337;File=|\x1b_G/);
 	} finally {
 		if (previousTools === undefined) delete process.env.CODE_PREVIEW_TOOLS;
 		else process.env.CODE_PREVIEW_TOOLS = previousTools;
-		if (previousProtocol === undefined) delete process.env.CODE_PREVIEW_IMAGE_PROTOCOL;
-		else process.env.CODE_PREVIEW_IMAGE_PROTOCOL = previousProtocol;
 	}
 });
 

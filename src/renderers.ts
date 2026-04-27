@@ -1,4 +1,3 @@
-import { basename } from "node:path";
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, getLanguageFromPath, keyHint } from "@mariozechner/pi-coding-agent";
 import { Container, Text, type Component } from "@mariozechner/pi-tui";
@@ -7,7 +6,6 @@ import { getBashWarnings } from "./bash-warnings.js";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
 import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimSingleTrailingNewline, trimTrailingEmptyLines } from "./format.js";
-import { getImageData, renderInlineImagePreview } from "./image-preview.js";
 import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
 import { getSecretWarnings } from "./secret-warnings.js";
@@ -95,14 +93,10 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 
 			const path = getPathArg(context.args);
 
-			const imagePart = result.content?.find((part) => part.type === "image");
-			if (imagePart) {
-				const image = getImageData(imagePart);
-				const compact = firstText.replace(/^Read image file/i, "image");
-				if (codePreviewSettings.inlineImages === "off" || !image) return new Text(theme.fg("dim", compact), 0, 0);
-				const inline = renderInlineImagePreview(image.data, image.mimeType, basename(path));
-				const prefix = theme.fg("dim", compact || `${image.mimeType} image`);
-				return new Text(`${prefix}\n${inline}`, 0, 0);
+			// Pi already renders image content parts natively. Avoid emitting terminal image
+			// escape sequences here; show only a compact note beside Pi's image renderer.
+			if (result.content?.some((part) => part.type === "image")) {
+				return new Text(theme.fg("dim", firstText.replace(/^Read image file/i, "image")), 0, 0);
 			}
 
 			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
