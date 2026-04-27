@@ -10,12 +10,15 @@ Syntax-highlighted TUI previews for pi's built-in tools, with code-aware renderi
 - Optional preview-only `bash` warnings for risky-looking commands such as recursive deletes, `sudo`, hard git resets, and system-path redirects.
 - Syntax-highlighted `bash` output previews with truncation footers when collapsed or truncated by pi, while preserving meaningful leading/trailing whitespace.
 - Syntax-highlighted `read` output using path, filename, shebang, and conservative content detection, with line numbers enabled by default.
+- Optional inline image previews for `read` in Ghostty, Kitty, iTerm2, and WezTerm terminals.
 - Syntax-highlighted `write` content previews, including size, line count, language metadata, and empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
+- Proposed `edit` diffs in the tool call preview before execution, so replacements are reviewable while the tool is still pending.
+- ANSI-aware wrapping for long diff lines, preserving syntax colors and changed-line backgrounds across continuation rows.
 - Collapsed edit diffs by default, with configurable line counts or an `all` mode for always-expanded diff previews.
 - Inline edit summaries on the edit header, including replacements/insertions/deletions, hunk count, and `+/-` line counts.
-- Syntax-highlighted `grep` result previews grouped by file, with readable line prefixes and match emphasis layered over source highlighting.
-- Lightweight `find` and `ls` path-list rendering for consistent built-in tool presentation.
+- Syntax-highlighted `grep` result previews grouped by file, with readable line prefixes and all match occurrences emphasized over source highlighting.
+- Lightweight `find` and `ls` path-list rendering with configurable unicode, Nerd Font, or no icons.
 - `write` result summaries for new files, no-op writes, and overwrites with highlighted diffs.
 - Word-level emphasis inside paired diff add/remove lines, tuned to avoid noisy highlights in larger rewrites.
 - Large diff and large file safeguards that skip expensive highlighting while keeping readable plain previews.
@@ -92,6 +95,8 @@ Settings include:
 - grep result preview line count
 - path-list preview line count
 - read line numbers
+- inline image previews
+- find/ls path icons
 - bash visual warnings
 - secret value warnings
 - settings file path
@@ -114,6 +119,10 @@ CODE_PREVIEW_GREP_LINES=40
 CODE_PREVIEW_PATH_LIST_LINES=40
 CODE_PREVIEW_TOOLS=write,edit,grep # comma/space list, all, or none
 CODE_PREVIEW_DIFF_INTENSITY=medium # off, subtle, medium
+CODE_PREVIEW_DIFF_WRAP_ROWS=3
+CODE_PREVIEW_INLINE_IMAGES=auto # auto or off
+CODE_PREVIEW_IMAGE_PROTOCOL=iterm2 # optional: iterm2, kitty, or none
+CODE_PREVIEW_PATH_ICONS=unicode # unicode, nerd, or off
 CODE_PREVIEW_MAX_HIGHLIGHT_CHARS=80000
 CODE_PREVIEW_CACHE_LIMIT=192
 CODE_PREVIEW_ASYNC_RENDER_CHARS=20000
@@ -127,12 +136,34 @@ You can also put code-preview defaults in `.pi/settings.json` globally or per pr
   "codePreview": {
     "shikiTheme": "dark-plus",
     "grepCollapsedLines": 40,
-    "pathListCollapsedLines": 40
+    "pathListCollapsedLines": 40,
+    "inlineImages": "auto",
+    "pathIcons": "unicode"
   }
 }
 ```
 
 Use `/code-preview-health` to inspect active tools, Shiki status, cache size, and the settings file path.
+
+## Terminal images and icons
+
+Inline image previews are attempted only when `CODE_PREVIEW_INLINE_IMAGES` / `codePreview.inlineImages` is `auto` and the terminal appears to support a known graphics protocol. Supported protocols are Kitty graphics for Ghostty/Kitty and iTerm2 inline images for iTerm2/WezTerm. Inside tmux, enable passthrough if images do not appear:
+
+```tmux
+set -g allow-passthrough on
+```
+
+Path icons default to portable unicode markers. Set `CODE_PREVIEW_PATH_ICONS=nerd` or `codePreview.pathIcons: "nerd"` if you use a Nerd Font, or `off` for plain path lists.
+
+## Screenshot / preview checklist
+
+When updating screenshots, capture these cases so visual regressions are easy to spot:
+
+- `edit` call with a proposed replacement before execution.
+- `edit` or `write` result with a long changed line wrapping across rows.
+- `grep` result where the same line contains multiple matches.
+- `read` of an image in a supported terminal.
+- `find` or `ls` with `pathIcons` set to `unicode`, `nerd`, and `off`.
 
 ## Scope
 

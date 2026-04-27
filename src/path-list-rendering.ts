@@ -1,4 +1,6 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
+import { pathIcon } from "./icons.js";
+import { codePreviewSettings } from "./settings.js";
 import { renderDisplayPath } from "./paths.js";
 
 export function renderPathListLines(output: string, cwd: string, theme: Theme): string[] {
@@ -36,10 +38,12 @@ function renderTreePath(path: string, theme: Theme, seenDirs: Set<string>, rende
 		if (!isLeaf || isDir) {
 			if (!seenDirs.has(key)) {
 				seenDirs.add(key);
-				rendered.push(`${theme.fg("dim", `${indent}▸`)} ${theme.fg("accent", `${part}/`)}`);
+				const icon = pathIcon(part, true, codePreviewSettings.pathIcons);
+				rendered.push(`${theme.fg("dim", icon ? `${indent}${icon}` : indent)}${icon ? " " : ""}${theme.fg("accent", `${part}/`)}`);
 			}
 		} else {
-			rendered.push(`${theme.fg("dim", `${indent}•`)} ${theme.fg("toolOutput", part)}`);
+			const icon = pathIcon(part, false, codePreviewSettings.pathIcons);
+			rendered.push(`${theme.fg("dim", icon ? `${indent}${icon}` : indent)}${icon ? " " : ""}${theme.fg("toolOutput", part)}`);
 		}
 		prefix = key;
 	}
@@ -50,6 +54,6 @@ function renderPathListLine(line: string, cwd: string, theme: Theme): string {
 	if (line.startsWith("[") && line.endsWith("]")) return theme.fg("warning", line);
 	const prefix = line.match(/^\s*/)?.[0] ?? "";
 	const body = line.slice(prefix.length);
-	const icon = body.endsWith("/") ? "▸" : "•";
-	return `${theme.fg("dim", prefix + icon)} ${renderDisplayPath(body, cwd, theme, body)}`;
+	const icon = pathIcon(body, body.endsWith("/"), codePreviewSettings.pathIcons);
+	return `${theme.fg("dim", icon ? prefix + icon : prefix)}${icon ? " " : ""}${renderDisplayPath(body, cwd, theme, body)}`;
 }

@@ -3,7 +3,7 @@ import { truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-
 import { diffWordsWithSpace } from "diff";
 import { codePreviewSettings } from "./settings.js";
 import { renderWithShiki } from "./shiki.js";
-import { escapeControlChars } from "./terminal-text.js";
+import { escapeControlChars, visibleLength, wrapAnsiToWidth } from "./terminal-text.js";
 
 const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
 const DIFF_REMOVE_MARKER = "\u0000PI_DIFF_REMOVE\u0000";
@@ -12,7 +12,7 @@ export class FullWidthDiffText implements Component {
 	constructor(private readonly text: string, private readonly theme?: Theme) {}
 
 	render(width: number): string[] {
-		return this.text.split("\n").map((rawLine) => {
+		return this.text.split("\n").flatMap((rawLine) => {
 			const kind = rawLine.startsWith(DIFF_ADD_MARKER)
 				? "add"
 				: rawLine.startsWith(DIFF_REMOVE_MARKER)
@@ -24,15 +24,26 @@ export class FullWidthDiffText implements Component {
 					? rawLine.slice(DIFF_REMOVE_MARKER.length)
 					: rawLine;
 
-			if (!kind) return truncateToWidth(line, width, "");
+			const rows = wrapAnsiToWidth(line, width, DIFF_WRAP_ROWS, continuationPrefix(line));
+			if (!kind) return rows.map((row) => truncateToWidth(row, width, ""));
 
-			const truncated = truncateToWidth(line, width, "");
-			const padding = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-			return diffLineBg(kind, truncated + padding, this.theme);
+			return rows.map((row) => {
+				const truncated = truncateToWidth(row, width, "");
+				const padding = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+				return diffLineBg(kind, truncated + padding, this.theme);
+			});
 		});
 	}
 
 	invalidate(): void {}
+}
+
+const DIFF_WRAP_ROWS = envPositiveInteger("CODE_PREVIEW_DIFF_WRAP_ROWS", 3);
+
+function continuationPrefix(line: string): string {
+	const pipe = line.indexOf("│ ");
+	if (pipe < 0) return "";
+	return " ".repeat(visibleLength(line.slice(0, pipe + 2)));
 }
 
 export function summarizeDiff(diff: string): {
@@ -243,6 +254,11 @@ function matchChangedLines(
 const MIN_CHANGED_LINE_PAIR_SCORE = 0.45;
 const MIN_WORD_DIFF_UNCHANGED_RATIO = 0.45;
 const MAX_CHANGED_LINE_PAIR_CELLS = 20000;
+
+function envPositiveInteger(name: string, fallback: number): number {
+	const value = Number.parseInt(process.env[name] ?? "", 10);
+	return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 function matchChangedLinesByPosition(
 	removed: Array<IndexedChangedLine<RemovedDiffLine>>,

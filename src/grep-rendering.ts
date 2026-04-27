@@ -47,27 +47,39 @@ function renderGrepParsedLine(parsed: ParsedGrepOutputLine, theme: Theme, search
 	const lang = resolvePreviewLanguage({ path: parsed.path, piLanguage: getLanguageFromPath(parsed.path) });
 	const code = parsed.code.replace(/\t/g, "   ");
 	let highlighted = renderHighlightedText(code, lang, theme, invalidate)[0] ?? theme.fg("toolOutput", code);
-	const matchRange = parsed.kind === "match" ? grepMatchRange(code, search) : undefined;
-	if (matchRange) highlighted = injectVisibleRangeBg(highlighted, matchRange, "\x1b[48;2;90;74;28m", getToolBackground(theme));
+	const matchRanges = parsed.kind === "match" ? grepMatchRanges(code, search) : [];
+	if (matchRanges.length > 0) highlighted = injectVisibleRangesBg(highlighted, matchRanges, "\x1b[48;2;90;74;28m", getToolBackground(theme));
 	const paddedLineNumber = parsed.lineNumber.padStart(4);
 	const lineNumber = parsed.kind === "match" ? theme.fg("accent", paddedLineNumber) : theme.fg("dim", paddedLineNumber);
 	const marker = parsed.kind === "match" ? theme.fg("warning", "│") : theme.fg("dim", "┆");
 	return `${theme.fg("dim", "  ")}${lineNumber} ${marker} ${highlighted}`;
 }
 
-function grepMatchRange(code: string, search: { pattern: string; literal: boolean; ignoreCase: boolean }): [number, number] | undefined {
-	if (!search.pattern) return undefined;
+function grepMatchRanges(code: string, search: { pattern: string; literal: boolean; ignoreCase: boolean }): Array<[number, number]> {
+	if (!search.pattern) return [];
 	if (search.literal) {
 		const haystack = search.ignoreCase ? code.toLowerCase() : code;
 		const needle = search.ignoreCase ? search.pattern.toLowerCase() : search.pattern;
-		const index = haystack.indexOf(needle);
-		return index >= 0 ? [index, index + needle.length] : undefined;
+		if (!needle) return [];
+		const ranges: Array<[number, number]> = [];
+		let index = haystack.indexOf(needle);
+		while (index >= 0) {
+			ranges.push([index, index + needle.length]);
+			index = haystack.indexOf(needle, index + Math.max(1, needle.length));
+		}
+		return ranges;
 	}
 	try {
-		const match = new RegExp(search.pattern, search.ignoreCase ? "i" : "").exec(code);
-		return match?.index !== undefined ? [match.index, match.index + match[0].length] : undefined;
+		const ranges: Array<[number, number]> = [];
+		const flags = `${search.ignoreCase ? "i" : ""}g`;
+		const regex = new RegExp(search.pattern, flags);
+		for (const match of code.matchAll(regex)) {
+			if (match.index === undefined || match[0].length === 0) continue;
+			ranges.push([match.index, match.index + match[0].length]);
+		}
+		return ranges;
 	} catch {
-		return undefined;
+		return [];
 	}
 }
 
@@ -80,10 +92,12 @@ function getToolBackground(theme: Theme): string {
 	}
 }
 
-function injectVisibleRangeBg(ansi: string, range: [number, number], bg: string, restoreBg: string): string {
+function injectVisibleRangesBg(ansi: string, ranges: Array<[number, number]>, bg: string, restoreBg: string): string {
 	let visible = 0;
 	let out = "";
 	let active = false;
+	let rangeIndex = 0;
+	const sorted = ranges.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
 	for (let i = 0; i < ansi.length; i++) {
 		if (ansi[i] === "\x1b") {
 			const end = ansi.indexOf("m", i);
@@ -94,13 +108,17 @@ function injectVisibleRangeBg(ansi: string, range: [number, number], bg: string,
 				continue;
 			}
 		}
-		if (!active && visible === range[0]) {
+		while (rangeIndex < sorted.length && visible >= sorted[rangeIndex]![1]) {
+			if (active) {
+				out += restoreBg || "\x1b[49m";
+				active = false;
+			}
+			rangeIndex++;
+		}
+		const range = sorted[rangeIndex];
+		if (!active && range && visible >= range[0] && visible < range[1]) {
 			out += bg;
 			active = true;
-		}
-		if (active && visible === range[1]) {
-			out += restoreBg || "\x1b[49m";
-			active = false;
 		}
 		out += ansi[i];
 		visible++;

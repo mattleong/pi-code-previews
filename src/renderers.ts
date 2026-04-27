@@ -1,11 +1,13 @@
+import { basename } from "node:path";
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, getLanguageFromPath, keyHint } from "@mariozechner/pi-coding-agent";
-import { Container, Text } from "@mariozechner/pi-tui";
+import { Container, Text, type Component } from "@mariozechner/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "./async-preview.js";
 import { getBashWarnings } from "./bash-warnings.js";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
 import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimSingleTrailingNewline, trimTrailingEmptyLines } from "./format.js";
+import { getImageData, renderInlineImagePreview } from "./image-preview.js";
 import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
 import { getSecretWarnings } from "./secret-warnings.js";
@@ -93,10 +95,14 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 
 			const path = getPathArg(context.args);
 
-			// Image reads already provide a concise text/image payload; keep the call header
-			// from renderCall and show a compact image note as the result body.
-			if (result.content?.some((part) => part.type === "image")) {
-				return new Text(theme.fg("dim", firstText.replace(/^Read image file/i, "image")), 0, 0);
+			const imagePart = result.content?.find((part) => part.type === "image");
+			if (imagePart) {
+				const image = getImageData(imagePart);
+				const compact = firstText.replace(/^Read image file/i, "image");
+				if (codePreviewSettings.inlineImages === "off" || !image) return new Text(theme.fg("dim", compact), 0, 0);
+				const inline = renderInlineImagePreview(image.data, image.mimeType, basename(path));
+				const prefix = theme.fg("dim", compact || `${image.mimeType} image`);
+				return new Text(`${prefix}\n${inline}`, 0, 0);
 			}
 
 			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
@@ -195,12 +201,26 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			if (context.state.editArgsKey !== argsKey) {
 				context.state.editArgsKey = argsKey;
 				context.state.editSummaryText = undefined;
+				context.state.editCallPreviewKey = undefined;
+				context.state.editCallPreviewComponent = undefined;
 			}
 			const path = getPathArg(args);
 			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			context.state.editHeaderText = text;
 			text.setText(formatEditHeader(path, cwd, theme, context.state.editSummaryText));
-			return text;
+
+			const operations = getEditPreviewOperations(args);
+			if (!context.argsComplete || operations.length === 0) return text;
+
+			const previewKey = `${argsKey}:${context.expanded ? "expanded" : "collapsed"}:${codePreviewSettings.editCollapsedLines}`;
+			if (context.state.editCallPreviewKey !== previewKey) {
+				context.state.editCallPreviewKey = previewKey;
+				const render = () => renderEditCallPreview(operations, path, context.expanded, theme, context.invalidate);
+				context.state.editCallPreviewComponent = shouldRenderAsync(operations.map((operation) => operation.oldText + operation.newText).join("\n"))
+					? new AsyncPreview("Rendering proposed edit diff…", theme, render, context.invalidate)
+					: render();
+			}
+			return new HeaderAndBody(text, context.state.editCallPreviewComponent as Component);
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
@@ -257,6 +277,70 @@ function renderEditDiffPreview(diff: string, lang: string | undefined, limit: nu
 	if (totalLines > limit) text += showingFooter(theme, limit, totalLines, "diff lines");
 	if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
 	return new FullWidthDiffText(text, theme);
+}
+
+function getEditPreviewOperations(args: unknown): Array<{ oldText: string; newText: string }> {
+	const edits = getObjectValue(args, "edits");
+	if (Array.isArray(edits)) {
+		return edits.flatMap((edit) => {
+			const oldText = getObjectValue(edit, "oldText") ?? getObjectValue(edit, "old_text");
+			const newText = getObjectValue(edit, "newText") ?? getObjectValue(edit, "new_text");
+			return typeof oldText === "string" && typeof newText === "string" && oldText !== newText ? [{ oldText, newText }] : [];
+		});
+	}
+	const oldText = getObjectValue(args, "oldText") ?? getObjectValue(args, "old_text");
+	const newText = getObjectValue(args, "newText") ?? getObjectValue(args, "new_text");
+	return typeof oldText === "string" && typeof newText === "string" && oldText !== newText ? [{ oldText, newText }] : [];
+}
+
+function renderEditCallPreview(operations: Array<{ oldText: string; newText: string }>, path: string, expanded: boolean, theme: Theme, invalidate?: () => void): FullWidthDiffText {
+	const lang = resolvePreviewLanguage({ path, piLanguage: getLanguageFromPath(path) });
+	const maxOperations = Math.min(operations.length, 3);
+	const perOperationLimit = operations.length > 1
+		? Math.max(8, Math.floor((typeof codePreviewSettings.editCollapsedLines === "number" ? codePreviewSettings.editCollapsedLines : 160) / maxOperations))
+		: undefined;
+	const sections: string[] = [];
+	let totalAdditions = 0;
+	let totalRemovals = 0;
+	let totalLines = 0;
+
+	for (let index = 0; index < maxOperations; index++) {
+		const operation = operations[index]!;
+		const diff = createSimpleDiff(operation.oldText, operation.newText);
+		const summary = summarizeDiff(diff);
+		totalAdditions += summary.additions;
+		totalRemovals += summary.removals;
+		totalLines += summary.totalLines;
+		const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : perOperationLimit ?? codePreviewSettings.editCollapsedLines;
+		const skipSyntaxHighlight = shouldSkipHighlight(diff);
+		let rendered = skipSyntaxHighlight ? renderPlainDiff(diff, theme, limit) : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
+		if (summary.totalLines > limit) rendered += showingFooter(theme, limit, summary.totalLines, "proposed diff lines");
+		if (skipSyntaxHighlight) rendered += previewFooter(theme, "Syntax highlighting skipped for large proposed diff");
+		if (operations.length > 1) sections.push(theme.fg("muted", `Proposed edit ${index + 1}/${operations.length}`));
+		sections.push(rendered);
+	}
+
+	const remainder = operations.length - maxOperations;
+	const header = `${theme.fg("muted", "proposed edit")} ${theme.fg("success", `+${totalAdditions}`)} ${theme.fg("error", `-${totalRemovals}`)}${operations.length > 1 ? theme.fg("muted", ` · ${operations.length} edit blocks`) : ""}`;
+	let text = `${header}\n${sections.join("\n")}`;
+	if (remainder > 0) text += showingFooter(theme, maxOperations, operations.length, "edit blocks");
+	else if (!expanded && operations.length === 1 && totalLines > (typeof codePreviewSettings.editCollapsedLines === "number" ? codePreviewSettings.editCollapsedLines : totalLines)) {
+		text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
+	}
+	return new FullWidthDiffText(text, theme);
+}
+
+class HeaderAndBody implements Component {
+	constructor(private readonly header: Component, private readonly body: Component) {}
+
+	render(width: number): string[] {
+		return [...this.header.render(width), ...this.body.render(width)];
+	}
+
+	invalidate(): void {
+		this.header.invalidate();
+		this.body.invalidate();
+	}
 }
 
 function formatEditHeader(path: string, cwd: string, theme: Theme, summaryText: unknown): string {

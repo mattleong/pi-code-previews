@@ -6,7 +6,7 @@ import type { Theme } from "@mariozechner/pi-coding-agent";
 import type { Component } from "@mariozechner/pi-tui";
 import { test } from "node:test";
 import { getBashWarnings } from "../src/bash-warnings.js";
-import { renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../src/diff.js";
+import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../src/diff.js";
 import { trimSingleTrailingNewline } from "../src/format.js";
 import { resolvePreviewLanguage } from "../src/language.js";
 import { parseGrepOutputLine } from "../src/grep-rendering.js";
@@ -14,7 +14,7 @@ import { renderPathListLines } from "../src/path-list-rendering.js";
 import { formatDisplayPath } from "../src/paths.js";
 import { createSimpleDiff, getMaxWriteDiffBytes, getWriteDiffSkipReason, readExistingFileForPreview, resolvePreviewPath } from "../src/write-diff.js";
 import { getSecretWarnings } from "../src/secret-warnings.js";
-import { defaultCodePreviewSettings, normalizeSettings, updateSetting } from "../src/settings.js";
+import { codePreviewSettings, defaultCodePreviewSettings, normalizeSettings, setCodePreviewSettings, updateSetting } from "../src/settings.js";
 import { formatEnabledCodePreviewTools, getEnabledCodePreviewTools } from "../src/tool-selection.js";
 import { registerToolRenderers } from "../src/renderers.js";
 
@@ -128,6 +128,20 @@ test("renderPathListLines groups nested paths", () => {
 	assert.match(plain, /▸ tests\//);
 });
 
+test("path list rendering can disable icons or use Nerd Font icons", () => {
+	const previous = { ...codePreviewSettings };
+	try {
+		setCodePreviewSettings({ ...codePreviewSettings, pathIcons: "off" });
+		assert.doesNotMatch(stripAnsi(renderPathListLines("src/renderers.ts", "/tmp/project", testTheme()).join("\n")), /[▸•]/);
+
+		setCodePreviewSettings({ ...codePreviewSettings, pathIcons: "nerd" });
+		assert.match(stripAnsi(renderPathListLines("src/renderers.ts", "/tmp/project", testTheme()).join("\n")), /\ue5ff src\//);
+		assert.match(stripAnsi(renderPathListLines("src/renderers.ts", "/tmp/project", testTheme()).join("\n")), /\ue628 renderers\.ts/);
+	} finally {
+		setCodePreviewSettings(previous);
+	}
+});
+
 test("CODE_PREVIEW_TOOLS selects enabled renderers", () => {
 	const previous = process.env.CODE_PREVIEW_TOOLS;
 	process.env.CODE_PREVIEW_TOOLS = "write,edit,grep";
@@ -179,6 +193,13 @@ test("diff renderers honor limits at remove/add boundaries", () => {
 	assert.equal(renderPlainDiff(diff, testTheme(), 1).split("\n").length, 1);
 });
 
+test("full-width diff component wraps long ANSI lines", () => {
+	const diffText = renderPlainDiff("+1 " + "x".repeat(80), testTheme(), 1);
+	const rows = new FullWidthDiffText(diffText, testTheme()).render(30);
+	assert.ok(rows.length > 1);
+	assert.ok(stripAnsi(rows.at(-1) ?? "").length <= 30);
+});
+
 test("word emphasis pairs the most similar lines inside change blocks", () => {
 	const diff = "-1 const trimmed = line.trim();\n+1 const safeLine = escapeControlChars(line);\n+2 const trimmed = safeLine.trim();";
 	const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 3).split("\n");
@@ -206,6 +227,75 @@ test("word emphasis highlights long shared lines with appended text", () => {
 	const rendered = renderSyntaxHighlightedDiff(diff, "markdown", testTheme(), 2).split("\n");
 	assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
 	assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1m\. Project settings override global settings/);
+});
+
+test("registered grep renderer highlights multiple matches on one line", () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "grep";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const grep = registered.find((tool) => tool.name === "grep");
+		assert.ok(grep?.renderResult);
+		const rendered = renderComponent(grep.renderResult(
+			{ content: [{ type: "text", text: "src/a.ts:1: foo foo foo" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { pattern: "foo", literal: true }, isError: false, invalidate: () => undefined, state: {} },
+		));
+		assert.equal((rendered.match(/\x1b\[48;2;90;74;28m/g) ?? []).length, 3);
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
+	}
+});
+
+test("registered edit call previews proposed edits before execution", () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "edit";
+	try {
+		const registered: Array<{ name: string; renderCall?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderCall?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const edit = registered.find((tool) => tool.name === "edit");
+		assert.ok(edit?.renderCall);
+		const rendered = stripAnsi(renderComponent(edit.renderCall(
+			{ path: "src/a.ts", edits: [{ oldText: "const value = 1;", newText: "const value = 2;" }] },
+			testTheme(),
+			{ argsComplete: true, expanded: true, lastComponent: undefined, state: {}, invalidate: () => undefined },
+		)));
+		assert.match(rendered, /edit src\/a\.ts/);
+		assert.match(rendered, /proposed edit/);
+		assert.match(rendered, /const value = 1;/);
+		assert.match(rendered, /const value = 2;/);
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
+	}
+});
+
+test("registered read renderer can render inline image escape sequences", () => {
+	const previousTools = process.env.CODE_PREVIEW_TOOLS;
+	const previousProtocol = process.env.CODE_PREVIEW_IMAGE_PROTOCOL;
+	process.env.CODE_PREVIEW_TOOLS = "read";
+	process.env.CODE_PREVIEW_IMAGE_PROTOCOL = "iterm2";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const read = registered.find((tool) => tool.name === "read");
+		assert.ok(read?.renderResult);
+		const rendered = renderComponent(read.renderResult(
+			{ content: [{ type: "text", text: "Read image file" }, { type: "image", data: Buffer.from("png").toString("base64"), mimeType: "image/png" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { path: "asset.png" }, isError: false, invalidate: () => undefined, state: {} },
+		));
+		assert.match(rendered, /\x1b\]1337;File=/);
+	} finally {
+		if (previousTools === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previousTools;
+		if (previousProtocol === undefined) delete process.env.CODE_PREVIEW_IMAGE_PROTOCOL;
+		else process.env.CODE_PREVIEW_IMAGE_PROTOCOL = previousProtocol;
+	}
 });
 
 test("registered bash and grep renderers preserve whitespace-sensitive output", () => {
