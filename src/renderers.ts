@@ -35,7 +35,7 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 			const timeout = typeof args.timeout === "number" ? theme.fg("muted", ` (timeout ${args.timeout}s)`) : "";
 			const highlighted = renderHighlightedText(command || "...", "bash", theme).join("\n");
 			const warnings = codePreviewSettings.bashWarnings ? getBashWarnings(command) : [];
-			const warningText = warnings.length ? `${theme.fg("warning", `⚠ ${warnings.join(", ")}`)}\n` : "";
+			const warningText = warnings.length ? `${theme.fg("warning", `⚠ Preview ${countLabel(warnings.length, "warning")}: ${warnings.join(", ")}`)}\n` : "";
 			return new Text(`${warningText}${theme.fg("toolTitle", theme.bold("$"))} ${highlighted}${timeout}`, 0, 0);
 		},
 
