@@ -1,26 +1,22 @@
 {
   "name": "pi-code-previews",
-  "version": "0.1.0",
+  "version": "0.1.7",
   "description": "Syntax-highlighted previews for pi tool calls.",
-  "type": "module",
-  "license": "MIT",
   "keywords": [
-    "pi-package",
-    "pi-extension",
-    "syntax-highlighting",
     "code-preview",
-    "coding-agent"
+    "coding-agent",
+    "pi-extension",
+    "pi-package",
+    "syntax-highlighting"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mattleong/pi-code-previews.git"
-  },
+  "homepage": "https://github.com/mattleong/pi-code-previews#readme",
   "bugs": {
     "url": "https://github.com/mattleong/pi-code-previews/issues"
   },
-  "homepage": "https://github.com/mattleong/pi-code-previews#readme",
-  "engines": {
-    "node": ">=20"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattleong/pi-code-previews.git"
   },
   "files": [
     "extensions",
@@ -29,6 +25,7 @@
     "LICENSE",
     "tsconfig.json"
   ],
+  "type": "module",
   "scripts": {
     "check": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
@@ -38,17 +35,20 @@
     "diff": "^8.0.4",
     "shiki": "^4.0.2"
   },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-tui": "*"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "pi": {
     "extensions": [
       "./extensions"
     ]
-  },
-  "devDependencies": {
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
   }
 }
