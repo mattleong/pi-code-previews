@@ -8,6 +8,7 @@ import { renderPathListLines } from "./path-list-rendering.js";
 import { renderDisplayPath } from "./paths.js";
 import { codePreviewSettings } from "./settings.js";
 import { shouldSkipHighlight } from "./shiki.js";
+import { escapeControlChars } from "./terminal-text.js";
 
 export function registerGrep(pi: ExtensionAPI, cwd: string) {
 	const originalGrep = createGrepToolDefinition(cwd);
@@ -24,16 +25,16 @@ export function registerGrep(pi: ExtensionAPI, cwd: string) {
 			const path = typeof args.path === "string" && args.path ? args.path : ".";
 			const glob = typeof args.glob === "string" && args.glob ? args.glob : undefined;
 			const limit = typeof args.limit === "number" ? args.limit : undefined;
-			let text = `${theme.fg("toolTitle", theme.bold("grep"))} ${theme.fg("accent", `/${pattern}/`)} ${theme.fg("muted", "in")} ${renderDisplayPath(path, cwd, theme)}`;
-			text += metadata(theme, [glob, limit ? `limit ${limit}` : undefined]);
+			let text = `${theme.fg("toolTitle", theme.bold("grep"))} ${theme.fg("accent", `/${escapeControlChars(pattern)}/`)} ${theme.fg("muted", "in")} ${renderDisplayPath(path, cwd, theme)}`;
+			text += metadata(theme, [glob ? escapeControlChars(glob) : undefined, limit ? `limit ${limit}` : undefined]);
 			return new Text(text, 0, 0);
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Searching…"), 0, 0);
 			const output = trimSingleTrailingNewline(getTextContent(result.content));
-			if (context.isError || output.startsWith("Error")) {
-				return new Text(theme.fg("error", output.split("\n")[0] || "Grep failed"), 0, 0);
+			if (context.isError) {
+				return new Text(theme.fg("error", escapeControlChars(output.split("\n")[0] || "Grep failed")), 0, 0);
 			}
 			if (!output || output === "No matches found") return new Text(theme.fg("muted", output || "No matches found"), 0, 0);
 
@@ -63,11 +64,12 @@ export function registerFind(pi: ExtensionAPI, cwd: string) {
 		renderCall(args, theme) {
 			const pattern = typeof args.pattern === "string" ? args.pattern : "";
 			const path = typeof args.path === "string" && args.path ? args.path : ".";
-			return new Text(`${theme.fg("toolTitle", theme.bold("find"))} ${theme.fg("accent", pattern || "*")} ${theme.fg("muted", "in")} ${renderDisplayPath(path, cwd, theme)}`, 0, 0);
+			return new Text(`${theme.fg("toolTitle", theme.bold("find"))} ${theme.fg("accent", escapeControlChars(pattern || "*"))} ${theme.fg("muted", "in")} ${renderDisplayPath(path, cwd, theme)}`, 0, 0);
 		},
-		renderResult(result, { expanded, isPartial }, theme) {
+		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Finding…"), 0, 0);
 			const output = trimSingleTrailingNewline(getTextContent(result.content));
+			if (context.isError) return new Text(theme.fg("error", escapeControlChars(output.split("\n")[0] || "Find failed")), 0, 0);
 			if (!output || output === "No files found matching pattern") return new Text(theme.fg("muted", output || "No files found"), 0, 0);
 			const lines = renderPathListLines(output, cwd, theme);
 			const limit = expanded ? lines.length : codePreviewSettings.pathListCollapsedLines;
@@ -90,9 +92,10 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
 			const path = typeof args.path === "string" && args.path ? args.path : ".";
 			return new Text(`${theme.fg("toolTitle", theme.bold("ls"))} ${renderDisplayPath(path, cwd, theme)}`, 0, 0);
 		},
-		renderResult(result, { expanded, isPartial }, theme) {
+		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Listing…"), 0, 0);
 			const output = trimSingleTrailingNewline(getTextContent(result.content));
+			if (context.isError) return new Text(theme.fg("error", escapeControlChars(output.split("\n")[0] || "List failed")), 0, 0);
 			if (!output || output === "(empty directory)") return new Text(theme.fg("muted", "Empty directory"), 0, 0);
 			const lines = renderPathListLines(output, cwd, theme);
 			const limit = expanded ? lines.length : codePreviewSettings.pathListCollapsedLines;

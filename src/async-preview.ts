@@ -1,5 +1,6 @@
 import { Text, type Component } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
+import { escapeControlChars } from "./terminal-text.js";
 
 const ASYNC_RENDER_CHAR_THRESHOLD = Number.parseInt(process.env.CODE_PREVIEW_ASYNC_RENDER_CHARS ?? "20000", 10);
 
@@ -16,7 +17,7 @@ export class AsyncPreview implements Component {
 			try {
 				this.component = compute();
 			} catch (error) {
-				this.component = new Text(theme.fg("error", error instanceof Error ? error.message : String(error)), 0, 0);
+				this.component = new Text(theme.fg("error", escapeControlChars(error instanceof Error ? error.message : String(error))), 0, 0);
 			}
 			invalidate();
 		}, 0);

@@ -2,6 +2,7 @@ import type { Theme } from "@mariozechner/pi-coding-agent";
 import { getLanguageFromPath } from "@mariozechner/pi-coding-agent";
 import { resolvePreviewLanguage } from "./language.js";
 import { renderHighlightedText } from "./shiki.js";
+import { escapeControlChars } from "./terminal-text.js";
 
 export type ParsedGrepOutputLine = { path: string; lineNumber: string; code: string; kind: "match" | "context" };
 
@@ -14,17 +15,17 @@ export function renderGrepOutputLines(output: string, theme: Theme, search: { pa
 			continue;
 		}
 		if (rawLine.startsWith("[") && rawLine.endsWith("]")) {
-			rendered.push(theme.fg("warning", rawLine));
+			rendered.push(theme.fg("warning", escapeControlChars(rawLine)));
 			continue;
 		}
 		const parsed = parseGrepOutputLine(rawLine);
 		if (!parsed) {
-			rendered.push(theme.fg("toolOutput", rawLine));
+			rendered.push(theme.fg("toolOutput", escapeControlChars(rawLine)));
 			continue;
 		}
 		if (parsed.path !== currentPath) {
 			currentPath = parsed.path;
-			rendered.push(theme.fg("accent", currentPath));
+			rendered.push(theme.fg("accent", escapeControlChars(currentPath)));
 		}
 		rendered.push(renderGrepParsedLine(parsed, theme, search, invalidate));
 	}

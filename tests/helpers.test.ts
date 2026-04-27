@@ -266,15 +266,26 @@ test("registered edit call previews proposed edits before execution", () => {
 		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderCall?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
 		const edit = registered.find((tool) => tool.name === "edit");
 		assert.ok(edit?.renderCall);
-		const rendered = stripAnsi(renderComponent(edit.renderCall(
-			{ path: "src/a.ts", edits: [{ oldText: "const value = 1;", newText: "const value = 2;" }] },
+		const args = { path: "src/a.ts", edits: [{ oldText: "const value = 1;", newText: "const value = 2;" }] };
+		const state = {};
+		const pendingComponent = edit.renderCall(
+			args,
 			testTheme(),
-			{ argsComplete: true, expanded: true, lastComponent: undefined, state: {}, invalidate: () => undefined },
-		)));
+			{ argsComplete: true, expanded: true, executionStarted: false, lastComponent: undefined, state, invalidate: () => undefined },
+		);
+		const rendered = stripAnsi(renderComponent(pendingComponent));
 		assert.match(rendered, /edit src\/a\.ts/);
 		assert.match(rendered, /proposed edit/);
 		assert.match(rendered, /const value = 1;/);
 		assert.match(rendered, /const value = 2;/);
+
+		const started = stripAnsi(renderComponent(edit.renderCall(
+			args,
+			testTheme(),
+			{ argsComplete: true, expanded: true, executionStarted: true, lastComponent: pendingComponent, state, invalidate: () => undefined },
+		)));
+		assert.match(started, /edit src\/a\.ts/);
+		assert.doesNotMatch(started, /proposed edit/);
 	} finally {
 		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
 		else process.env.CODE_PREVIEW_TOOLS = previous;
@@ -300,6 +311,98 @@ test("registered read renderer leaves image rendering to pi", () => {
 	} finally {
 		if (previousTools === undefined) delete process.env.CODE_PREVIEW_TOOLS;
 		else process.env.CODE_PREVIEW_TOOLS = previousTools;
+	}
+});
+
+test("registered renderers escape terminal control characters in raw output", () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "bash,grep";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const bash = registered.find((tool) => tool.name === "bash");
+		const grep = registered.find((tool) => tool.name === "grep");
+		assert.ok(bash?.renderResult);
+		assert.ok(grep?.renderResult);
+
+		const bashRendered = renderComponent(bash.renderResult(
+			{ content: [{ type: "text", text: "ok \x1b[31mred\x00" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: {}, isError: false, invalidate: () => undefined, state: {} },
+		));
+		assert.doesNotMatch(bashRendered, /\x1b\[31m/);
+		assert.match(bashRendered, /␛\[31mred�/);
+
+		const grepRendered = renderComponent(grep.renderResult(
+			{ content: [{ type: "text", text: "unparsed \x1b[31mred\x00" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { pattern: "red" }, isError: false, invalidate: () => undefined, state: {} },
+		));
+		assert.doesNotMatch(grepRendered, /\x1b\[31m/);
+		assert.match(grepRendered, /␛\[31mred�/);
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
+	}
+});
+
+test("registered read and grep renderers do not classify successful Error-prefixed content as failures", () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "read,grep";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const read = registered.find((tool) => tool.name === "read");
+		const grep = registered.find((tool) => tool.name === "grep");
+		assert.ok(read?.renderResult);
+		assert.ok(grep?.renderResult);
+
+		const readRendered = stripAnsi(renderComponent(read.renderResult(
+			{ content: [{ type: "text", text: "ErrorBoundary\nok" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { path: "src/ErrorBoundary.tsx" }, isError: false, invalidate: () => undefined, state: {} },
+		)));
+		assert.match(readRendered, /ErrorBoundary/);
+		assert.match(readRendered, /ok/);
+
+		const grepRendered = stripAnsi(renderComponent(grep.renderResult(
+			{ content: [{ type: "text", text: "ErrorLog.ts:1: Error found" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { pattern: "Error" }, isError: false, invalidate: () => undefined, state: {} },
+		)));
+		assert.match(grepRendered, /ErrorLog\.ts\s*\n/);
+		assert.match(grepRendered, /\s1 │ Error found/);
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
+	}
+});
+
+test("registered find and ls renderers keep error results out of path-list formatting", () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "find,ls";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		for (const name of ["find", "ls"]) {
+			const tool = registered.find((candidate) => candidate.name === name);
+			assert.ok(tool?.renderResult);
+			const rendered = stripAnsi(renderComponent(tool.renderResult(
+				{ content: [{ type: "text", text: "Path not found: /tmp/nope" }] },
+				{ expanded: true, isPartial: false },
+				testTheme(),
+				{ args: {}, isError: true, invalidate: () => undefined, state: {} },
+			)));
+			assert.equal(rendered.trimEnd(), "Path not found: /tmp/nope");
+			assert.doesNotMatch(rendered, /[▸•]/);
+		}
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
 	}
 });
 

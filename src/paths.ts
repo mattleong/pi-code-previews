@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { isAbsolute, relative } from "node:path";
 import type { Theme } from "@mariozechner/pi-coding-agent";
+import { escapeControlChars } from "./terminal-text.js";
 
 export function formatDisplayPath(path: string, cwd: string): string {
 	if (!path) return "";
@@ -21,5 +22,5 @@ export function formatDisplayPath(path: string, cwd: string): string {
 
 export function renderDisplayPath(path: string, cwd: string, theme: Theme, fallback = "..."): string {
 	const displayPath = formatDisplayPath(path, cwd) || fallback;
-	return theme.fg("accent", displayPath);
+	return theme.fg("accent", escapeControlChars(displayPath));
 }

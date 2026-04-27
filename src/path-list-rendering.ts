@@ -2,6 +2,7 @@ import type { Theme } from "@mariozechner/pi-coding-agent";
 import { pathIcon } from "./icons.js";
 import { codePreviewSettings } from "./settings.js";
 import { renderDisplayPath } from "./paths.js";
+import { escapeControlChars } from "./terminal-text.js";
 
 export function renderPathListLines(output: string, cwd: string, theme: Theme): string[] {
 	const lines = output.split("\n");
@@ -17,7 +18,7 @@ export function renderPathListLines(output: string, cwd: string, theme: Theme): 
 			continue;
 		}
 		if (line.startsWith("[") && line.endsWith("]")) {
-			rendered.push(theme.fg("warning", line));
+			rendered.push(theme.fg("warning", escapeControlChars(line)));
 			continue;
 		}
 		renderTreePath(line, theme, seenDirs, rendered);
@@ -39,11 +40,11 @@ function renderTreePath(path: string, theme: Theme, seenDirs: Set<string>, rende
 			if (!seenDirs.has(key)) {
 				seenDirs.add(key);
 				const icon = pathIcon(part, true, codePreviewSettings.pathIcons);
-				rendered.push(`${theme.fg("dim", icon ? `${indent}${icon}` : indent)}${icon ? " " : ""}${theme.fg("accent", `${part}/`)}`);
+				rendered.push(`${theme.fg("dim", icon ? `${indent}${icon}` : indent)}${icon ? " " : ""}${theme.fg("accent", `${escapeControlChars(part)}/`)}`);
 			}
 		} else {
 			const icon = pathIcon(part, false, codePreviewSettings.pathIcons);
-			rendered.push(`${theme.fg("dim", icon ? `${indent}${icon}` : indent)}${icon ? " " : ""}${theme.fg("toolOutput", part)}`);
+			rendered.push(`${theme.fg("dim", icon ? `${indent}${icon}` : indent)}${icon ? " " : ""}${theme.fg("toolOutput", escapeControlChars(part))}`);
 		}
 		prefix = key;
 	}
@@ -51,7 +52,7 @@ function renderTreePath(path: string, theme: Theme, seenDirs: Set<string>, rende
 
 function renderPathListLine(line: string, cwd: string, theme: Theme): string {
 	if (!line) return "";
-	if (line.startsWith("[") && line.endsWith("]")) return theme.fg("warning", line);
+	if (line.startsWith("[") && line.endsWith("]")) return theme.fg("warning", escapeControlChars(line));
 	const prefix = line.match(/^\s*/)?.[0] ?? "";
 	const body = line.slice(prefix.length);
 	const icon = pathIcon(body, body.endsWith("/"), codePreviewSettings.pathIcons);

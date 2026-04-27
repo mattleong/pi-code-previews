@@ -11,6 +11,7 @@ import { renderDisplayPath } from "./paths.js";
 import { getSecretWarnings } from "./secret-warnings.js";
 import { codePreviewSettings } from "./settings.js";
 import { normalizeShikiLanguage, renderHighlightedText, shouldSkipHighlight } from "./shiki.js";
+import { escapeControlChars } from "./terminal-text.js";
 import { registerFind, registerGrep, registerLs } from "./search-renderers.js";
 import { getEnabledCodePreviewTools } from "./tool-selection.js";
 import { createSimpleDiff, getWriteDiffSkipReason, readExistingFileForPreview, shouldSkipWriteDiffText } from "./write-diff.js";
@@ -48,14 +49,14 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Running…"), 0, 0);
 			const output = trimSingleTrailingNewline(getTextContent(result.content));
-			const lines = output ? output.split("\n").map((line) => theme.fg(context.isError ? "error" : "toolOutput", line)) : [];
+			const lines = output ? output.split("\n").map((line) => theme.fg(context.isError ? "error" : "toolOutput", escapeControlChars(line))) : [];
 			const limit = expanded ? lines.length : 8;
 			const preview = previewLines(lines, limit, theme);
 			let text = preview.lines.length ? withSecretWarning(output, theme, preview.lines.join("\n")) : theme.fg("muted", "No output");
 			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "output lines");
 			if (isTruncated(result.details)) text += previewFooter(theme, "Output truncated by bash");
 			const fullOutputPath = getObjectValue(result.details, "fullOutputPath");
-			if (typeof fullOutputPath === "string") text += previewFooter(theme, `Full output: ${fullOutputPath}`);
+			if (typeof fullOutputPath === "string") text += previewFooter(theme, `Full output: ${escapeControlChars(fullOutputPath)}`);
 			return new Text(text, 0, 0);
 		},
 	});
@@ -87,8 +88,8 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 		renderResult(result, { expanded, isPartial }, theme, context) {
 			if (isPartial) return new Text(theme.fg("warning", "Reading…"), 0, 0);
 			const firstText = getTextContent(result.content);
-			if (context.isError || firstText.startsWith("Error")) {
-				return new Text(theme.fg("error", firstText.split("\n")[0] || "Read failed"), 0, 0);
+			if (context.isError) {
+				return new Text(theme.fg("error", escapeControlChars(firstText.split("\n")[0] || "Read failed")), 0, 0);
 			}
 
 			const path = getPathArg(context.args);
@@ -96,7 +97,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 			// Pi already renders image content parts natively. Avoid emitting terminal image
 			// escape sequences here; show only a compact note beside Pi's image renderer.
 			if (result.content?.some((part) => part.type === "image")) {
-				return new Text(theme.fg("dim", firstText.replace(/^Read image file/i, "image")), 0, 0);
+				return new Text(theme.fg("dim", escapeControlChars(firstText.replace(/^Read image file/i, "image"))), 0, 0);
 			}
 
 			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
@@ -157,7 +158,7 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 
 		renderResult(result, { expanded }, theme, context) {
 			const firstText = getTextContent(result.content);
-			if (context.isError) return new Text(theme.fg("error", firstText || "Write failed"), 0, 0);
+			if (context.isError) return new Text(theme.fg("error", escapeControlChars(firstText || "Write failed")), 0, 0);
 
 			const path = getPathArg(context.args);
 			const content = typeof context.args?.content === "string" ? context.args.content : "";
@@ -172,7 +173,7 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 					: render();
 			}
 			if (typeof beforeContent === "string") return new Text(theme.fg("muted", "✓ Write applied · no changes"), 0, 0);
-			return new Text(theme.fg("success", `✓ New file (${countLabel(content.split("\n").length, "line")})`), 0, 0);
+			return new Text(theme.fg("success", `✓ New file (${countLabel(countFileLines(content), "line")})`), 0, 0);
 		},
 	});
 }
@@ -204,7 +205,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			text.setText(formatEditHeader(path, cwd, theme, context.state.editSummaryText));
 
 			const operations = getEditPreviewOperations(args);
-			if (!context.argsComplete || operations.length === 0) return text;
+			if (!context.argsComplete || operations.length === 0 || context.executionStarted) return text;
 
 			const previewKey = `${argsKey}:${context.expanded ? "expanded" : "collapsed"}:${codePreviewSettings.editCollapsedLines}`;
 			if (context.state.editCallPreviewKey !== previewKey) {
@@ -221,10 +222,10 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			if (isPartial) return new Text(theme.fg("warning", "Editing…"), 0, 0);
 
 			const firstText = getTextContent(result.content);
-			if (context.isError || firstText.startsWith("Error")) {
+			if (context.isError) {
 				context.state.editSummaryText = undefined;
 				updateEditHeader(context, cwd, theme);
-				return new Text(theme.fg("error", firstText.split("\n")[0] || "Edit failed"), 0, 0);
+				return new Text(theme.fg("error", escapeControlChars(firstText.split("\n")[0] || "Edit failed")), 0, 0);
 			}
 
 			const diff = getEditDiff(result.details);
@@ -239,7 +240,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const summary = summarizeDiff(diff);
 			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			context.state.editSummaryText = formatEditSummary(summary, limit, theme);
-			if (!expanded) context.state.editSummaryText += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
+			if (!expanded && summary.totalLines > limit) context.state.editSummaryText += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			updateEditHeader(context, cwd, theme);
 			const render = () => renderEditDiffPreview(diff, lang, limit, summary.totalLines, theme, context.invalidate);
 			return shouldRenderAsync(diff)
@@ -294,17 +295,15 @@ function renderEditCallPreview(operations: Array<{ oldText: string; newText: str
 		? Math.max(8, Math.floor((typeof codePreviewSettings.editCollapsedLines === "number" ? codePreviewSettings.editCollapsedLines : 160) / maxOperations))
 		: undefined;
 	const sections: string[] = [];
-	let totalAdditions = 0;
-	let totalRemovals = 0;
-	let totalLines = 0;
+	const diffs = operations.map((operation) => createSimpleDiff(operation.oldText, operation.newText));
+	const summaries = diffs.map((diff) => summarizeDiff(diff));
+	const totalAdditions = summaries.reduce((total, summary) => total + summary.additions, 0);
+	const totalRemovals = summaries.reduce((total, summary) => total + summary.removals, 0);
+	const totalLines = summaries.reduce((total, summary) => total + summary.totalLines, 0);
 
 	for (let index = 0; index < maxOperations; index++) {
-		const operation = operations[index]!;
-		const diff = createSimpleDiff(operation.oldText, operation.newText);
-		const summary = summarizeDiff(diff);
-		totalAdditions += summary.additions;
-		totalRemovals += summary.removals;
-		totalLines += summary.totalLines;
+		const diff = diffs[index]!;
+		const summary = summaries[index]!;
 		const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : perOperationLimit ?? codePreviewSettings.editCollapsedLines;
 		const skipSyntaxHighlight = shouldSkipHighlight(diff);
 		let rendered = skipSyntaxHighlight ? renderPlainDiff(diff, theme, limit) : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
@@ -372,6 +371,13 @@ function describeEditShape(summary: ReturnType<typeof summarizeDiff>): string {
 	if (summary.insertions > 0) parts.push(countLabel(summary.insertions, "insertion"));
 	if (summary.deletions > 0) parts.push(countLabel(summary.deletions, "deletion"));
 	return parts.length ? parts.join(", ") : "changes";
+}
+
+function countFileLines(content: string): number {
+	if (!content) return 0;
+	const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+	const withoutFinalTerminator = normalized.endsWith("\n") ? normalized.slice(0, -1) : normalized;
+	return withoutFinalTerminator.split("\n").length;
 }
 
 function withOptionalReadLineNumbers(lines: string[], firstLine: number, theme: Theme): string[] {
