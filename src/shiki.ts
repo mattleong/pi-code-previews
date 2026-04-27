@@ -184,10 +184,15 @@ function ansiFromToken(token: { content: string; color?: string; fontStyle?: num
 	return open + escapeControlChars(token.content) + close;
 }
 
+const ansiFgCache = new Map<string, string>();
+
 function ansiFg(hex: string): string {
+	const cached = ansiFgCache.get(hex);
+	if (cached !== undefined) return cached;
 	const clean = hex.replace(/^#/, "").slice(0, 6);
 	const n = Number.parseInt(clean, 16);
-	if (!Number.isFinite(n)) return "";
-	return `\x1b[38;2;${(n >> 16) & 255};${(n >> 8) & 255};${n & 255}m`;
+	const ansi = Number.isFinite(n) ? `\x1b[38;2;${(n >> 16) & 255};${(n >> 8) & 255};${n & 255}m` : "";
+	ansiFgCache.set(hex, ansi);
+	return ansi;
 }
 

@@ -9,10 +9,14 @@ const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
 const DIFF_REMOVE_MARKER = "\u0000PI_DIFF_REMOVE\u0000";
 
 export class FullWidthDiffText implements Component {
+	private cachedWidth: number | undefined;
+	private cachedRows: string[] | undefined;
+
 	constructor(private readonly text: string, private readonly theme?: Theme) {}
 
 	render(width: number): string[] {
-		return this.text.split("\n").flatMap((rawLine) => {
+		if (this.cachedWidth === width && this.cachedRows) return this.cachedRows;
+		const rows = this.text.split("\n").flatMap((rawLine) => {
 			const kind = rawLine.startsWith(DIFF_ADD_MARKER)
 				? "add"
 				: rawLine.startsWith(DIFF_REMOVE_MARKER)
@@ -33,9 +37,15 @@ export class FullWidthDiffText implements Component {
 				return diffLineBg(kind, truncated + padding, this.theme);
 			});
 		});
+		this.cachedWidth = width;
+		this.cachedRows = rows;
+		return rows;
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.cachedWidth = undefined;
+		this.cachedRows = undefined;
+	}
 }
 
 const DIFF_WRAP_ROWS = envPositiveInteger("CODE_PREVIEW_DIFF_WRAP_ROWS", 3);
