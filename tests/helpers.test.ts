@@ -201,6 +201,13 @@ test("word emphasis ranges stay aligned when indentation changes", () => {
 	assert.match(rendered[1] ?? "", /lines\[\x1b\[48;2;64;132;82m\x1b\[1mend/);
 });
 
+test("word emphasis highlights long shared lines with appended text", () => {
+	const diff = "-119 You can also put code-preview defaults in `.pi/settings.json` globally or per project:\n+123 You can also put code-preview defaults in `.pi/settings.json` globally or per project. Project settings override global settings, and the package settings file overrides both:";
+	const rendered = renderSyntaxHighlightedDiff(diff, "markdown", testTheme(), 2).split("\n");
+	assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
+	assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1m\. Project settings override global settings/);
+});
+
 test("registered bash and grep renderers preserve whitespace-sensitive output", () => {
 	const previous = process.env.CODE_PREVIEW_TOOLS;
 	process.env.CODE_PREVIEW_TOOLS = "bash,grep";

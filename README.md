@@ -8,16 +8,19 @@ Syntax-highlighted TUI previews for pi's built-in tools, with code-aware renderi
 
 - Syntax-highlighted `bash` command previews.
 - Optional preview-only `bash` warnings for risky-looking commands such as recursive deletes, `sudo`, hard git resets, and system-path redirects.
-- Syntax-highlighted `bash` output previews with truncation footers when collapsed or truncated by pi.
+- Syntax-highlighted `bash` output previews with truncation footers when collapsed or truncated by pi, while preserving meaningful leading/trailing whitespace.
 - Syntax-highlighted `read` output using path, filename, shebang, and conservative content detection, with line numbers enabled by default.
 - Syntax-highlighted `write` content previews, including size, line count, language metadata, and empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
+- Collapsed edit diffs by default, with configurable line counts or an `all` mode for always-expanded diff previews.
 - Inline edit summaries on the edit header, including replacements/insertions/deletions, hunk count, and `+/-` line counts.
 - Syntax-highlighted `grep` result previews grouped by file, with readable line prefixes and match emphasis layered over source highlighting.
 - Lightweight `find` and `ls` path-list rendering for consistent built-in tool presentation.
 - `write` result summaries for new files, no-op writes, and overwrites with highlighted diffs.
-- Word-level emphasis inside paired diff add/remove lines.
+- Word-level emphasis inside paired diff add/remove lines, tuned to avoid noisy highlights in larger rewrites.
+- Large diff and large file safeguards that skip expensive highlighting while keeping readable plain previews.
 - Optional preview-only warnings when `read`, `write`, or `bash` output looks like it may contain secret values.
+- Terminal-safe plain-text fallbacks that escape control characters in rendered previews.
 - Shortened path display relative to the current working directory, or `~/...` for files under the home directory.
 - Rich TextMate/VS Code-style highlighting powered by Shiki, with a setting to turn syntax highlighting off.
 - `/code-preview-settings` command for theme and preview display settings, including the settings file path and restore-defaults action.
@@ -85,8 +88,9 @@ Settings include:
 - diff background intensity
 - read preview line count
 - write preview line count
-- edit diff preview line count
+- edit diff preview line count, including `all`
 - grep result preview line count
+- path-list preview line count
 - read line numbers
 - bash visual warnings
 - secret value warnings
@@ -116,7 +120,7 @@ CODE_PREVIEW_ASYNC_RENDER_CHARS=20000
 CODE_PREVIEW_MAX_WRITE_DIFF_BYTES=200000
 ```
 
-You can also put code-preview defaults in `.pi/settings.json` globally or per project:
+You can also put code-preview defaults in `.pi/settings.json` globally or per project. Project settings override global settings, and the package settings file overrides both:
 
 ```json
 {
@@ -148,7 +152,7 @@ It does not:
 
 The extension re-registers pi's built-in `bash`, `read`, `write`, `edit`, `grep`, `find`, and `ls` tools with the same names and parameters. Set `CODE_PREVIEW_TOOLS` to a comma/space-separated list when you only want some renderers, for example when combining this package with `pi-pretty` or `pi-diff`. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering. For overwrite summaries, `write` also reads the previous file content before delegating, up to `CODE_PREVIEW_MAX_WRITE_DIFF_BYTES`, so it can render an after-the-fact diff without diffing very large files.
 
-Syntax highlighting is powered by Shiki. Language selection uses pi's built-in language detection plus extension-specific filename, shebang, and conservative content detection. If a language is not available, or syntax highlighting is disabled, the preview falls back to plain text.
+Syntax highlighting is powered by Shiki. Language selection uses pi's built-in language detection plus extension-specific filename, shebang, and conservative content detection. If a language is not available, syntax highlighting is disabled, or content is above the configured highlight limit, the preview falls back to terminal-safe plain text.
 
 ## Security
 

@@ -241,7 +241,7 @@ function matchChangedLines(
 }
 
 const MIN_CHANGED_LINE_PAIR_SCORE = 0.45;
-const MIN_WORD_DIFF_UNCHANGED_RATIO = 0.5;
+const MIN_WORD_DIFF_UNCHANGED_RATIO = 0.45;
 const MAX_CHANGED_LINE_PAIR_CELLS = 20000;
 
 function matchChangedLinesByPosition(
