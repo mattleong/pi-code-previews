@@ -187,6 +187,20 @@ test("word emphasis pairs the most similar lines inside change blocks", () => {
 	assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mline/);
 });
 
+test("word emphasis ignores lines that only share punctuation or method shape", () => {
+	const diff = "-1 out.push(pair.removed, pair.added);\n+1 block.push(next);";
+	const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
+	assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
+	assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;64;132;82m/);
+});
+
+test("word emphasis ranges stay aligned when indentation changes", () => {
+	const diff = "-1 \tconst next = parseDiffLine(lines[i + 1]!);\n+1 \t\tconst next = parseDiffLine(lines[end]!);";
+	const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
+	assert.match(rendered[0] ?? "", /lines\[\x1b\[48;2;148;62;70m\x1b\[1mi \+ 1/);
+	assert.match(rendered[1] ?? "", /lines\[\x1b\[48;2;64;132;82m\x1b\[1mend/);
+});
+
 test("registered bash and grep renderers preserve whitespace-sensitive output", () => {
 	const previous = process.env.CODE_PREVIEW_TOOLS;
 	process.env.CODE_PREVIEW_TOOLS = "bash,grep";

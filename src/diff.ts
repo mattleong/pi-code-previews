@@ -1,6 +1,6 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-tui";
-import { diffWords } from "diff";
+import { diffWordsWithSpace } from "diff";
 import { codePreviewSettings } from "./settings.js";
 import { renderWithShiki } from "./shiki.js";
 import { escapeControlChars } from "./terminal-text.js";
@@ -182,9 +182,12 @@ function renderChangeBlock(block: ParsedDiffLine[], lang: string | undefined, th
 	for (const [removedIndex, addedIndex] of matchChangedLines(removed, added)) {
 		const removedLine = block[removedIndex] as RemovedDiffLine;
 		const addedLine = block[addedIndex] as AddedDiffLine;
-		// Compute ranges against the same tab-normalized text that Shiki renders.
-		// Otherwise files indented with tabs shift the emphasis range by multiple cells.
-		const ranges = changedRanges(normalizeDiffContent(removedLine.content), normalizeDiffContent(addedLine.content));
+		// Compute ranges against the same normalized text that Shiki/fallback rendering displays.
+		// Otherwise tabs or escaped control chars shift the emphasis range by multiple cells.
+		const removedContent = normalizeDiffContent(removedLine.content);
+		const addedContent = normalizeDiffContent(addedLine.content);
+		const ranges = changedRanges(removedContent, addedContent);
+		if (!shouldEmphasizeChangedPair(removedContent, addedContent, ranges)) continue;
 		emphasis.set(removedIndex, { ranges: ranges.removed, kind: "remove" });
 		emphasis.set(addedIndex, { ranges: ranges.added, kind: "add" });
 	}
@@ -238,6 +241,7 @@ function matchChangedLines(
 }
 
 const MIN_CHANGED_LINE_PAIR_SCORE = 0.45;
+const MIN_WORD_DIFF_UNCHANGED_RATIO = 0.5;
 const MAX_CHANGED_LINE_PAIR_CELLS = 20000;
 
 function matchChangedLinesByPosition(
@@ -257,17 +261,31 @@ function matchChangedLinesByPosition(
 
 function tokenSimilarity(beforeTokens: string[], afterTokens: string[]): number {
 	if (beforeTokens.length === 0 || afterTokens.length === 0) return beforeTokens.length === afterTokens.length ? 1 : 0;
+	const beforeWeight = tokenListWeight(beforeTokens);
+	const afterWeight = tokenListWeight(afterTokens);
 	const remaining = new Map<string, number>();
 	for (const token of beforeTokens) remaining.set(token, (remaining.get(token) ?? 0) + 1);
-	let shared = 0;
+	let sharedWeight = 0;
 	for (const token of afterTokens) {
 		const count = remaining.get(token) ?? 0;
 		if (count === 0) continue;
-		shared++;
+		sharedWeight += tokenWeight(token);
 		if (count === 1) remaining.delete(token);
 		else remaining.set(token, count - 1);
 	}
-	return (2 * shared) / (beforeTokens.length + afterTokens.length);
+	return (2 * sharedWeight) / (beforeWeight + afterWeight);
+}
+
+function tokenListWeight(tokens: string[]): number {
+	return tokens.reduce((total, token) => total + tokenWeight(token), 0);
+}
+
+function tokenWeight(token: string): number {
+	if (/^[A-Za-z_$][\w$]*$/.test(token)) return 2;
+	if (/^\d+(?:\.\d+)?$/.test(token)) return 1.5;
+	if (/^(?:===|!==|=>|==|!=|<=|>=|&&|\|\||[+\-*\/%<>=!?:]+)$/.test(token)) return 0.75;
+	if (/^[{}()[\].,;]$/.test(token)) return 0.15;
+	return 1;
 }
 
 function similarityTokens(text: string): string[] {
@@ -311,13 +329,14 @@ function changedRanges(before: string, after: string): { removed: Array<[number,
 	const added: Array<[number, number]> = [];
 	let oldIndex = 0;
 	let newIndex = 0;
-	for (const part of diffWords(before, after)) {
+	for (const part of diffWordsWithSpace(before, after)) {
 		const length = part.value.length;
+		const visibleChange = !/^\s+$/.test(part.value);
 		if (part.removed) {
-			removed.push([oldIndex, oldIndex + length]);
+			if (visibleChange) removed.push([oldIndex, oldIndex + length]);
 			oldIndex += length;
 		} else if (part.added) {
-			added.push([newIndex, newIndex + length]);
+			if (visibleChange) added.push([newIndex, newIndex + length]);
 			newIndex += length;
 		} else {
 			oldIndex += length;
@@ -338,7 +357,23 @@ function mergeNearbyRanges(ranges: Array<[number, number]>): Array<[number, numb
 }
 
 function normalizeDiffContent(content: string): string {
-	return content.replace(/\t/g, "   ");
+	return escapeControlChars(content.replace(/\t/g, "   "));
+}
+
+function shouldEmphasizeChangedPair(
+	removedContent: string,
+	addedContent: string,
+	ranges: { removed: Array<[number, number]>; added: Array<[number, number]> },
+): boolean {
+	if (ranges.removed.length === 0 && ranges.added.length === 0) return false;
+	return unchangedRatio(removedContent.length, ranges.removed) >= MIN_WORD_DIFF_UNCHANGED_RATIO
+		&& unchangedRatio(addedContent.length, ranges.added) >= MIN_WORD_DIFF_UNCHANGED_RATIO;
+}
+
+function unchangedRatio(length: number, ranges: Array<[number, number]>): number {
+	if (length === 0) return ranges.length === 0 ? 1 : 0;
+	const changed = ranges.reduce((total, [start, end]) => total + Math.max(0, end - start), 0);
+	return Math.max(0, length - changed) / length;
 }
 
 function emphasizeChangedSpans(line: string, ranges: Array<[number, number]>, kind: "add" | "remove"): string {
