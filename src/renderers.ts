@@ -7,6 +7,7 @@ import { FullWidthDiffText, renderSyntaxHighlightedDiff, summarizeDiff } from ".
 import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimTrailingEmptyLines } from "./format.js";
 import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
+import { getSecretWarnings } from "./secret-warnings.js";
 import { codePreviewSettings } from "./settings.js";
 import { normalizeShikiLanguage, renderHighlightedText } from "./shiki.js";
 
@@ -45,7 +46,7 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 			const lines = output ? output.split("\n").map((line) => theme.fg(context.isError ? "error" : "toolOutput", line)) : [];
 			const limit = expanded ? lines.length : 8;
 			const preview = previewLines(lines, limit, theme);
-			let text = preview.lines.length ? preview.lines.join("\n") : theme.fg("muted", "No output");
+			let text = preview.lines.length ? withSecretWarning(output, theme, preview.lines.join("\n")) : theme.fg("muted", "No output");
 			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "output lines");
 			if (isTruncated(result.details)) text += previewFooter(theme, "Output truncated by bash");
 			const fullOutputPath = getObjectValue(result.details, "fullOutputPath");
@@ -106,7 +107,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 			const limit = expanded ? lines.length : codePreviewSettings.readCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
 
-			let text = preview.lines.length ? preview.lines.join("\n") : theme.fg("muted", "Empty file");
+			let text = preview.lines.length ? withSecretWarning(firstText, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty file");
 			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "lines");
 
 			if (isTruncated(result.details)) text += previewFooter(theme, "Output truncated by read");
@@ -142,7 +143,8 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 				countLabel(lines.length, "line"),
 				lang ? normalizeShikiLanguage(lang) : undefined,
 			]);
-			text += `\n${preview.lines.length ? preview.lines.join("\n") : theme.fg("muted", "Empty content")}`;
+			const contentPreview = preview.lines.length ? withSecretWarning(content, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty content");
+			text += `\n${contentPreview}`;
 			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "lines");
 			return new Text(text, 0, 0);
 		},
@@ -171,9 +173,12 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			return originalEdit.execute(toolCallId, params, signal, onUpdate);
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, context) {
 			const path = getPathArg(args);
-			return new Text(`${theme.fg("toolTitle", theme.bold("edit"))} ${renderDisplayPath(path, cwd, theme)}`, 0, 0);
+			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
+			context.state.editHeaderText = text;
+			text.setText(formatEditHeader(path, cwd, theme, context.state.editSummaryText));
+			return text;
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
@@ -185,7 +190,11 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			}
 
 			const diff = getEditDiff(result.details);
-			if (!diff) return new Text(`${theme.fg("success", "✓ Edit applied")}${theme.fg("dim", " · no diff")}`, 0, 0);
+			if (!diff) {
+				context.state.editSummaryText = `${theme.fg("success", "✓ Edit applied")}${theme.fg("muted", " · no diff")}`;
+				updateEditHeader(context, cwd, theme);
+				return new Container();
+			}
 
 			const filePath = getPathArg(context.args);
 			const lang = resolvePreviewLanguage({ path: filePath, piLanguage: getLanguageFromPath(filePath) });
@@ -193,17 +202,40 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);
 
-			let text = theme.fg("muted", describeEditShape(summary));
-			text += editSummarySeparator(theme) + theme.fg("muted", countLabel(summary.hunks, "hunk"));
-			text += editSummarySeparator(theme) + `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
-			if (summary.totalLines > limit) text += editSummarySeparator(theme) + theme.fg("muted", `showing ${limit}/${summary.totalLines} diff lines`);
-			if (!expanded) text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
-			text += `\n${rendered}`;
+			let text = rendered;
+			context.state.editSummaryText = formatEditSummary(summary, limit, theme);
+			if (!expanded) context.state.editSummaryText += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
+			updateEditHeader(context, cwd, theme);
 			if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
 
 			return new FullWidthDiffText(text);
 		},
 	});
+}
+
+function formatEditHeader(path: string, cwd: string, theme: Theme, summaryText: unknown): string {
+	const base = `${theme.fg("toolTitle", theme.bold("edit"))} ${renderDisplayPath(path, cwd, theme)}`;
+	return typeof summaryText === "string" && summaryText ? `${base}${editSummarySeparator(theme)}${summaryText}` : base;
+}
+
+function updateEditHeader(context: { args: unknown; state: Record<string, unknown> }, cwd: string, theme: Theme): void {
+	const text = context.state.editHeaderText;
+	if (text instanceof Text) text.setText(formatEditHeader(getPathArg(context.args), cwd, theme, context.state.editSummaryText));
+}
+
+function formatEditSummary(summary: ReturnType<typeof summarizeDiff>, limit: number, theme: Theme): string {
+	let text = theme.fg("muted", describeEditShape(summary));
+	text += editSummarySeparator(theme) + theme.fg("muted", countLabel(summary.hunks, "hunk"));
+	text += editSummarySeparator(theme) + `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
+	if (summary.totalLines > limit) text += editSummarySeparator(theme) + theme.fg("muted", `showing ${limit}/${summary.totalLines} diff lines`);
+	return text;
+}
+
+function withSecretWarning(source: string, theme: Theme, preview: string): string {
+	if (!codePreviewSettings.secretWarnings) return preview;
+	const warnings = getSecretWarnings(source);
+	if (warnings.length === 0) return preview;
+	return `${theme.fg("warning", `⚠ Preview ${countLabel(warnings.length, "warning")}: possible ${warnings.join(", ")}`)}\n${preview}`;
 }
 
 function editSummarySeparator(theme: Theme): string {

@@ -12,6 +12,7 @@ export interface CodePreviewSettings {
 	readLineNumbers: boolean;
 	bashWarnings: boolean;
 	syntaxHighlighting: boolean;
+	secretWarnings: boolean;
 }
 
 export const defaultCodePreviewSettings: CodePreviewSettings = {
@@ -23,6 +24,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
 	readLineNumbers: true,
 	bashWarnings: true,
 	syntaxHighlighting: true,
+	secretWarnings: true,
 };
 
 export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
@@ -37,6 +39,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 	const readLineNumbers = getObjectValue(data, "readLineNumbers");
 	const bashWarnings = getObjectValue(data, "bashWarnings");
 	const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
+	const secretWarnings = getObjectValue(data, "secretWarnings");
 	return {
 		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : codePreviewSettings.shikiTheme,
 		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : codePreviewSettings.diffIntensity,
@@ -46,6 +49,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
 		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : codePreviewSettings.bashWarnings,
 		syntaxHighlighting: typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : codePreviewSettings.syntaxHighlighting,
+		secretWarnings: typeof secretWarnings === "boolean" ? secretWarnings : codePreviewSettings.secretWarnings,
 	};
 }
 
@@ -59,6 +63,7 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	else if (id === "readLineNumbers") next.readLineNumbers = value === "on";
 	else if (id === "bashWarnings") next.bashWarnings = value === "on";
 	else if (id === "syntaxHighlighting") next.syntaxHighlighting = value === "on";
+	else if (id === "secretWarnings") next.secretWarnings = value === "on";
 	else if (id === "resetToDefaults" && value === "reset now") return { ...defaultCodePreviewSettings };
 	return next;
 }

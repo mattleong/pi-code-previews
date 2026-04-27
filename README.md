@@ -11,7 +11,7 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 - Syntax-highlighted `write` content previews, including empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
 - Rich TextMate/VS Code-style highlighting powered by Shiki.
-- `/code-preview-settings` command for theme and preview display settings.
+- `/code-preview-settings` command for theme and preview display settings, including the settings file path.
 - Keeps pi's colored tool backgrounds so tool calls remain easy to parse.
 - Delegates execution to pi's built-in tools; only rendering is changed.
 
@@ -72,6 +72,8 @@ Settings include:
 - edit diff preview line count
 - read line numbers
 - bash visual warnings
+- secret value warnings
+- settings file path
 - restore defaults
 
 Settings are stored globally in:

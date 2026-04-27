@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "check": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
     "pack:dry": "npm pack --dry-run"
   },
   "dependencies": {
@@ -46,6 +47,7 @@
     ]
   },
   "devDependencies": {
+    "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   }
 }

@@ -1,6 +1,7 @@
 import { getSelectListTheme } from "@mariozechner/pi-coding-agent";
 import { Container, SelectList, Spacer, Text, type SelectItem, type SettingItem } from "@mariozechner/pi-tui";
 import { bundledThemes } from "shiki";
+import { getSettingsPath } from "./settings-store.js";
 import type { CodePreviewSettings } from "./settings.js";
 
 export function createSettingsItems(current: CodePreviewSettings): SettingItem[] {
@@ -60,6 +61,19 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
 			description: "Use Shiki token colors in code previews. Turn off for plainer, lower-noise previews.",
 			currentValue: current.syntaxHighlighting ? "on" : "off",
 			values: ["on", "off"],
+		},
+		{
+			id: "secretWarnings",
+			label: "Secret value warnings",
+			description: "Show preview-only warnings when read, write, or bash output looks like it may contain secrets.",
+			currentValue: current.secretWarnings ? "on" : "off",
+			values: ["on", "off"],
+		},
+		{
+			id: "settingsFile",
+			label: "Settings file",
+			description: "Settings are stored globally in this file.",
+			currentValue: getSettingsPath(),
 		},
 		{
 			id: "resetToDefaults",
