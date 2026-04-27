@@ -47,6 +47,20 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
 			currentValue: current.readLineNumbers ? "on" : "off",
 			values: ["on", "off"],
 		},
+		{
+			id: "bashWarnings",
+			label: "Bash visual warnings",
+			description: "Show preview-only warnings for potentially destructive shell commands.",
+			currentValue: current.bashWarnings ? "on" : "off",
+			values: ["on", "off"],
+		},
+		{
+			id: "resetToDefaults",
+			label: "Reset to defaults",
+			description: "Restore the default code preview settings.",
+			currentValue: "keep",
+			values: ["keep", "reset"],
+		},
 	];
 }
 

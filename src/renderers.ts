@@ -1,9 +1,11 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { createBashTool, createEditTool, createReadTool, createWriteTool, getLanguageFromPath, keyHint } from "@mariozechner/pi-coding-agent";
 import { Container, Text } from "@mariozechner/pi-tui";
+import { getBashWarnings } from "./bash-warnings.js";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
 import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimTrailingEmptyLines } from "./format.js";
+import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
 import { codePreviewSettings } from "./settings.js";
 import { normalizeShikiLanguage, renderHighlightedText } from "./shiki.js";
@@ -32,7 +34,9 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 			const command = typeof args.command === "string" ? args.command : "";
 			const timeout = typeof args.timeout === "number" ? theme.fg("muted", ` (timeout ${args.timeout}s)`) : "";
 			const highlighted = renderHighlightedText(command || "...", "bash", theme).join("\n");
-			return new Text(`${theme.fg("toolTitle", theme.bold("$"))} ${highlighted}${timeout}`, 0, 0);
+			const warnings = codePreviewSettings.bashWarnings ? getBashWarnings(command) : [];
+			const warningText = warnings.length ? `${theme.fg("warning", `⚠ ${warnings.join(", ")}`)}\n` : "";
+			return new Text(`${warningText}${theme.fg("toolTitle", theme.bold("$"))} ${highlighted}${timeout}`, 0, 0);
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
@@ -66,7 +70,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 
 		renderCall(args, theme) {
 			const path = getPathArg(args);
-			const lang = getLanguageFromPath(path);
+			const lang = resolvePreviewLanguage({ path, piLanguage: getLanguageFromPath(path) });
 			let text = `${theme.fg("toolTitle", theme.bold("read"))} ${renderDisplayPath(path, cwd, theme)}`;
 			if (typeof args.offset === "number" || typeof args.limit === "number") {
 				const start = typeof args.offset === "number" ? args.offset : 1;
@@ -92,7 +96,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 				return new Text(theme.fg("dim", firstText.replace(/^Read image file/i, "image")), 0, 0);
 			}
 
-			const lang = getLanguageFromPath(path);
+			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
 			const firstLine = getReadStartLine(context.args);
 			const lines = withOptionalReadLineNumbers(
 				trimTrailingEmptyLines(renderHighlightedText(firstText, lang, theme)),
@@ -127,7 +131,7 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 		renderCall(args, theme, context) {
 			const path = getPathArg(args);
 			const content = typeof args.content === "string" ? args.content : "";
-			const lang = getLanguageFromPath(path);
+			const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
 			const lines = trimTrailingEmptyLines(renderHighlightedText(content, lang, theme));
 			const limit = context.expanded ? lines.length : codePreviewSettings.writeCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
@@ -184,7 +188,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			if (!diff) return new Text(`${theme.fg("success", "✓ Edit applied")}${theme.fg("dim", " · no diff")}`, 0, 0);
 
 			const filePath = getPathArg(context.args);
-			const lang = getLanguageFromPath(filePath);
+			const lang = resolvePreviewLanguage({ path: filePath, piLanguage: getLanguageFromPath(filePath) });
 			const summary = summarizeDiff(diff);
 			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);

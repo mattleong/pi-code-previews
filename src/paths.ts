@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { basename, isAbsolute, relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 
 export function formatDisplayPath(path: string, cwd: string): string {
@@ -21,9 +21,5 @@ export function formatDisplayPath(path: string, cwd: string): string {
 
 export function renderDisplayPath(path: string, cwd: string, theme: Theme, fallback = "..."): string {
 	const displayPath = formatDisplayPath(path, cwd) || fallback;
-	const name = basename(displayPath);
-	if (!name || name === displayPath) return theme.fg("accent", theme.bold(displayPath));
-
-	const prefix = displayPath.slice(0, -name.length);
-	return `${theme.fg("dim", prefix)}${theme.fg("accent", theme.bold(name))}`;
+	return theme.fg("accent", displayPath);
 }

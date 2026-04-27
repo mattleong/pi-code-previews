@@ -10,6 +10,7 @@ export interface CodePreviewSettings {
 	writeCollapsedLines: number;
 	editCollapsedLines: number | "all";
 	readLineNumbers: boolean;
+	bashWarnings: boolean;
 }
 
 export const defaultCodePreviewSettings: CodePreviewSettings = {
@@ -19,6 +20,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
 	writeCollapsedLines: 10,
 	editCollapsedLines: "all",
 	readLineNumbers: true,
+	bashWarnings: true,
 };
 
 export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
@@ -31,6 +33,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 	const shikiTheme = getObjectValue(data, "shikiTheme");
 	const diffIntensity = getObjectValue(data, "diffIntensity");
 	const readLineNumbers = getObjectValue(data, "readLineNumbers");
+	const bashWarnings = getObjectValue(data, "bashWarnings");
 	return {
 		shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : codePreviewSettings.shikiTheme,
 		diffIntensity: isDiffBackgroundIntensity(diffIntensity) ? diffIntensity : codePreviewSettings.diffIntensity,
@@ -38,6 +41,7 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), codePreviewSettings.writeCollapsedLines),
 		editCollapsedLines: coerceEditPreviewLines(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
 		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
+		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : codePreviewSettings.bashWarnings,
 	};
 }
 
@@ -49,6 +53,8 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	else if (id === "writeCollapsedLines") next.writeCollapsedLines = Number(value);
 	else if (id === "editCollapsedLines") next.editCollapsedLines = value === "all" ? "all" : Number(value);
 	else if (id === "readLineNumbers") next.readLineNumbers = value === "on";
+	else if (id === "bashWarnings") next.bashWarnings = value === "on";
+	else if (id === "resetToDefaults" && value === "reset") return { ...defaultCodePreviewSettings };
 	return next;
 }
 

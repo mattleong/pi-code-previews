@@ -33,6 +33,9 @@ const PRELOADED_SHIKI_LANGUAGES = [
 	"sql",
 	"dockerfile",
 	"xml",
+	"dotenv",
+	"makefile",
+	"properties",
 ] as const;
 
 export async function initializeShiki(theme: string) {

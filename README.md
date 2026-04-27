@@ -6,8 +6,8 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 
 ## Features
 
-- Syntax-highlighted `bash` command previews.
-- Syntax-highlighted `read` output based on file extension, with line numbers enabled by default.
+- Syntax-highlighted `bash` command previews with optional visual warnings for risky commands.
+- Syntax-highlighted `read` output using path, filename, shebang, and conservative content detection, with line numbers enabled by default.
 - Syntax-highlighted `write` content previews, including empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
 - Rich TextMate/VS Code-style highlighting powered by Shiki.
@@ -70,6 +70,8 @@ Settings include:
 - write preview line count
 - edit diff preview line count
 - read line numbers
+- bash visual warnings
+- reset to defaults
 
 Settings are stored globally in:
 
