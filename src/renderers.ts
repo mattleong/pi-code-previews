@@ -4,6 +4,7 @@ import { Container, Text } from "@mariozechner/pi-tui";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
 import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimTrailingEmptyLines } from "./format.js";
+import { renderDisplayPath } from "./paths.js";
 import { codePreviewSettings } from "./settings.js";
 import { normalizeShikiLanguage, renderHighlightedText } from "./shiki.js";
 
@@ -66,7 +67,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 		renderCall(args, theme) {
 			const path = getPathArg(args);
 			const lang = getLanguageFromPath(path);
-			let text = `${theme.fg("toolTitle", theme.bold("read"))} ${theme.fg("accent", path || "...")}`;
+			let text = `${theme.fg("toolTitle", theme.bold("read"))} ${renderDisplayPath(path, cwd, theme)}`;
 			if (typeof args.offset === "number" || typeof args.limit === "number") {
 				const start = typeof args.offset === "number" ? args.offset : 1;
 				const end = typeof args.limit === "number" ? start + args.limit - 1 : undefined;
@@ -131,7 +132,7 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 			const limit = context.expanded ? lines.length : codePreviewSettings.writeCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
 
-			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${theme.fg("accent", path || "...")}`;
+			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${renderDisplayPath(path, cwd, theme)}`;
 			text += metadata(theme, [
 				formatBytes(content.length),
 				countLabel(lines.length, "line"),
@@ -168,7 +169,7 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 
 		renderCall(args, theme) {
 			const path = getPathArg(args);
-			return new Text(`${theme.fg("toolTitle", theme.bold("edit"))} ${theme.fg("accent", path || "...")}`, 0, 0);
+			return new Text(`${theme.fg("toolTitle", theme.bold("edit"))} ${renderDisplayPath(path, cwd, theme)}`, 0, 0);
 		},
 
 		renderResult(result, { expanded, isPartial }, theme, context) {
@@ -188,9 +189,13 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
 			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);
 
-			let text = `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
-			text += theme.fg("dim", ` in ${filePath || "file"}`);
-			text += metadata(theme, [countLabel(summary.hunks, "hunk")]);
+			let text = renderDisplayPath(filePath, cwd, theme, "file");
+			text += metadata(theme, [
+				describeEditShape(summary),
+				countLabel(summary.hunks, "hunk"),
+				`${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`,
+				summary.totalLines > limit ? `showing ${limit}/${summary.totalLines} diff lines` : undefined,
+			]);
 			if (!expanded) text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			text += `\n${rendered}`;
 			if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
@@ -198,6 +203,14 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			return new FullWidthDiffText(text);
 		},
 	});
+}
+
+function describeEditShape(summary: ReturnType<typeof summarizeDiff>): string {
+	const parts: string[] = [];
+	if (summary.replacements > 0) parts.push(countLabel(summary.replacements, "replacement"));
+	if (summary.insertions > 0) parts.push(countLabel(summary.insertions, "insertion"));
+	if (summary.deletions > 0) parts.push(countLabel(summary.deletions, "deletion"));
+	return parts.length ? parts.join(", ") : "changes";
 }
 
 function withOptionalReadLineNumbers(lines: string[], firstLine: number, theme: Theme): string[] {

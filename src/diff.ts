@@ -33,20 +33,48 @@ export class FullWidthDiffText implements Component {
 	invalidate(): void {}
 }
 
-export function summarizeDiff(diff: string): { additions: number; removals: number; totalLines: number; hunks: number } {
+export function summarizeDiff(diff: string): {
+	additions: number;
+	removals: number;
+	replacements: number;
+	insertions: number;
+	deletions: number;
+	totalLines: number;
+	hunks: number;
+} {
 	let additions = 0;
 	let removals = 0;
+	let replacements = 0;
 	let hunks = 0;
 	let inHunk = false;
 	const lines = diff.split("\n");
-	for (const line of lines) {
-		const changed = (line.startsWith("+") && !line.startsWith("+++")) || (line.startsWith("-") && !line.startsWith("---"));
-		if (line.startsWith("+") && !line.startsWith("+++")) additions++;
-		else if (line.startsWith("-") && !line.startsWith("---")) removals++;
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i]!;
+		const isAddition = line.startsWith("+") && !line.startsWith("+++");
+		const isRemoval = line.startsWith("-") && !line.startsWith("---");
+		const changed = isAddition || isRemoval;
+
+		if (isAddition) additions++;
+		else if (isRemoval) {
+			removals++;
+			const next = lines[i + 1];
+			if (next?.startsWith("+") && !next.startsWith("+++")) replacements++;
+		}
+
 		if (changed && !inHunk) hunks++;
 		inHunk = changed;
 	}
-	return { additions, removals, totalLines: lines.length, hunks };
+
+	return {
+		additions,
+		removals,
+		replacements,
+		insertions: Math.max(0, additions - replacements),
+		deletions: Math.max(0, removals - replacements),
+		totalLines: lines.length,
+		hunks,
+	};
 }
 
 export function renderSyntaxHighlightedDiff(diff: string, lang: string | undefined, theme: Theme, limit: number): string {
