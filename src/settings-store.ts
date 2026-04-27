@@ -10,7 +10,12 @@ export function getSettingsPath(): string {
 export async function loadSettingsFromDisk(): Promise<CodePreviewSettings | undefined> {
 	let loaded = false;
 	let effective = codePreviewSettings;
-	for (const settingsPath of [join(homedir(), ".pi", "settings.json"), join(process.cwd(), ".pi", "settings.json"), getSettingsPath()]) {
+	for (const settingsPath of [
+		join(homedir(), ".pi", "settings.json"),
+		join(homedir(), ".pi", "agent", "settings.json"),
+		join(process.cwd(), ".pi", "settings.json"),
+		getSettingsPath(),
+	]) {
 		try {
 			const content = await readFile(settingsPath, "utf8");
 			effective = normalizeSettings(extractCodePreviewSettings(JSON.parse(content)), effective);
@@ -29,11 +34,12 @@ export async function saveSettingsToDisk(settings: CodePreviewSettings): Promise
 	await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
-function extractCodePreviewSettings(data: unknown): Record<string, unknown> {
+export function extractCodePreviewSettings(data: unknown): Record<string, unknown> {
 	if (!data || typeof data !== "object") return {};
 	const object = data as Record<string, unknown>;
 	const nested = object.codePreview;
 	if (nested && typeof nested === "object") return nested as Record<string, unknown>;
+	if (hasDirectCodePreviewSettings(object)) return object;
 	const extracted: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(object)) {
 		if (!key.startsWith("codePreview")) continue;
@@ -42,6 +48,23 @@ function extractCodePreviewSettings(data: unknown): Record<string, unknown> {
 		extracted[normalized[0]!.toLowerCase() + normalized.slice(1)] = value;
 	}
 	return extracted;
+}
+
+function hasDirectCodePreviewSettings(object: Record<string, unknown>): boolean {
+	return [
+		"shikiTheme",
+		"diffIntensity",
+		"readCollapsedLines",
+		"writeCollapsedLines",
+		"editCollapsedLines",
+		"grepCollapsedLines",
+		"pathListCollapsedLines",
+		"readLineNumbers",
+		"bashWarnings",
+		"syntaxHighlighting",
+		"secretWarnings",
+		"pathIcons",
+	].some((key) => key in object);
 }
 
 function isFileNotFound(error: unknown): boolean {

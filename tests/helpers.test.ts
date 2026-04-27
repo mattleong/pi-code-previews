@@ -15,6 +15,7 @@ import { formatDisplayPath } from "../src/paths.js";
 import { createSimpleDiff, getMaxWriteDiffBytes, getWriteDiffSkipReason, readExistingFileForPreview, resolvePreviewPath } from "../src/write-diff.js";
 import { getSecretWarnings } from "../src/secret-warnings.js";
 import { codePreviewSettings, defaultCodePreviewSettings, normalizeSettings, setCodePreviewSettings, updateSetting } from "../src/settings.js";
+import { extractCodePreviewSettings } from "../src/settings-store.js";
 import { formatEnabledCodePreviewTools, getEnabledCodePreviewTools } from "../src/tool-selection.js";
 import { registerToolRenderers } from "../src/renderers.js";
 
@@ -172,6 +173,13 @@ test("settings normalization falls back to accumulated settings for invalid over
 	const validOverride = normalizeSettings({ shikiTheme: "dark-plus", readCollapsedLines: 20 }, fallback);
 	assert.equal(validOverride.shikiTheme, "dark-plus");
 	assert.equal(validOverride.readCollapsedLines, 20);
+});
+
+test("extractCodePreviewSettings accepts nested, prefixed, and saved raw settings", () => {
+	assert.deepEqual(extractCodePreviewSettings({ codePreview: { readCollapsedLines: 20 } }), { readCollapsedLines: 20 });
+	assert.deepEqual(extractCodePreviewSettings({ codePreviewReadCollapsedLines: 30 }), { readCollapsedLines: 30 });
+	assert.deepEqual(extractCodePreviewSettings({ ...defaultCodePreviewSettings, readCollapsedLines: 40 }).readCollapsedLines, 40);
+	assert.deepEqual(extractCodePreviewSettings({ theme: "dark" }), {});
 });
 
 test("trimSingleTrailingNewline preserves leading and meaningful trailing spaces", () => {
