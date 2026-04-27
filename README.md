@@ -6,12 +6,17 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 
 ## Features
 
-- Syntax-highlighted `bash` command previews with optional visual warnings for risky commands.
+- Syntax-highlighted `bash` command previews.
+- Optional preview-only `bash` warnings for risky-looking commands such as recursive deletes, `sudo`, hard git resets, and system-path redirects.
+- Syntax-highlighted `bash` output previews with truncation footers when collapsed or truncated by pi.
 - Syntax-highlighted `read` output using path, filename, shebang, and conservative content detection, with line numbers enabled by default.
-- Syntax-highlighted `write` content previews, including empty-content placeholders.
+- Syntax-highlighted `write` content previews, including size, line count, language metadata, and empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
-- Rich TextMate/VS Code-style highlighting powered by Shiki.
-- `/code-preview-settings` command for theme and preview display settings, including the settings file path.
+- Inline edit summaries on the edit header, including replacements/insertions/deletions, hunk count, and `+/-` line counts.
+- Optional preview-only warnings when `read`, `write`, or `bash` output looks like it may contain secret values.
+- Shortened path display relative to the current working directory, or `~/...` for files under the home directory.
+- Rich TextMate/VS Code-style highlighting powered by Shiki, with a setting to turn syntax highlighting off.
+- `/code-preview-settings` command for theme and preview display settings, including the settings file path and restore-defaults action.
 - Keeps pi's colored tool backgrounds so tool calls remain easy to parse.
 - Delegates execution to pi's built-in tools; only rendering is changed.
 
@@ -20,6 +25,10 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 | Before | After |
 | --- | --- |
 | <img width="1549" height="1133" alt="Screenshot 2026-04-26 at 1 20 00 PM" src="https://github.com/user-attachments/assets/d68c10a8-b931-4e9a-8144-24558605c045" /> | <img width="1548" height="1097" alt="Screenshot 2026-04-26 at 1 18 42 PM" src="https://github.com/user-attachments/assets/5d18b219-c73f-4347-bd8c-a0bf179edf8d" /> |
+
+## Requirements
+
+- Node.js 20 or newer.
 
 ## Install
 
@@ -100,7 +109,7 @@ It does not:
 
 The extension re-registers pi's built-in `bash`, `read`, `write`, and `edit` tools with the same names and parameters. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering.
 
-Syntax highlighting is powered by Shiki. If a language is not available, the preview falls back to plain text.
+Syntax highlighting is powered by Shiki. Language selection uses pi's built-in language detection plus extension-specific filename, shebang, and conservative content detection. If a language is not available, or syntax highlighting is disabled, the preview falls back to plain text.
 
 ## Security
 
