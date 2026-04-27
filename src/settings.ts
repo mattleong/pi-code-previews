@@ -9,6 +9,8 @@ export interface CodePreviewSettings {
 	readCollapsedLines: number;
 	writeCollapsedLines: number;
 	editCollapsedLines: number | "all";
+	grepCollapsedLines: number;
+	pathListCollapsedLines: number;
 	readLineNumbers: boolean;
 	bashWarnings: boolean;
 	syntaxHighlighting: boolean;
@@ -16,15 +18,17 @@ export interface CodePreviewSettings {
 }
 
 export const defaultCodePreviewSettings: CodePreviewSettings = {
-	shikiTheme: "dark-plus",
-	diffIntensity: "subtle",
-	readCollapsedLines: 10,
-	writeCollapsedLines: 10,
-	editCollapsedLines: "all",
-	readLineNumbers: true,
-	bashWarnings: true,
-	syntaxHighlighting: true,
-	secretWarnings: true,
+	shikiTheme: envTheme("CODE_PREVIEW_THEME", "dark-plus"),
+	diffIntensity: envDiffIntensity("CODE_PREVIEW_DIFF_INTENSITY", "subtle"),
+	readCollapsedLines: envNumber("CODE_PREVIEW_READ_LINES", 10),
+	writeCollapsedLines: envNumber("CODE_PREVIEW_WRITE_LINES", 10),
+	editCollapsedLines: envEditLines("CODE_PREVIEW_EDIT_LINES", "all"),
+	grepCollapsedLines: envNumber("CODE_PREVIEW_GREP_LINES", 15),
+	pathListCollapsedLines: envNumber("CODE_PREVIEW_PATH_LIST_LINES", 20),
+	readLineNumbers: envBoolean("CODE_PREVIEW_READ_LINE_NUMBERS", true),
+	bashWarnings: envBoolean("CODE_PREVIEW_BASH_WARNINGS", true),
+	syntaxHighlighting: envBoolean("CODE_PREVIEW_SYNTAX", true),
+	secretWarnings: envBoolean("CODE_PREVIEW_SECRET_WARNINGS", true),
 };
 
 export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
@@ -46,6 +50,8 @@ export function normalizeSettings(data: unknown): CodePreviewSettings {
 		readCollapsedLines: coerceNumber(getObjectValue(data, "readCollapsedLines"), codePreviewSettings.readCollapsedLines),
 		writeCollapsedLines: coerceNumber(getObjectValue(data, "writeCollapsedLines"), codePreviewSettings.writeCollapsedLines),
 		editCollapsedLines: coerceEditPreviewLines(getObjectValue(data, "editCollapsedLines"), codePreviewSettings.editCollapsedLines),
+		grepCollapsedLines: coerceNumber(getObjectValue(data, "grepCollapsedLines"), codePreviewSettings.grepCollapsedLines),
+		pathListCollapsedLines: coerceNumber(getObjectValue(data, "pathListCollapsedLines"), codePreviewSettings.pathListCollapsedLines),
 		readLineNumbers: typeof readLineNumbers === "boolean" ? readLineNumbers : codePreviewSettings.readLineNumbers,
 		bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : codePreviewSettings.bashWarnings,
 		syntaxHighlighting: typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : codePreviewSettings.syntaxHighlighting,
@@ -57,9 +63,11 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	const next = { ...current };
 	if (id === "shikiTheme" && isBundledThemeName(value)) next.shikiTheme = value;
 	else if (id === "diffIntensity" && isDiffBackgroundIntensity(value)) next.diffIntensity = value;
-	else if (id === "readCollapsedLines") next.readCollapsedLines = Number(value);
-	else if (id === "writeCollapsedLines") next.writeCollapsedLines = Number(value);
-	else if (id === "editCollapsedLines") next.editCollapsedLines = value === "all" ? "all" : Number(value);
+	else if (id === "readCollapsedLines") next.readCollapsedLines = coerceStringNumber(value, current.readCollapsedLines);
+	else if (id === "writeCollapsedLines") next.writeCollapsedLines = coerceStringNumber(value, current.writeCollapsedLines);
+	else if (id === "editCollapsedLines") next.editCollapsedLines = value === "all" ? "all" : coerceStringNumber(value, typeof current.editCollapsedLines === "number" ? current.editCollapsedLines : 100);
+	else if (id === "grepCollapsedLines") next.grepCollapsedLines = coerceStringNumber(value, current.grepCollapsedLines);
+	else if (id === "pathListCollapsedLines") next.pathListCollapsedLines = coerceStringNumber(value, current.pathListCollapsedLines);
 	else if (id === "readLineNumbers") next.readLineNumbers = value === "on";
 	else if (id === "bashWarnings") next.bashWarnings = value === "on";
 	else if (id === "syntaxHighlighting") next.syntaxHighlighting = value === "on";
@@ -68,8 +76,41 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 	return next;
 }
 
+function envTheme(name: string, fallback: string): string {
+	const value = process.env[name];
+	return isBundledThemeName(value) ? value : fallback;
+}
+
+function envNumber(name: string, fallback: number): number {
+	const value = Number(process.env[name]);
+	return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function envBoolean(name: string, fallback: boolean): boolean {
+	const value = process.env[name]?.toLowerCase();
+	if (value === undefined) return fallback;
+	return value === "1" || value === "true" || value === "on" || value === "yes";
+}
+
+function envEditLines(name: string, fallback: number | "all"): number | "all" {
+	const value = process.env[name];
+	if (value === "all") return "all";
+	const numeric = Number(value);
+	return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+}
+
+function envDiffIntensity(name: string, fallback: DiffBackgroundIntensity): DiffBackgroundIntensity {
+	const value = process.env[name];
+	return isDiffBackgroundIntensity(value) ? value : fallback;
+}
+
 function coerceNumber(value: unknown, fallback: number): number {
 	return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function coerceStringNumber(value: string, fallback: number): number {
+	const numeric = Number(value);
+	return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
 }
 
 function coerceEditPreviewLines(value: unknown, fallback: number | "all"): number | "all" {

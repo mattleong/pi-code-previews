@@ -42,6 +42,20 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
 			values: ["all", "60", "100", "160", "240"],
 		},
 		{
+			id: "grepCollapsedLines",
+			label: "Grep preview lines",
+			description: "Maximum grep result lines shown before collapsing.",
+			currentValue: String(current.grepCollapsedLines),
+			values: ["10", "15", "25", "40", "80"],
+		},
+		{
+			id: "pathListCollapsedLines",
+			label: "Find/ls preview lines",
+			description: "Maximum find and ls result lines shown before collapsing.",
+			currentValue: String(current.pathListCollapsedLines),
+			values: ["10", "20", "40", "80", "120"],
+		},
+		{
 			id: "readLineNumbers",
 			label: "Read line numbers",
 			description: "Show line numbers in read previews.",

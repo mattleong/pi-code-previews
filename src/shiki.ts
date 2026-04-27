@@ -5,6 +5,11 @@ import { setCodePreviewSettings, codePreviewSettings } from "./settings.js";
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
 const loadedShikiLanguages = new Set<string>();
 const pendingShikiLanguages = new Set<string>();
+const renderCache = new Map<string, string[]>();
+const languageLoadCallbacks = new Map<string, Set<() => void>>();
+
+const MAX_HIGHLIGHT_CHARS = envPositiveInteger("CODE_PREVIEW_MAX_HIGHLIGHT_CHARS", 80000);
+const CACHE_LIMIT = envPositiveInteger("CODE_PREVIEW_CACHE_LIMIT", 192);
 
 const PRELOADED_SHIKI_LANGUAGES = [
 	"bash",
@@ -44,6 +49,7 @@ export async function initializeShiki(theme: string) {
 		const nextHighlighter = await createHighlighter({ themes: [theme], langs: [...PRELOADED_SHIKI_LANGUAGES] });
 		previousHighlighter?.dispose();
 		shikiHighlighter = nextHighlighter;
+		renderCache.clear();
 		setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: theme });
 		loadedShikiLanguages.clear();
 		for (const lang of PRELOADED_SHIKI_LANGUAGES) loadedShikiLanguages.add(lang);
@@ -53,28 +59,81 @@ export async function initializeShiki(theme: string) {
 	}
 }
 
-export function renderHighlightedText(text: string, lang: string | undefined, theme: Theme): string[] {
+export function renderHighlightedText(text: string, lang: string | undefined, theme: Theme, invalidate?: () => void): string[] {
 	const normalized = text.replace(/\t/g, "   ");
-	if (!codePreviewSettings.syntaxHighlighting || !lang) return normalized.split("\n").map((line) => theme.fg("toolOutput", line));
-	return renderWithShiki(normalized, lang) ?? normalized.split("\n").map((line) => theme.fg("toolOutput", line));
+	if (!codePreviewSettings.syntaxHighlighting || !lang || shouldSkipHighlight(normalized)) return normalized.split("\n").map((line) => theme.fg("toolOutput", line));
+	return renderWithShiki(normalized, lang, invalidate) ?? normalized.split("\n").map((line) => theme.fg("toolOutput", line));
 }
 
-export function renderWithShiki(code: string, lang: string | undefined): string[] | undefined {
-	if (!codePreviewSettings.syntaxHighlighting || !shikiHighlighter || !lang) return undefined;
+export function renderWithShiki(code: string, lang: string | undefined, invalidate?: () => void): string[] | undefined {
+	if (!codePreviewSettings.syntaxHighlighting || !shikiHighlighter || !lang || shouldSkipHighlight(code)) return undefined;
 	const shikiLang = normalizeShikiLanguage(lang);
+	const cacheKey = `${codePreviewSettings.shikiTheme}\0${shikiLang}\0${code}`;
+	const cached = renderCache.get(cacheKey);
+	if (cached) {
+		renderCache.delete(cacheKey);
+		renderCache.set(cacheKey, cached);
+		return cached;
+	}
 	try {
-		if (!loadedShikiLanguages.has(shikiLang) && !pendingShikiLanguages.has(shikiLang)) {
-			pendingShikiLanguages.add(shikiLang);
-			shikiHighlighter.loadLanguage(shikiLang as never)
-				.then(() => loadedShikiLanguages.add(shikiLang))
-				.catch(() => {})
-				.finally(() => pendingShikiLanguages.delete(shikiLang));
-		}
+		if (!loadedShikiLanguages.has(shikiLang)) requestLanguageLoad(shikiLang, invalidate);
 		const tokens = shikiHighlighter.codeToTokensBase(code, { lang: shikiLang as never, theme: codePreviewSettings.shikiTheme as never });
-		return tokens.map((line) => line.map((token) => ansiFromToken(token)).join(""));
+		const rendered = tokens.map((line) => normalizeShikiContrast(line.map((token) => ansiFromToken(token)).join("")));
+		cacheRendered(cacheKey, rendered);
+		return rendered;
 	} catch {
 		return undefined;
 	}
+}
+
+export function shouldSkipHighlight(text: string): boolean {
+	return Number.isFinite(MAX_HIGHLIGHT_CHARS) && MAX_HIGHLIGHT_CHARS > 0 && text.length > MAX_HIGHLIGHT_CHARS;
+}
+
+export function getShikiStatus(): { initialized: boolean; cacheSize: number; cacheLimit: number; maxHighlightChars: number; loadedLanguages: number; pendingLanguages: number } {
+	return {
+		initialized: Boolean(shikiHighlighter),
+		cacheSize: renderCache.size,
+		cacheLimit: CACHE_LIMIT,
+		maxHighlightChars: MAX_HIGHLIGHT_CHARS,
+		loadedLanguages: loadedShikiLanguages.size,
+		pendingLanguages: pendingShikiLanguages.size,
+	};
+}
+
+function cacheRendered(key: string, value: string[]): void {
+	renderCache.set(key, value);
+	while (renderCache.size > CACHE_LIMIT) {
+		const first = renderCache.keys().next().value;
+		if (typeof first !== "string") break;
+		renderCache.delete(first);
+	}
+}
+
+function requestLanguageLoad(shikiLang: string, invalidate: (() => void) | undefined): void {
+	if (invalidate) {
+		const callbacks = languageLoadCallbacks.get(shikiLang) ?? new Set<() => void>();
+		callbacks.add(invalidate);
+		languageLoadCallbacks.set(shikiLang, callbacks);
+	}
+	if (pendingShikiLanguages.has(shikiLang)) return;
+	pendingShikiLanguages.add(shikiLang);
+	void shikiHighlighter?.loadLanguage(shikiLang as never)
+		.then(() => {
+			loadedShikiLanguages.add(shikiLang);
+			const callbacks = languageLoadCallbacks.get(shikiLang);
+			languageLoadCallbacks.delete(shikiLang);
+			callbacks?.forEach((callback) => callback());
+		})
+		.catch(() => {
+			languageLoadCallbacks.delete(shikiLang);
+		})
+		.finally(() => pendingShikiLanguages.delete(shikiLang));
+}
+
+function envPositiveInteger(name: string, fallback: number): number {
+	const value = Number.parseInt(process.env[name] ?? "", 10);
+	return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 export function normalizeShikiLanguage(lang: string): string {
@@ -86,6 +145,19 @@ export function normalizeShikiLanguage(lang: string): string {
 	if (normalized === "md") return "markdown";
 	if (normalized === "yml") return "yaml";
 	return normalized;
+}
+
+function normalizeShikiContrast(ansi: string): string {
+	return ansi.replace(/\x1b\[([0-9;]*)m/g, (seq, params: string) => isLowContrastFg(params) ? "\x1b[38;2;139;148;158m" : seq);
+}
+
+function isLowContrastFg(params: string): boolean {
+	if (params === "30" || params === "90" || params === "38;5;0" || params === "38;5;8") return true;
+	if (!params.startsWith("38;2;")) return false;
+	const [, , r, g, b] = params.split(";").map(Number);
+	if (![r, g, b].every(Number.isFinite)) return false;
+	const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	return luminance < 72;
 }
 
 function ansiFromToken(token: { content: string; color?: string; fontStyle?: number }, forceUnderline = false): string {

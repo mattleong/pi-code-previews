@@ -1,6 +1,6 @@
 # pi-code-previews
 
-Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `edit` tools.
+Syntax-highlighted TUI previews for pi's built-in tools, with code-aware rendering for `bash`, `read`, `write`, `edit`, and `grep`, plus lightweight path-list rendering for `find` and `ls`.
 
 `pi-code-previews` preserves the original behavior of pi's tools and only changes how their calls and results are rendered.
 
@@ -13,6 +13,10 @@ Syntax-highlighted TUI previews for pi's built-in `bash`, `read`, `write`, and `
 - Syntax-highlighted `write` content previews, including size, line count, language metadata, and empty-content placeholders.
 - Syntax-highlighted `edit` diff previews with full-width red/green changed-line highlights, dimmed context, and clearer diff headers/hunk separators.
 - Inline edit summaries on the edit header, including replacements/insertions/deletions, hunk count, and `+/-` line counts.
+- Syntax-highlighted `grep` result previews grouped by file, with readable line prefixes and match emphasis layered over source highlighting.
+- Lightweight `find` and `ls` path-list rendering for consistent built-in tool presentation.
+- `write` result summaries for new files, no-op writes, and overwrites with highlighted diffs.
+- Word-level emphasis inside paired diff add/remove lines.
 - Optional preview-only warnings when `read`, `write`, or `bash` output looks like it may contain secret values.
 - Shortened path display relative to the current working directory, or `~/...` for files under the home directory.
 - Rich TextMate/VS Code-style highlighting powered by Shiki, with a setting to turn syntax highlighting off.
@@ -64,6 +68,9 @@ Once installed, the extension automatically enhances previews for pi's built-in 
 - `read`
 - `write`
 - `edit`
+- `grep`
+- `find`
+- `ls`
 
 Configure preview appearance inside pi with:
 
@@ -79,6 +86,7 @@ Settings include:
 - read preview line count
 - write preview line count
 - edit diff preview line count
+- grep result preview line count
 - read line numbers
 - bash visual warnings
 - secret value warnings
@@ -91,9 +99,40 @@ Settings are stored globally in:
 ~/.pi/agent/code-previews.json
 ```
 
+Power-user defaults can also be set with environment variables before pi starts:
+
+```bash
+CODE_PREVIEW_THEME=github-dark
+CODE_PREVIEW_READ_LINES=20
+CODE_PREVIEW_WRITE_LINES=20
+CODE_PREVIEW_EDIT_LINES=120 # or all
+CODE_PREVIEW_GREP_LINES=40
+CODE_PREVIEW_PATH_LIST_LINES=40
+CODE_PREVIEW_TOOLS=write,edit,grep # comma/space list, all, or none
+CODE_PREVIEW_DIFF_INTENSITY=medium # off, subtle, medium
+CODE_PREVIEW_MAX_HIGHLIGHT_CHARS=80000
+CODE_PREVIEW_CACHE_LIMIT=192
+CODE_PREVIEW_ASYNC_RENDER_CHARS=20000
+CODE_PREVIEW_MAX_WRITE_DIFF_BYTES=200000
+```
+
+You can also put code-preview defaults in `.pi/settings.json` globally or per project:
+
+```json
+{
+  "codePreview": {
+    "shikiTheme": "dark-plus",
+    "grepCollapsedLines": 40,
+    "pathListCollapsedLines": 40
+  }
+}
+```
+
+Use `/code-preview-health` to inspect active tools, Shiki status, cache size, and the settings file path.
+
 ## Scope
 
-`pi-code-previews` is limited to TUI preview rendering for pi's existing `bash`, `read`, `write`, and `edit` tools.
+`pi-code-previews` is limited to TUI preview rendering for pi's existing built-in tools. `find` and `ls` return path lists rather than source code, so they get lightweight path rendering rather than syntax highlighting.
 
 It does not:
 
@@ -107,7 +146,7 @@ It does not:
 
 ## How it works
 
-The extension re-registers pi's built-in `bash`, `read`, `write`, and `edit` tools with the same names and parameters. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering.
+The extension re-registers pi's built-in `bash`, `read`, `write`, `edit`, `grep`, `find`, and `ls` tools with the same names and parameters. Set `CODE_PREVIEW_TOOLS` to a comma/space-separated list when you only want some renderers, for example when combining this package with `pi-pretty` or `pi-diff`. Each override delegates execution to pi's original tool implementation and customizes only the TUI rendering. For overwrite summaries, `write` also reads the previous file content before delegating, up to `CODE_PREVIEW_MAX_WRITE_DIFF_BYTES`, so it can render an after-the-fact diff without diffing very large files.
 
 Syntax highlighting is powered by Shiki. Language selection uses pi's built-in language detection plus extension-specific filename, shebang, and conservative content detection. If a language is not available, or syntax highlighting is disabled, the preview falls back to plain text.
 

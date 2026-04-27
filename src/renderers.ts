@@ -1,6 +1,7 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
-import { createBashTool, createEditTool, createReadTool, createWriteTool, getLanguageFromPath, keyHint } from "@mariozechner/pi-coding-agent";
+import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, getLanguageFromPath, keyHint } from "@mariozechner/pi-coding-agent";
 import { Container, Text } from "@mariozechner/pi-tui";
+import { AsyncPreview, shouldRenderAsync } from "./async-preview.js";
 import { getBashWarnings } from "./bash-warnings.js";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
@@ -9,32 +10,36 @@ import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
 import { getSecretWarnings } from "./secret-warnings.js";
 import { codePreviewSettings } from "./settings.js";
-import { normalizeShikiLanguage, renderHighlightedText } from "./shiki.js";
+import { normalizeShikiLanguage, renderHighlightedText, shouldSkipHighlight } from "./shiki.js";
+import { registerFind, registerGrep, registerLs } from "./search-renderers.js";
+import { getEnabledCodePreviewTools } from "./tool-selection.js";
+import { createSimpleDiff, getWriteDiffSkipReason, readExistingFileForPreview, shouldSkipWriteDiffText } from "./write-diff.js";
 
 export function registerToolRenderers(pi: ExtensionAPI, cwd: string) {
-	registerBash(pi, cwd);
-	registerRead(pi, cwd);
-	registerWrite(pi, cwd);
-	registerEdit(pi, cwd);
+	const enabledTools = getEnabledCodePreviewTools();
+	if (enabledTools.has("bash")) registerBash(pi, cwd);
+	if (enabledTools.has("read")) registerRead(pi, cwd);
+	if (enabledTools.has("write")) registerWrite(pi, cwd);
+	if (enabledTools.has("edit")) registerEdit(pi, cwd);
+	if (enabledTools.has("grep")) registerGrep(pi, cwd);
+	if (enabledTools.has("find")) registerFind(pi, cwd);
+	if (enabledTools.has("ls")) registerLs(pi, cwd);
 }
 
 function registerBash(pi: ExtensionAPI, cwd: string) {
-	const originalBash = createBashTool(cwd);
+	const originalBash = createBashToolDefinition(cwd);
 
 	pi.registerTool({
-		name: "bash",
-		label: originalBash.label ?? "bash",
-		description: originalBash.description,
-		parameters: originalBash.parameters,
+		...originalBash,
 
-		async execute(toolCallId, params, signal, onUpdate) {
-			return originalBash.execute(toolCallId, params, signal, onUpdate);
+		async execute(toolCallId, params, signal, onUpdate, ctx) {
+			return originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, context) {
 			const command = typeof args.command === "string" ? args.command : "";
 			const timeout = typeof args.timeout === "number" ? theme.fg("muted", ` (timeout ${args.timeout}s)`) : "";
-			const highlighted = renderHighlightedText(command || "...", "bash", theme).join("\n");
+			const highlighted = renderHighlightedText(command || "...", "bash", theme, context.invalidate).join("\n");
 			const warnings = codePreviewSettings.bashWarnings ? getBashWarnings(command) : [];
 			const warningText = warnings.length ? `${theme.fg("warning", `⚠ Preview ${countLabel(warnings.length, "warning")}: ${warnings.join(", ")}`)}\n` : "";
 			return new Text(`${warningText}${theme.fg("toolTitle", theme.bold("$"))} ${highlighted}${timeout}`, 0, 0);
@@ -57,19 +62,16 @@ function registerBash(pi: ExtensionAPI, cwd: string) {
 }
 
 function registerRead(pi: ExtensionAPI, cwd: string) {
-	const originalRead = createReadTool(cwd);
+	const originalRead = createReadToolDefinition(cwd);
 
 	pi.registerTool({
-		name: "read",
-		label: originalRead.label ?? "read",
-		description: originalRead.description,
-		parameters: originalRead.parameters,
+		...originalRead,
 
-		async execute(toolCallId, params, signal, onUpdate) {
-			return originalRead.execute(toolCallId, params, signal, onUpdate);
+		async execute(toolCallId, params, signal, onUpdate, ctx) {
+			return originalRead.execute(toolCallId, params, signal, onUpdate, ctx);
 		},
 
-		renderCall(args, theme) {
+		renderCall(args, theme, _context) {
 			const path = getPathArg(args);
 			const lang = resolvePreviewLanguage({ path, piLanguage: getLanguageFromPath(path) });
 			let text = `${theme.fg("toolTitle", theme.bold("read"))} ${renderDisplayPath(path, cwd, theme)}`;
@@ -100,7 +102,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
 			const firstLine = getReadStartLine(context.args);
 			const lines = withOptionalReadLineNumbers(
-				trimTrailingEmptyLines(renderHighlightedText(firstText, lang, theme)),
+				trimTrailingEmptyLines(renderHighlightedText(firstText, lang, theme, context.invalidate)),
 				firstLine,
 				theme,
 			);
@@ -110,6 +112,7 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 			let text = preview.lines.length ? withSecretWarning(firstText, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty file");
 			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "lines");
 
+			if (shouldSkipHighlight(firstText)) text += previewFooter(theme, "Syntax highlighting skipped for large file");
 			if (isTruncated(result.details)) text += previewFooter(theme, "Output truncated by read");
 			return new Text(text, 0, 0);
 		},
@@ -117,60 +120,74 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 }
 
 function registerWrite(pi: ExtensionAPI, cwd: string) {
-	const originalWrite = createWriteTool(cwd);
+	const originalWrite = createWriteToolDefinition(cwd);
 
 	pi.registerTool({
-		name: "write",
-		label: originalWrite.label ?? "write",
-		description: originalWrite.description,
-		parameters: originalWrite.parameters,
+		...originalWrite,
 
-		async execute(toolCallId, params, signal, onUpdate) {
-			return originalWrite.execute(toolCallId, params, signal, onUpdate);
+		async execute(toolCallId, params, signal, onUpdate, ctx) {
+			const path = getPathArg(params);
+			const content = typeof params.content === "string" ? params.content : "";
+			const before = path ? await readExistingFileForPreview(path, cwd, content) : undefined;
+			const result = await originalWrite.execute(toolCallId, params, signal, onUpdate, ctx);
+			const details = result.details && typeof result.details === "object" ? result.details : {};
+			return { ...result, details: { ...details, codePreviewBeforeWrite: before } };
 		},
 
 		renderCall(args, theme, context) {
 			const path = getPathArg(args);
 			const content = typeof args.content === "string" ? args.content : "";
 			const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
-			const lines = trimTrailingEmptyLines(renderHighlightedText(content, lang, theme));
+			const lines = trimTrailingEmptyLines(renderHighlightedText(content, lang, theme, context.invalidate));
 			const limit = context.expanded ? lines.length : codePreviewSettings.writeCollapsedLines;
 			const preview = previewLines(lines, limit, theme);
 
 			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${renderDisplayPath(path, cwd, theme)}`;
 			text += metadata(theme, [
-				formatBytes(content.length),
+				formatBytes(Buffer.byteLength(content, "utf8")),
 				countLabel(lines.length, "line"),
 				lang ? normalizeShikiLanguage(lang) : undefined,
 			]);
 			const contentPreview = preview.lines.length ? withSecretWarning(content, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty content");
 			text += `\n${contentPreview}`;
 			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "lines");
+			if (shouldSkipHighlight(content)) text += previewFooter(theme, "Syntax highlighting skipped for large content");
 			return new Text(text, 0, 0);
 		},
 
-		renderResult(result, _options, theme, context) {
-			if (!context.isError) return new Container();
+		renderResult(result, { expanded }, theme, context) {
 			const firstText = getTextContent(result.content);
-			return new Text(theme.fg("error", firstText || "Write failed"), 0, 0);
+			if (context.isError) return new Text(theme.fg("error", firstText || "Write failed"), 0, 0);
+
+			const path = getPathArg(context.args);
+			const content = typeof context.args?.content === "string" ? context.args.content : "";
+			const before = getObjectValue(result.details, "codePreviewBeforeWrite");
+			const beforeContent = getObjectValue(before, "content");
+			const skipReason = getWriteDiffSkipReason(before, content);
+			if (skipReason) return new Text(theme.fg("success", "✓ Write applied") + theme.fg("muted", ` · diff skipped: ${skipReason}`), 0, 0);
+			if (typeof beforeContent === "string" && beforeContent !== content) {
+				const render = () => renderWriteDiffPreview(beforeContent, content, path, expanded, theme, context.invalidate);
+				return shouldRenderAsync(beforeContent + content)
+					? new AsyncPreview("Rendering write diff…", theme, render, context.invalidate)
+					: render();
+			}
+			if (typeof beforeContent === "string") return new Text(theme.fg("muted", "✓ Write applied · no changes"), 0, 0);
+			return new Text(theme.fg("success", `✓ New file (${countLabel(content.split("\n").length, "line")})`), 0, 0);
 		},
 	});
 }
 
 function registerEdit(pi: ExtensionAPI, cwd: string) {
-	const originalEdit = createEditTool(cwd);
+	const originalEdit = createEditToolDefinition(cwd);
 
 	pi.registerTool({
-		name: "edit",
-		label: originalEdit.label ?? "edit",
-		description: originalEdit.description,
-		parameters: originalEdit.parameters,
+		...originalEdit,
 		// The built-in edit tool uses renderShell: "self". Override that so pi
 		// wraps our highlighted diff in the standard colored tool background.
 		renderShell: "default",
 
-		async execute(toolCallId, params, signal, onUpdate) {
-			return originalEdit.execute(toolCallId, params, signal, onUpdate);
+		async execute(toolCallId, params, signal, onUpdate, ctx) {
+			return originalEdit.execute(toolCallId, params, signal, onUpdate, ctx);
 		},
 
 		renderCall(args, theme, context) {
@@ -207,17 +224,37 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			const lang = resolvePreviewLanguage({ path: filePath, piLanguage: getLanguageFromPath(filePath) });
 			const summary = summarizeDiff(diff);
 			const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
-			const rendered = renderSyntaxHighlightedDiff(diff, lang, theme, limit);
-
-			let text = rendered;
 			context.state.editSummaryText = formatEditSummary(summary, limit, theme);
 			if (!expanded) context.state.editSummaryText += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			updateEditHeader(context, cwd, theme);
-			if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
-
-			return new FullWidthDiffText(text);
+			const render = () => renderEditDiffPreview(diff, lang, limit, summary.totalLines, theme, context.invalidate);
+			return shouldRenderAsync(diff)
+				? new AsyncPreview("Rendering edit diff…", theme, render, context.invalidate)
+				: render();
 		},
 	});
+}
+
+function renderWriteDiffPreview(before: string, content: string, path: string, expanded: boolean, theme: Theme, invalidate?: () => void): FullWidthDiffText {
+	if (shouldSkipWriteDiffText(before + content)) {
+		return new FullWidthDiffText(theme.fg("success", "✓ Write applied") + theme.fg("muted", " · diff skipped for large content"), theme);
+	}
+	const diff = createSimpleDiff(before, content);
+	const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
+	const summary = summarizeDiff(diff);
+	const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
+	let text = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeEditShape(summary))}${editSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
+	text += renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
+	if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
+	if (shouldSkipHighlight(diff)) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
+	return new FullWidthDiffText(text, theme);
+}
+
+function renderEditDiffPreview(diff: string, lang: string | undefined, limit: number, totalLines: number, theme: Theme, invalidate?: () => void): FullWidthDiffText {
+	let text = renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
+	if (totalLines > limit) text += showingFooter(theme, limit, totalLines, "diff lines");
+	if (shouldSkipHighlight(diff)) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
+	return new FullWidthDiffText(text, theme);
 }
 
 function formatEditHeader(path: string, cwd: string, theme: Theme, summaryText: unknown): string {

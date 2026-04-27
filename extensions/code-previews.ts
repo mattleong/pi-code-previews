@@ -1,11 +1,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { getSettingsListTheme } from "@mariozechner/pi-coding-agent";
-import { SettingsList } from "@mariozechner/pi-tui";
+import { Container, Text, SettingsList } from "@mariozechner/pi-tui";
 import { registerToolRenderers } from "../src/renderers.js";
-import { loadSettingsFromDisk, saveSettingsToDisk } from "../src/settings-store.js";
+import { getSettingsPath, loadSettingsFromDisk, saveSettingsToDisk } from "../src/settings-store.js";
 import { createSettingsItems } from "../src/settings-ui.js";
 import { setCodePreviewSettings, codePreviewSettings, updateSetting } from "../src/settings.js";
-import { initializeShiki } from "../src/shiki.js";
+import { getShikiStatus, initializeShiki } from "../src/shiki.js";
+import { formatEnabledCodePreviewTools } from "../src/tool-selection.js";
 
 /**
  * Syntax-highlighted code previews for pi.
@@ -14,6 +15,29 @@ export default async function codePreviews(pi: ExtensionAPI) {
 	const savedSettings = await loadSettingsFromDisk();
 	if (savedSettings) setCodePreviewSettings(savedSettings);
 	await initializeShiki(codePreviewSettings.shikiTheme);
+
+	pi.registerCommand("code-preview-health", {
+		description: "Show code preview renderer health and settings",
+		handler: async (_args, ctx) => {
+			const status = getShikiStatus();
+			const lines = [
+				"Code preview health",
+				`Shiki initialized: ${status.initialized ? "yes" : "no"}`,
+				`Shiki theme: ${codePreviewSettings.shikiTheme}`,
+				`Syntax highlighting: ${codePreviewSettings.syntaxHighlighting ? "on" : "off"}`,
+				`Enabled tools: ${formatEnabledCodePreviewTools()}`,
+				`Cache: ${status.cacheSize}/${status.cacheLimit}`,
+				`Loaded languages: ${status.loadedLanguages}`,
+				`Pending languages: ${status.pendingLanguages}`,
+				`Max highlight chars: ${status.maxHighlightChars}`,
+				`Settings file: ${getSettingsPath()}`,
+			];
+			await ctx.ui.custom((_tui, theme, _kb, done) => new HealthPanel(
+				lines.map((line, index) => index === 0 ? theme.bold(line) : line).join("\n"),
+				done,
+			), { overlay: true });
+		},
+	});
 
 	pi.registerCommand("code-preview-settings", {
 		description: "Configure code preview settings",
@@ -43,12 +67,25 @@ export default async function codePreviews(pi: ExtensionAPI) {
 	registerToolRenderers(pi, process.cwd());
 }
 
+class HealthPanel extends Container {
+	constructor(text: string, private readonly done: (result?: undefined) => void) {
+		super();
+		this.addChild(new Text(`${text}\n\nPress any key to close`, 0, 0));
+	}
+
+	handleInput(): void {
+		this.done();
+	}
+}
+
 function syncSettingsListValues(list: SettingsList): void {
 	list.updateValue("shikiTheme", codePreviewSettings.shikiTheme);
 	list.updateValue("diffIntensity", codePreviewSettings.diffIntensity);
 	list.updateValue("readCollapsedLines", String(codePreviewSettings.readCollapsedLines));
 	list.updateValue("writeCollapsedLines", String(codePreviewSettings.writeCollapsedLines));
 	list.updateValue("editCollapsedLines", String(codePreviewSettings.editCollapsedLines));
+	list.updateValue("grepCollapsedLines", String(codePreviewSettings.grepCollapsedLines));
+	list.updateValue("pathListCollapsedLines", String(codePreviewSettings.pathListCollapsedLines));
 	list.updateValue("readLineNumbers", codePreviewSettings.readLineNumbers ? "on" : "off");
 	list.updateValue("bashWarnings", codePreviewSettings.bashWarnings ? "on" : "off");
 	list.updateValue("syntaxHighlighting", codePreviewSettings.syntaxHighlighting ? "on" : "off");

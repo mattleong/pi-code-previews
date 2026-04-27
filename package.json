@@ -35,6 +35,7 @@
     "pack:dry": "npm pack --dry-run"
   },
   "dependencies": {
+    "diff": "^8.0.4",
     "shiki": "^4.0.2"
   },
   "peerDependencies": {
