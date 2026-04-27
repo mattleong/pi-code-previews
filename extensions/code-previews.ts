@@ -20,10 +20,12 @@ export default async function codePreviews(pi: ExtensionAPI) {
 		handler: async (_args, ctx) => {
 			const items = createSettingsItems(codePreviewSettings);
 			await ctx.ui.custom((_tui, _theme, _kb, done) => {
-				const list = new SettingsList(items, items.length + 2, getSettingsListTheme(), (id, value) => {
+				let list: SettingsList;
+				list = new SettingsList(items, items.length + 2, getSettingsListTheme(), (id, value) => {
 					const previousTheme = codePreviewSettings.shikiTheme;
 					const resetRequested = id === "resetToDefaults" && value === "reset now";
 					setCodePreviewSettings(updateSetting(codePreviewSettings, id, value));
+					if (resetRequested) syncSettingsListValues(list);
 					if (codePreviewSettings.shikiTheme !== previousTheme) void initializeShiki(codePreviewSettings.shikiTheme);
 					void saveSettingsToDisk(codePreviewSettings)
 						.then(() => {
@@ -39,4 +41,17 @@ export default async function codePreviews(pi: ExtensionAPI) {
 	});
 
 	registerToolRenderers(pi, process.cwd());
+}
+
+function syncSettingsListValues(list: SettingsList): void {
+	list.updateValue("shikiTheme", codePreviewSettings.shikiTheme);
+	list.updateValue("diffIntensity", codePreviewSettings.diffIntensity);
+	list.updateValue("readCollapsedLines", String(codePreviewSettings.readCollapsedLines));
+	list.updateValue("writeCollapsedLines", String(codePreviewSettings.writeCollapsedLines));
+	list.updateValue("editCollapsedLines", String(codePreviewSettings.editCollapsedLines));
+	list.updateValue("readLineNumbers", codePreviewSettings.readLineNumbers ? "on" : "off");
+	list.updateValue("bashWarnings", codePreviewSettings.bashWarnings ? "on" : "off");
+	list.updateValue("syntaxHighlighting", codePreviewSettings.syntaxHighlighting ? "on" : "off");
+	list.updateValue("secretWarnings", codePreviewSettings.secretWarnings ? "on" : "off");
+	list.updateValue("resetToDefaults", "keep current");
 }

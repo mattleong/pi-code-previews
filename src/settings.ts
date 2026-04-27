@@ -69,12 +69,13 @@ export function updateSetting(current: CodePreviewSettings, id: string, value: s
 }
 
 function coerceNumber(value: unknown, fallback: number): number {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
 
 function coerceEditPreviewLines(value: unknown, fallback: number | "all"): number | "all" {
 	if (value === "all") return "all";
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) return Math.floor(value);
+	return fallback;
 }
 
 function isDiffBackgroundIntensity(value: unknown): value is DiffBackgroundIntensity {

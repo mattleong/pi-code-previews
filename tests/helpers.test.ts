@@ -28,13 +28,21 @@ test("getSecretWarnings detects common secret-looking values", () => {
 	assert.deepEqual(getSecretWarnings("hello world"), []);
 });
 
-test("summarizeDiff classifies replacements, insertions, and deletions", () => {
-	const summary = summarizeDiff("- 1 old\n+ 1 new\n+ 2 inserted\n- 3 removed");
-	assert.equal(summary.additions, 2);
-	assert.equal(summary.removals, 2);
-	assert.equal(summary.replacements, 1);
-	assert.equal(summary.insertions, 1);
-	assert.equal(summary.deletions, 1);
+test("summarizeDiff classifies replacements, insertions, and deletions by change group", () => {
+	const balanced = summarizeDiff("- 1 old\n- 2 old\n+ 1 new\n+ 2 new");
+	assert.equal(balanced.additions, 2);
+	assert.equal(balanced.removals, 2);
+	assert.equal(balanced.replacements, 1);
+	assert.equal(balanced.insertions, 0);
+	assert.equal(balanced.deletions, 0);
+
+	const withExtraLines = summarizeDiff("- 1 old\n+ 1 new\n+ 2 inserted\n context\n- 3 removed");
+	assert.equal(withExtraLines.additions, 2);
+	assert.equal(withExtraLines.removals, 2);
+	assert.equal(withExtraLines.replacements, 1);
+	assert.equal(withExtraLines.insertions, 1);
+	assert.equal(withExtraLines.deletions, 1);
+	assert.equal(withExtraLines.hunks, 2);
 });
 
 test("formatDisplayPath shortens paths relative to cwd", () => {
@@ -43,9 +51,10 @@ test("formatDisplayPath shortens paths relative to cwd", () => {
 });
 
 test("settings normalization and reset preserve defaults", () => {
-	const normalized = normalizeSettings({ syntaxHighlighting: false, secretWarnings: false, bashWarnings: false });
+	const normalized = normalizeSettings({ syntaxHighlighting: false, secretWarnings: false, bashWarnings: false, readCollapsedLines: -1 });
 	assert.equal(normalized.syntaxHighlighting, false);
 	assert.equal(normalized.secretWarnings, false);
 	assert.equal(normalized.bashWarnings, false);
+	assert.equal(normalized.readCollapsedLines, defaultCodePreviewSettings.readCollapsedLines);
 	assert.deepEqual(updateSetting(normalized, "resetToDefaults", "reset now"), defaultCodePreviewSettings);
 });

@@ -45,36 +45,46 @@ export function summarizeDiff(diff: string): {
 	let additions = 0;
 	let removals = 0;
 	let replacements = 0;
+	let insertions = 0;
+	let deletions = 0;
 	let hunks = 0;
-	let inHunk = false;
+	let groupAdditions = 0;
+	let groupRemovals = 0;
 	const lines = diff.split("\n");
 
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i]!;
-		const isAddition = line.startsWith("+") && !line.startsWith("+++");
-		const isRemoval = line.startsWith("-") && !line.startsWith("---");
-		const changed = isAddition || isRemoval;
-
-		if (isAddition) additions++;
-		else if (isRemoval) {
-			removals++;
-			const next = lines[i + 1];
-			if (next?.startsWith("+") && !next.startsWith("+++")) replacements++;
+	function flushChangeGroup() {
+		if (groupAdditions === 0 && groupRemovals === 0) return;
+		hunks++;
+		if (groupAdditions > 0 && groupRemovals > 0) {
+			replacements++;
+			insertions += Math.max(0, groupAdditions - groupRemovals);
+			deletions += Math.max(0, groupRemovals - groupAdditions);
+		} else if (groupAdditions > 0) {
+			insertions += groupAdditions;
+		} else {
+			deletions += groupRemovals;
 		}
-
-		if (changed && !inHunk) hunks++;
-		inHunk = changed;
+		groupAdditions = 0;
+		groupRemovals = 0;
 	}
 
-	return {
-		additions,
-		removals,
-		replacements,
-		insertions: Math.max(0, additions - replacements),
-		deletions: Math.max(0, removals - replacements),
-		totalLines: lines.length,
-		hunks,
-	};
+	for (const line of lines) {
+		const isAddition = line.startsWith("+") && !line.startsWith("+++");
+		const isRemoval = line.startsWith("-") && !line.startsWith("---");
+
+		if (isAddition) {
+			additions++;
+			groupAdditions++;
+		} else if (isRemoval) {
+			removals++;
+			groupRemovals++;
+		} else {
+			flushChangeGroup();
+		}
+	}
+	flushChangeGroup();
+
+	return { additions, removals, replacements, insertions, deletions, totalLines: lines.length, hunks };
 }
 
 export function renderSyntaxHighlightedDiff(diff: string, lang: string | undefined, theme: Theme, limit: number): string {

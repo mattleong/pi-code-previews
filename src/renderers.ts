@@ -174,6 +174,11 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 		},
 
 		renderCall(args, theme, context) {
+			const argsKey = JSON.stringify(args ?? {});
+			if (context.state.editArgsKey !== argsKey) {
+				context.state.editArgsKey = argsKey;
+				context.state.editSummaryText = undefined;
+			}
 			const path = getPathArg(args);
 			const text = context.lastComponent instanceof Text ? context.lastComponent : new Text("", 0, 0);
 			context.state.editHeaderText = text;
@@ -186,6 +191,8 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 
 			const firstText = getTextContent(result.content);
 			if (context.isError || firstText.startsWith("Error")) {
+				context.state.editSummaryText = undefined;
+				updateEditHeader(context, cwd, theme);
 				return new Text(theme.fg("error", firstText.split("\n")[0] || "Edit failed"), 0, 0);
 			}
 
