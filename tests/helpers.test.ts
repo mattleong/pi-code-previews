@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import type { Component } from "@mariozechner/pi-tui";
+import { Box, visibleWidth, type Component } from "@mariozechner/pi-tui";
 import { test } from "node:test";
 import { getBashWarnings } from "../src/bash-warnings.js";
 import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../src/diff.js";
@@ -205,7 +205,16 @@ test("full-width diff component wraps long ANSI lines", () => {
 	const diffText = renderPlainDiff("+1 " + "x".repeat(80), testTheme(), 1);
 	const rows = new FullWidthDiffText(diffText, testTheme()).render(30);
 	assert.ok(rows.length > 1);
-	assert.ok(stripAnsi(rows.at(-1) ?? "").length <= 30);
+	assert.equal(visibleWidth(rows[0] ?? ""), 30);
+	assert.ok(visibleWidth(rows.at(-1) ?? "") <= 30);
+});
+
+test("diff background reaches box right padding without exceeding child width", () => {
+	const box = new Box(1, 0, (text) => `\x1b[48;2;1;1;1m${text}\x1b[49m`);
+	box.addChild(new FullWidthDiffText(renderPlainDiff("+1 short", testTheme(), 1), testTheme()));
+	const line = box.render(20)[0] ?? "";
+	assert.equal(visibleWidth(line), 20);
+	assert.match(line, /\x1b\[48;2;10;42;26m[^\n]* \x1b\[49m$/);
 });
 
 test("word emphasis pairs the most similar lines inside change blocks", () => {
@@ -470,7 +479,7 @@ function renderComponent(component: Component, width = 100): string {
 }
 
 function stripAnsi(text: string): string {
-	return text.replace(/\x1b\[[0-9;]*m/g, "");
+	return text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
 }
 
 function testTheme(): Theme {

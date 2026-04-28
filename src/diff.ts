@@ -330,7 +330,11 @@ function diffLineBg(kind: "add" | "remove", line: string, theme?: Theme): string
 		?? (kind === "add"
 			? codePreviewSettings.diffIntensity === "medium" ? "\x1b[48;2;22;68;40m" : "\x1b[48;2;10;42;26m"
 			: codePreviewSettings.diffIntensity === "medium" ? "\x1b[48;2;78;36;40m" : "\x1b[48;2;50;24;30m");
-	return bg + line.replace(/\x1b\[39m/g, `\x1b[39m${bg}`).replace(/\x1b\[49m/g, `\x1b[49m${bg}`) + "\x1b[49m";
+	const coloredLine = line.replace(/\x1b\[39m/g, `\x1b[39m${bg}`).replace(/\x1b\[49m/g, `\x1b[49m${bg}`);
+	// Leave the diff background active at end-of-line. Pi's surrounding Box adds
+	// the final right-padding cell before resetting the tool background, so that
+	// padding inherits the diff background without the child exceeding its width.
+	return bg + coloredLine;
 }
 
 function deriveDiffBg(kind: "add" | "remove", theme: Theme | undefined, intensity: number): string | undefined {
