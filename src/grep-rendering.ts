@@ -6,7 +6,7 @@ import { escapeControlChars } from "./terminal-text.js";
 
 export type ParsedGrepOutputLine = { path: string; lineNumber: string; code: string; kind: "match" | "context" };
 
-export function renderGrepOutputLines(output: string, theme: Theme, search: { pattern: string; literal: boolean; ignoreCase: boolean }, invalidate?: () => void): string[] {
+export function renderGrepOutputLines(output: string, theme: Theme, search: { pattern: string; literal: boolean; ignoreCase: boolean }, invalidate?: () => void, options: { syntaxHighlight?: boolean } = {}): string[] {
 	const rendered: string[] = [];
 	let currentPath = "";
 	for (const rawLine of output.split("\n")) {
@@ -27,7 +27,7 @@ export function renderGrepOutputLines(output: string, theme: Theme, search: { pa
 			currentPath = parsed.path;
 			rendered.push(theme.fg("accent", escapeControlChars(currentPath)));
 		}
-		rendered.push(renderGrepParsedLine(parsed, theme, search, invalidate));
+		rendered.push(renderGrepParsedLine(parsed, theme, search, invalidate, options.syntaxHighlight !== false));
 	}
 	return rendered;
 }
@@ -44,8 +44,8 @@ export function parseGrepOutputLine(line: string): ParsedGrepOutputLine | undefi
 	return undefined;
 }
 
-function renderGrepParsedLine(parsed: ParsedGrepOutputLine, theme: Theme, search: { pattern: string; literal: boolean; ignoreCase: boolean }, invalidate?: () => void): string {
-	const lang = resolvePreviewLanguage({ path: parsed.path, piLanguage: getLanguageFromPath(parsed.path) });
+function renderGrepParsedLine(parsed: ParsedGrepOutputLine, theme: Theme, search: { pattern: string; literal: boolean; ignoreCase: boolean }, invalidate: (() => void) | undefined, syntaxHighlight: boolean): string {
+	const lang = syntaxHighlight ? resolvePreviewLanguage({ path: parsed.path, piLanguage: getLanguageFromPath(parsed.path) }) : undefined;
 	const code = parsed.code.replace(/\t/g, "   ");
 	let highlighted = renderHighlightedText(code, lang, theme, invalidate)[0] ?? theme.fg("toolOutput", code);
 	const matchRanges = parsed.kind === "match" ? grepMatchRanges(code, search) : [];

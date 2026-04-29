@@ -6,6 +6,8 @@ import { escapeControlChars } from "./terminal-text.js";
 export { escapeControlChars } from "./terminal-text.js";
 
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
+let shikiInitVersion = 0;
+let shikiHighlighterGeneration = 0;
 const loadedShikiLanguages = new Set<string>();
 const pendingShikiLanguages = new Set<string>();
 const renderCache = new Map<string, string[]>();
@@ -16,49 +18,45 @@ const CACHE_LIMIT = envPositiveInteger("CODE_PREVIEW_CACHE_LIMIT", 192);
 
 const PRELOADED_SHIKI_LANGUAGES = [
 	"bash",
-	"shellscript",
 	"typescript",
 	"tsx",
 	"javascript",
 	"jsx",
 	"json",
 	"markdown",
-	"html",
-	"css",
-	"scss",
-	"yaml",
-	"toml",
-	"python",
 	"diff",
-	"go",
-	"rust",
-	"java",
-	"c",
-	"cpp",
-	"csharp",
-	"php",
-	"ruby",
-	"sql",
-	"dockerfile",
-	"xml",
-	"dotenv",
-	"makefile",
-	"properties",
+	"yaml",
 ] as const;
 
 export async function initializeShiki(theme: string) {
+	const initVersion = ++shikiInitVersion;
 	try {
-		const previousHighlighter = shikiHighlighter;
 		const nextHighlighter = await createHighlighter({ themes: [theme], langs: [...PRELOADED_SHIKI_LANGUAGES] });
-		previousHighlighter?.dispose();
+		if (initVersion !== shikiInitVersion) {
+			nextHighlighter.dispose();
+			return;
+		}
+
+		const previousHighlighter = shikiHighlighter;
 		shikiHighlighter = nextHighlighter;
+		shikiHighlighterGeneration++;
+		previousHighlighter?.dispose();
+
 		renderCache.clear();
-		setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: theme });
 		loadedShikiLanguages.clear();
+		pendingShikiLanguages.clear();
+		languageLoadCallbacks.clear();
+		setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: theme });
 		for (const lang of PRELOADED_SHIKI_LANGUAGES) loadedShikiLanguages.add(lang);
 	} catch (error) {
+		if (initVersion !== shikiInitVersion) return;
 		console.warn("[pi-code-previews] Shiki failed to initialize; previews will be plain text.", error);
 		shikiHighlighter = undefined;
+		shikiHighlighterGeneration++;
+		renderCache.clear();
+		loadedShikiLanguages.clear();
+		pendingShikiLanguages.clear();
+		languageLoadCallbacks.clear();
 	}
 }
 
@@ -121,18 +119,24 @@ function requestLanguageLoad(shikiLang: string, invalidate: (() => void) | undef
 		languageLoadCallbacks.set(shikiLang, callbacks);
 	}
 	if (pendingShikiLanguages.has(shikiLang)) return;
+	const highlighter = shikiHighlighter;
+	if (!highlighter) return;
+	const generation = shikiHighlighterGeneration;
 	pendingShikiLanguages.add(shikiLang);
-	void shikiHighlighter?.loadLanguage(shikiLang as never)
+	void highlighter.loadLanguage(shikiLang as never)
 		.then(() => {
+			if (generation !== shikiHighlighterGeneration) return;
 			loadedShikiLanguages.add(shikiLang);
 			const callbacks = languageLoadCallbacks.get(shikiLang);
 			languageLoadCallbacks.delete(shikiLang);
 			callbacks?.forEach((callback) => callback());
 		})
 		.catch(() => {
-			languageLoadCallbacks.delete(shikiLang);
+			if (generation === shikiHighlighterGeneration) languageLoadCallbacks.delete(shikiLang);
 		})
-		.finally(() => pendingShikiLanguages.delete(shikiLang));
+		.finally(() => {
+			if (generation === shikiHighlighterGeneration) pendingShikiLanguages.delete(shikiLang);
+		});
 }
 
 function envPositiveInteger(name: string, fallback: number): number {

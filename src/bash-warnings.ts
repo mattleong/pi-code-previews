@@ -4,7 +4,7 @@ export interface BashWarning {
 }
 
 const BASH_WARNINGS: BashWarning[] = [
-	{ label: "recursive delete", pattern: /\brm\s+(?:-[\w-]*r[\w-]*f|-[\w-]*f[\w-]*r|--recursive\s+--force|--force\s+--recursive)\b/ },
+	{ label: "recursive delete", pattern: /\brm\b(?=[^;&|]*(?:-[\w-]*r[\w-]*|--recursive)\b)(?=[^;&|]*(?:-[\w-]*f[\w-]*|--force)\b)/i },
 	{ label: "elevated privileges", pattern: /(^|[;&|]\s*)sudo\b/ },
 	{ label: "recursive permission change", pattern: /\bchmod\s+(?:-[\w-]*R|--recursive)\b/ },
 	{ label: "recursive ownership change", pattern: /\bchown\s+(?:-[\w-]*R|--recursive)\b/ },

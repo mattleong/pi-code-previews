@@ -15,6 +15,7 @@ import { formatDisplayPath } from "../src/paths.js";
 import { createSimpleDiff, getMaxWriteDiffBytes, getWriteDiffSkipReason, readExistingFileForPreview, resolvePreviewPath } from "../src/write-diff.js";
 import { getSecretWarnings } from "../src/secret-warnings.js";
 import { codePreviewSettings, defaultCodePreviewSettings, normalizeSettings, setCodePreviewSettings, updateSetting } from "../src/settings.js";
+import { wrapAnsiToWidth } from "../src/terminal-text.js";
 import { extractCodePreviewSettings } from "../src/settings-store.js";
 import { formatEnabledCodePreviewTools, getEnabledCodePreviewTools } from "../src/tool-selection.js";
 import { registerToolRenderers } from "../src/renderers.js";
@@ -30,12 +31,15 @@ test("resolvePreviewLanguage handles filenames, shebangs, and conservative conte
 
 test("getBashWarnings returns user-facing labels", () => {
 	assert.deepEqual(getBashWarnings("sudo rm -rf build"), ["recursive delete", "elevated privileges"]);
+	assert.deepEqual(getBashWarnings("rm -r -f build"), ["recursive delete"]);
+	assert.deepEqual(getBashWarnings("rm -Rf build"), ["recursive delete"]);
 	assert.deepEqual(getBashWarnings("git reset --hard && git clean -fd"), ["discards git changes", "removes untracked files"]);
 	assert.deepEqual(getBashWarnings("echo hi"), []);
 });
 
 test("getSecretWarnings detects common secret-looking values", () => {
 	assert.deepEqual(getSecretWarnings("OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz"), ["API key"]);
+	assert.deepEqual(getSecretWarnings("OPENAI_API_KEY=\"sk-abcdefghijklmnopqrstuvwxyz\""), ["API key"]);
 	assert.deepEqual(getSecretWarnings("token=ghp_abcdefghijklmnopqrstuvwxyz123456"), ["GitHub token"]);
 	assert.deepEqual(getSecretWarnings("hello world"), []);
 });
@@ -100,8 +104,8 @@ test("createSimpleDiff keeps separated changes distinct", () => {
 	assert.doesNotMatch(diff, /\+3 keep/);
 });
 
-test("resolvePreviewPath handles @, ~, and relative paths", () => {
-	assert.equal(resolvePreviewPath("@src/file.ts", "/tmp/project"), "/tmp/project/src/file.ts");
+test("resolvePreviewPath preserves @ paths and handles ~ and relative paths", () => {
+	assert.equal(resolvePreviewPath("@src/file.ts", "/tmp/project"), "/tmp/project/@src/file.ts");
 	assert.equal(resolvePreviewPath("src/file.ts", "/tmp/project"), "/tmp/project/src/file.ts");
 	assert.equal(resolvePreviewPath("~/file.ts", "/tmp/project").endsWith("/file.ts"), true);
 });
@@ -217,6 +221,13 @@ test("diff background reaches box right padding without exceeding child width", 
 	assert.match(line, /\x1b\[48;2;10;42;26m[^\n]* \x1b\[49m$/);
 });
 
+test("ANSI wrapping uses terminal cell width for wide unicode", () => {
+	const rows = wrapAnsiToWidth(`\x1b[31m${"漢".repeat(8)}\x1b[39m`, 6, 10);
+	assert.ok(rows.length > 1);
+	assert.ok(rows.every((row) => visibleWidth(row) <= 6));
+	assert.equal(stripAnsi(rows[0] ?? ""), "漢漢漢");
+});
+
 test("word emphasis pairs the most similar lines inside change blocks", () => {
 	const diff = "-1 const trimmed = line.trim();\n+1 const safeLine = escapeControlChars(line);\n+2 const trimmed = safeLine.trim();";
 	const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 3).split("\n");
@@ -295,6 +306,56 @@ test("registered edit call previews proposed edits before execution", () => {
 		)));
 		assert.match(started, /edit src\/a\.ts/);
 		assert.doesNotMatch(started, /proposed edit/);
+	} finally {
+		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
+		else process.env.CODE_PREVIEW_TOOLS = previous;
+	}
+});
+
+test("registered result renderers reuse async previews after they settle", async () => {
+	const previous = process.env.CODE_PREVIEW_TOOLS;
+	process.env.CODE_PREVIEW_TOOLS = "write,edit";
+	try {
+		const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];
+		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
+		const edit = registered.find((tool) => tool.name === "edit");
+		const write = registered.find((tool) => tool.name === "write");
+		assert.ok(edit?.renderResult);
+		assert.ok(write?.renderResult);
+
+		const before = "a".repeat(21000);
+		const after = "b".repeat(21000);
+		const editState = {};
+		let editInvalidations = 0;
+		const editArgs = [
+			{ content: [{ type: "text", text: "ok" }], details: { diff: `-1 ${before}\n+1 ${after}` } },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { path: "src/a.ts" }, isError: false, invalidate: () => editInvalidations++, state: editState },
+		] as const;
+		const firstEditPreview = edit.renderResult(...editArgs);
+		assert.match(stripAnsi(renderComponent(firstEditPreview)), /Rendering edit diff/);
+		await delay(10);
+		const settledEditPreview = edit.renderResult(...editArgs);
+		assert.equal(settledEditPreview, firstEditPreview);
+		assert.ok(editInvalidations > 0);
+		assert.doesNotMatch(stripAnsi(renderComponent(settledEditPreview, 80)), /Rendering edit diff/);
+
+		const writeState = {};
+		let writeInvalidations = 0;
+		const writeArgs = [
+			{ content: [{ type: "text", text: "ok" }], details: { codePreviewBeforeWrite: { kind: "content", content: before } } },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { path: "src/a.ts", content: after }, isError: false, invalidate: () => writeInvalidations++, state: writeState },
+		] as const;
+		const firstWritePreview = write.renderResult(...writeArgs);
+		assert.match(stripAnsi(renderComponent(firstWritePreview)), /Rendering write diff/);
+		await delay(10);
+		const settledWritePreview = write.renderResult(...writeArgs);
+		assert.equal(settledWritePreview, firstWritePreview);
+		assert.ok(writeInvalidations > 0);
+		assert.doesNotMatch(stripAnsi(renderComponent(settledWritePreview, 80)), /Rendering write diff/);
 	} finally {
 		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
 		else process.env.CODE_PREVIEW_TOOLS = previous;
@@ -480,6 +541,10 @@ function renderComponent(component: Component, width = 100): string {
 
 function stripAnsi(text: string): string {
 	return text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function testTheme(): Theme {

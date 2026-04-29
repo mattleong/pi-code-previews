@@ -5,7 +5,7 @@ import { AsyncPreview, shouldRenderAsync } from "./async-preview.js";
 import { getBashWarnings } from "./bash-warnings.js";
 import { getEditDiff, getObjectValue, getPathArg, getReadStartLine, getTextContent, isTruncated } from "./data.js";
 import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "./diff.js";
-import { countLabel, formatBytes, metadata, previewFooter, previewLines, showingFooter, trimSingleTrailingNewline, trimTrailingEmptyLines } from "./format.js";
+import { countLabel, formatBytes, hiddenLinesMarker, metadata, previewFooter, previewLines, selectPreviewLines, showingFooter, trimSingleTrailingNewline, trimTrailingEmptyLines } from "./format.js";
 import { resolvePreviewLanguage } from "./language.js";
 import { renderDisplayPath } from "./paths.js";
 import { getSecretWarnings } from "./secret-warnings.js";
@@ -102,18 +102,18 @@ function registerRead(pi: ExtensionAPI, cwd: string) {
 
 			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
 			const firstLine = getReadStartLine(context.args);
-			const lines = withOptionalReadLineNumbers(
-				trimTrailingEmptyLines(renderHighlightedText(firstText, lang, theme, context.invalidate)),
+			const rawLines = trimTrailingEmptyLines(firstText.replace(/\t/g, "   ").split("\n"));
+			const limit = expanded ? rawLines.length : codePreviewSettings.readCollapsedLines;
+			const skipHighlight = shouldSkipHighlight(firstText);
+			const preview = renderHighlightedPreviewLines(rawLines, limit, skipHighlight ? undefined : lang, theme, context.invalidate, {
 				firstLine,
-				theme,
-			);
-			const limit = expanded ? lines.length : codePreviewSettings.readCollapsedLines;
-			const preview = previewLines(lines, limit, theme);
+				lineNumberWidth: String(firstLine + Math.max(0, rawLines.length - 1)).length,
+			});
 
 			let text = preview.lines.length ? withSecretWarning(firstText, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty file");
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "lines");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "lines");
 
-			if (shouldSkipHighlight(firstText)) text += previewFooter(theme, "Syntax highlighting skipped for large file");
+			if (skipHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large file");
 			if (isTruncated(result.details)) text += previewFooter(theme, "Output truncated by read");
 			return new Text(text, 0, 0);
 		},
@@ -139,20 +139,21 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 			const path = getPathArg(args);
 			const content = typeof args.content === "string" ? args.content : "";
 			const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
-			const lines = trimTrailingEmptyLines(renderHighlightedText(content, lang, theme, context.invalidate));
-			const limit = context.expanded ? lines.length : codePreviewSettings.writeCollapsedLines;
-			const preview = previewLines(lines, limit, theme);
+			const rawLines = trimTrailingEmptyLines(content.replace(/\t/g, "   ").split("\n"));
+			const limit = context.expanded ? rawLines.length : codePreviewSettings.writeCollapsedLines;
+			const skipHighlight = shouldSkipHighlight(content);
+			const preview = renderHighlightedPreviewLines(rawLines, limit, skipHighlight ? undefined : lang, theme, context.invalidate);
 
 			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${renderDisplayPath(path, cwd, theme)}`;
 			text += metadata(theme, [
 				formatBytes(Buffer.byteLength(content, "utf8")),
-				countLabel(lines.length, "line"),
+				countLabel(rawLines.length, "line"),
 				lang ? normalizeShikiLanguage(lang) : undefined,
 			]);
 			const contentPreview = preview.lines.length ? withSecretWarning(content, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty content");
 			text += `\n${contentPreview}`;
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "lines");
-			if (shouldSkipHighlight(content)) text += previewFooter(theme, "Syntax highlighting skipped for large content");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "lines");
+			if (skipHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large content");
 			return new Text(text, 0, 0);
 		},
 
@@ -168,9 +169,11 @@ function registerWrite(pi: ExtensionAPI, cwd: string) {
 			if (skipReason) return new Text(theme.fg("success", "✓ Write applied") + theme.fg("muted", ` · diff skipped: ${skipReason}`), 0, 0);
 			if (typeof beforeContent === "string" && beforeContent !== content) {
 				const render = () => renderWriteDiffPreview(beforeContent, content, path, expanded, theme, context.invalidate);
-				return shouldRenderAsync(beforeContent + content)
+				const source = `${beforeContent}\0${content}`;
+				const previewKey = previewCacheKey("write-result", source, path, expanded, theme);
+				return cachedPreview(context.state, "writeResultPreviewKey", "writeResultPreviewComponent", previewKey, () => shouldRenderAsync(source)
 					? new AsyncPreview("Rendering write diff…", theme, render, context.invalidate)
-					: render();
+					: render());
 			}
 			if (typeof beforeContent === "string") return new Text(theme.fg("muted", "✓ Write applied · no changes"), 0, 0);
 			return new Text(theme.fg("success", `✓ New file (${countLabel(countFileLines(content), "line")})`), 0, 0);
@@ -243,9 +246,10 @@ function registerEdit(pi: ExtensionAPI, cwd: string) {
 			if (!expanded && summary.totalLines > limit) context.state.editSummaryText += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
 			updateEditHeader(context, cwd, theme);
 			const render = () => renderEditDiffPreview(diff, lang, limit, summary.totalLines, theme, context.invalidate);
-			return shouldRenderAsync(diff)
+			const previewKey = previewCacheKey("edit-result", diff, filePath, expanded, theme);
+			return cachedPreview(context.state, "editResultPreviewKey", "editResultPreviewComponent", previewKey, () => shouldRenderAsync(diff)
 				? new AsyncPreview("Rendering edit diff…", theme, render, context.invalidate)
-				: render();
+				: render());
 		},
 	});
 }
@@ -380,12 +384,80 @@ function countFileLines(content: string): number {
 	return withoutFinalTerminator.split("\n").length;
 }
 
-function withOptionalReadLineNumbers(lines: string[], firstLine: number, theme: Theme): string[] {
-	if (!codePreviewSettings.readLineNumbers || lines.length === 0) return lines;
-	const lastLine = firstLine + lines.length - 1;
-	const width = String(lastLine).length;
-	return lines.map((line, index) => {
-		const lineNumber = String(firstLine + index).padStart(width, " ");
-		return `${theme.fg("dim", `${lineNumber} │ `)}${line}`;
-	});
+function renderHighlightedPreviewLines(
+	rawLines: string[],
+	limit: number,
+	lang: string | undefined,
+	theme: Theme,
+	invalidate?: () => void,
+	lineNumbers?: { firstLine: number; lineNumberWidth: number },
+): { lines: string[]; shown: number; hidden: number } {
+	const preview = selectPreviewLines(rawLines, limit);
+	const lines: string[] = [];
+	let chunk: Array<{ line: string; index: number }> = [];
+
+	function flushChunk(): void {
+		if (chunk.length === 0) return;
+		const highlighted = renderHighlightedText(chunk.map((entry) => entry.line).join("\n"), lang, theme, invalidate);
+		for (let index = 0; index < chunk.length; index++) {
+			const rendered = highlighted[index] ?? theme.fg("toolOutput", escapeControlChars(chunk[index]!.line));
+			if (!lineNumbers || !codePreviewSettings.readLineNumbers) {
+				lines.push(rendered);
+				continue;
+			}
+			const lineNumber = String(lineNumbers.firstLine + chunk[index]!.index).padStart(lineNumbers.lineNumberWidth, " ");
+			lines.push(`${theme.fg("dim", `${lineNumber} │ `)}${rendered}`);
+		}
+		chunk = [];
+	}
+
+	for (const entry of preview.entries) {
+		if (entry.kind === "hidden") {
+			flushChunk();
+			lines.push(hiddenLinesMarker(theme, entry.hidden));
+		} else {
+			chunk.push({ line: entry.line, index: entry.index });
+		}
+	}
+	flushChunk();
+	return { lines, shown: preview.shown, hidden: preview.hidden };
+}
+
+function cachedPreview(
+	state: Record<string, unknown>,
+	keyName: string,
+	componentName: string,
+	key: string,
+	create: () => Component,
+): Component {
+	const cached = state[componentName];
+	if (state[keyName] !== key || !cached || typeof (cached as Component).render !== "function") {
+		state[keyName] = key;
+		state[componentName] = create();
+	}
+	return state[componentName] as Component;
+}
+
+function previewCacheKey(kind: string, source: string, path: string, expanded: boolean, theme: Theme): string {
+	return [
+		kind,
+		path,
+		expanded ? "expanded" : "collapsed",
+		codePreviewSettings.shikiTheme,
+		codePreviewSettings.syntaxHighlighting ? "syntax" : "plain",
+		codePreviewSettings.diffIntensity,
+		String(codePreviewSettings.editCollapsedLines),
+		(theme as Theme & { name?: string }).name ?? "",
+		source.length,
+		hashString(source),
+	].join("\0");
+}
+
+function hashString(value: string): string {
+	let hash = 0x811c9dc5;
+	for (let index = 0; index < value.length; index++) {
+		hash ^= value.charCodeAt(index);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return (hash >>> 0).toString(36);
 }

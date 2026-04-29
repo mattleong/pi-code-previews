@@ -2,7 +2,7 @@ import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { createFindToolDefinition, createGrepToolDefinition, createLsToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { getTextContent } from "./data.js";
-import { metadata, previewFooter, previewLines, showingFooter, trimSingleTrailingNewline } from "./format.js";
+import { hiddenLinesMarker, metadata, previewFooter, selectPreviewLines, showingFooter, trimSingleTrailingNewline } from "./format.js";
 import { renderGrepOutputLines } from "./grep-rendering.js";
 import { renderPathListLines } from "./path-list-rendering.js";
 import { renderDisplayPath } from "./paths.js";
@@ -39,16 +39,17 @@ export function registerGrep(pi: ExtensionAPI, cwd: string) {
 			if (!output || output === "No matches found") return new Text(theme.fg("muted", output || "No matches found"), 0, 0);
 
 			const pattern = typeof context.args?.pattern === "string" ? context.args.pattern : "";
-			const lines = renderGrepOutputLines(output, theme, {
+			const rawLines = output.split("\n");
+			const limit = expanded ? rawLines.length : codePreviewSettings.grepCollapsedLines;
+			const skipHighlight = shouldSkipHighlight(output);
+			const preview = renderSelectedOutputLines(rawLines, limit, theme, (chunk) => renderGrepOutputLines(chunk.join("\n"), theme, {
 				pattern,
 				literal: context.args?.literal === true,
 				ignoreCase: context.args?.ignoreCase === true,
-			}, context.invalidate);
-			const limit = expanded ? lines.length : codePreviewSettings.grepCollapsedLines;
-			const preview = previewLines(lines, limit, theme);
+			}, context.invalidate, { syntaxHighlight: !skipHighlight }));
 			let text = preview.lines.join("\n");
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "grep output lines");
-			if (shouldSkipHighlight(output)) text += previewFooter(theme, "Syntax highlighting skipped for large grep output");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "grep output lines");
+			if (skipHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large grep output");
 			return new Text(text, 0, 0);
 		},
 	});
@@ -71,11 +72,11 @@ export function registerFind(pi: ExtensionAPI, cwd: string) {
 			const output = trimSingleTrailingNewline(getTextContent(result.content));
 			if (context.isError) return new Text(theme.fg("error", escapeControlChars(output.split("\n")[0] || "Find failed")), 0, 0);
 			if (!output || output === "No files found matching pattern") return new Text(theme.fg("muted", output || "No files found"), 0, 0);
-			const lines = renderPathListLines(output, cwd, theme);
-			const limit = expanded ? lines.length : codePreviewSettings.pathListCollapsedLines;
-			const preview = previewLines(lines, limit, theme);
+			const rawLines = output.split("\n");
+			const limit = expanded ? rawLines.length : codePreviewSettings.pathListCollapsedLines;
+			const preview = renderSelectedOutputLines(rawLines, limit, theme, (chunk) => renderPathListLines(chunk.join("\n"), cwd, theme));
 			let text = preview.lines.join("\n");
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "paths");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "paths");
 			return new Text(text, 0, 0);
 		},
 	});
@@ -97,12 +98,35 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
 			const output = trimSingleTrailingNewline(getTextContent(result.content));
 			if (context.isError) return new Text(theme.fg("error", escapeControlChars(output.split("\n")[0] || "List failed")), 0, 0);
 			if (!output || output === "(empty directory)") return new Text(theme.fg("muted", "Empty directory"), 0, 0);
-			const lines = renderPathListLines(output, cwd, theme);
-			const limit = expanded ? lines.length : codePreviewSettings.pathListCollapsedLines;
-			const preview = previewLines(lines, limit, theme);
+			const rawLines = output.split("\n");
+			const limit = expanded ? rawLines.length : codePreviewSettings.pathListCollapsedLines;
+			const preview = renderSelectedOutputLines(rawLines, limit, theme, (chunk) => renderPathListLines(chunk.join("\n"), cwd, theme));
 			let text = preview.lines.join("\n");
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, lines.length, "entries");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "entries");
 			return new Text(text, 0, 0);
 		},
 	});
+}
+
+function renderSelectedOutputLines(rawLines: string[], limit: number, theme: Theme, renderChunk: (chunk: string[]) => string[]): { lines: string[]; shown: number; hidden: number } {
+	const preview = selectPreviewLines(rawLines, limit);
+	const lines: string[] = [];
+	let chunk: string[] = [];
+
+	function flushChunk(): void {
+		if (chunk.length === 0) return;
+		lines.push(...renderChunk(chunk));
+		chunk = [];
+	}
+
+	for (const entry of preview.entries) {
+		if (entry.kind === "hidden") {
+			flushChunk();
+			lines.push(hiddenLinesMarker(theme, entry.hidden));
+		} else {
+			chunk.push(entry.line);
+		}
+	}
+	flushChunk();
+	return { lines, shown: preview.shown, hidden: preview.hidden };
 }
