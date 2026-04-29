@@ -1,5 +1,6 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { createHighlighter } from "shiki";
+import { hashString } from "./hash.js";
 import { setCodePreviewSettings, codePreviewSettings } from "./settings.js";
 import { escapeControlChars } from "./terminal-text.js";
 
@@ -51,6 +52,7 @@ export async function initializeShiki(theme: string) {
 	} catch (error) {
 		if (initVersion !== shikiInitVersion) return;
 		console.warn("[pi-code-previews] Shiki failed to initialize; previews will be plain text.", error);
+		shikiHighlighter?.dispose();
 		shikiHighlighter = undefined;
 		shikiHighlighterGeneration++;
 		renderCache.clear();
@@ -70,7 +72,7 @@ export function renderHighlightedText(text: string, lang: string | undefined, th
 export function renderWithShiki(code: string, lang: string | undefined, invalidate?: () => void): string[] | undefined {
 	if (!codePreviewSettings.syntaxHighlighting || !shikiHighlighter || !lang || shouldSkipHighlight(code)) return undefined;
 	const shikiLang = normalizeShikiLanguage(lang);
-	const cacheKey = `${codePreviewSettings.shikiTheme}\0${shikiLang}\0${code}`;
+	const cacheKey = `${codePreviewSettings.shikiTheme}\0${shikiLang}\0${code.length}\0${hashString(code)}`;
 	const cached = renderCache.get(cacheKey);
 	if (cached) {
 		renderCache.delete(cacheKey);
