@@ -257,7 +257,7 @@ test("word emphasis highlights long shared lines with appended text", () => {
 	assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1m\. Project settings override global settings/);
 });
 
-test("registered grep renderer highlights multiple matches on one line", () => {
+test("registered grep renderer highlights literal matches only", () => {
 	const previous = process.env.CODE_PREVIEW_TOOLS;
 	process.env.CODE_PREVIEW_TOOLS = "grep";
 	try {
@@ -265,13 +265,21 @@ test("registered grep renderer highlights multiple matches on one line", () => {
 		registerToolRenderers({ registerTool: (tool: unknown) => registered.push(tool as { name: string; renderResult?: (...args: unknown[]) => Component }) } as never, "/tmp/project");
 		const grep = registered.find((tool) => tool.name === "grep");
 		assert.ok(grep?.renderResult);
-		const rendered = renderComponent(grep.renderResult(
+		const literalRendered = renderComponent(grep.renderResult(
 			{ content: [{ type: "text", text: "src/a.ts:1: foo foo foo" }] },
 			{ expanded: true, isPartial: false },
 			testTheme(),
 			{ args: { pattern: "foo", literal: true }, isError: false, invalidate: () => undefined, state: {} },
 		));
-		assert.equal((rendered.match(/\x1b\[48;2;90;74;28m/g) ?? []).length, 3);
+		assert.equal((literalRendered.match(/\x1b\[48;2;90;74;28m/g) ?? []).length, 3);
+
+		const regexRendered = renderComponent(grep.renderResult(
+			{ content: [{ type: "text", text: "src/a.ts:1: foo foo foo" }] },
+			{ expanded: true, isPartial: false },
+			testTheme(),
+			{ args: { pattern: "foo", literal: false }, isError: false, invalidate: () => undefined, state: {} },
+		));
+		assert.equal((regexRendered.match(/\x1b\[48;2;90;74;28m/g) ?? []).length, 0);
 	} finally {
 		if (previous === undefined) delete process.env.CODE_PREVIEW_TOOLS;
 		else process.env.CODE_PREVIEW_TOOLS = previous;

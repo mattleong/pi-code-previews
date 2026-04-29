@@ -57,31 +57,17 @@ function renderGrepParsedLine(parsed: ParsedGrepOutputLine, theme: Theme, search
 }
 
 function grepMatchRanges(code: string, search: { pattern: string; literal: boolean; ignoreCase: boolean }): Array<[number, number]> {
-	if (!search.pattern) return [];
-	if (search.literal) {
-		const haystack = search.ignoreCase ? code.toLowerCase() : code;
-		const needle = search.ignoreCase ? search.pattern.toLowerCase() : search.pattern;
-		if (!needle) return [];
-		const ranges: Array<[number, number]> = [];
-		let index = haystack.indexOf(needle);
-		while (index >= 0) {
-			ranges.push([index, index + needle.length]);
-			index = haystack.indexOf(needle, index + Math.max(1, needle.length));
-		}
-		return ranges;
+	if (!search.pattern || !search.literal) return [];
+	const haystack = search.ignoreCase ? code.toLowerCase() : code;
+	const needle = search.ignoreCase ? search.pattern.toLowerCase() : search.pattern;
+	if (!needle) return [];
+	const ranges: Array<[number, number]> = [];
+	let index = haystack.indexOf(needle);
+	while (index >= 0) {
+		ranges.push([index, index + needle.length]);
+		index = haystack.indexOf(needle, index + Math.max(1, needle.length));
 	}
-	try {
-		const ranges: Array<[number, number]> = [];
-		const flags = `${search.ignoreCase ? "i" : ""}g`;
-		const regex = new RegExp(search.pattern, flags);
-		for (const match of code.matchAll(regex)) {
-			if (match.index === undefined || match[0].length === 0) continue;
-			ranges.push([match.index, match.index + match[0].length]);
-		}
-		return ranges;
-	} catch {
-		return [];
-	}
+	return ranges;
 }
 
 function getToolBackground(theme: Theme): string {
