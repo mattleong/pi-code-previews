@@ -12,7 +12,13 @@ export class FullWidthDiffText implements Component {
 	private cachedWidth: number | undefined;
 	private cachedRows: string[] | undefined;
 
-	constructor(private readonly text: string, private readonly theme?: Theme) {}
+	constructor(private text: string, private readonly theme?: Theme) {}
+
+	setText(text: string): void {
+		if (this.text === text) return;
+		this.text = text;
+		this.invalidate();
+	}
 
 	render(width: number): string[] {
 		if (this.cachedWidth === width && this.cachedRows) return this.cachedRows;
@@ -49,6 +55,16 @@ export class FullWidthDiffText implements Component {
 }
 
 const DIFF_WRAP_ROWS = envPositiveInteger("CODE_PREVIEW_DIFF_WRAP_ROWS", 3);
+// Thresholds are based on local jsdiff timings: ~40k token-pair cost was ~7ms,
+// ~250k was ~35ms, and ~1M was ~150ms for unrelated word-heavy lines.
+const WORD_EMPHASIS_SYNC_MAX_COST = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_SYNC_COST", 50_000);
+const WORD_EMPHASIS_LAZY_MAX_COST = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_LAZY_COST", 500_000);
+const WORD_EMPHASIS_SYNC_MAX_LINE_CHARS = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_SYNC_LINE_CHARS", 1_500);
+const WORD_EMPHASIS_LAZY_MAX_LINE_CHARS = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_LAZY_LINE_CHARS", 6_000);
+const WORD_EMPHASIS_SYNC_MAX_PAIRS = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_SYNC_PAIRS", 8);
+const WORD_EMPHASIS_LAZY_MAX_PAIRS = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_LAZY_PAIRS", 32);
+const WORD_EMPHASIS_SYNC_MAX_BLOCK_LINES = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_SYNC_BLOCK_LINES", 24);
+const WORD_EMPHASIS_LAZY_MAX_BLOCK_LINES = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_LAZY_BLOCK_LINES", 100);
 
 function continuationPrefix(line: string): string {
 	const pipe = line.indexOf("│ ");
@@ -111,13 +127,37 @@ export function summarizeDiff(diff: string): {
 }
 
 export function renderSyntaxHighlightedDiff(diff: string, lang: string | undefined, theme: Theme, limit: number, invalidate?: () => void): string {
+	return renderSyntaxHighlightedDiffWithWordEmphasis(diff, lang, theme, limit, invalidate, getWordEmphasisMode(diff, limit) === "sync");
+}
+
+export function createProgressiveSyntaxHighlightedDiffText(
+	diff: string,
+	lang: string | undefined,
+	theme: Theme,
+	limit: number,
+	options: { decorate?: (body: string) => string; invalidate?: () => void } = {},
+): FullWidthDiffText {
+	const decorate = options.decorate ?? ((body: string) => body);
+	const mode = getWordEmphasisMode(diff, limit);
+	const initialBody = renderSyntaxHighlightedDiffWithWordEmphasis(diff, lang, theme, limit, options.invalidate, mode === "sync");
+	const component = new FullWidthDiffText(decorate(initialBody), theme);
+	if (mode === "lazy") {
+		setTimeout(() => {
+			component.setText(decorate(renderSyntaxHighlightedDiffWithWordEmphasis(diff, lang, theme, limit, options.invalidate, true)));
+			options.invalidate?.();
+		}, 0);
+	}
+	return component;
+}
+
+function renderSyntaxHighlightedDiffWithWordEmphasis(diff: string, lang: string | undefined, theme: Theme, limit: number, invalidate: (() => void) | undefined, emphasizeChangedPairs: boolean): string {
 	return renderDiff(diff, {
 		lang,
 		theme,
 		limit,
 		invalidate,
 		syntaxHighlight: true,
-		emphasizeChangedPairs: true,
+		emphasizeChangedPairs,
 	});
 }
 
@@ -171,6 +211,56 @@ function renderDiff(diff: string, options: DiffRenderOptions): string {
 	}
 
 	return out.join("\n");
+}
+
+type WordEmphasisMode = "sync" | "lazy" | "skip";
+
+function getWordEmphasisMode(diff: string, limit: number): WordEmphasisMode {
+	const lines = diff.split("\n");
+	const max = Math.min(lines.length, Math.max(0, Math.floor(limit)));
+	let estimatedCost = 0;
+	let maxLineChars = 0;
+	let maxBlockLines = 0;
+	let pairCount = 0;
+
+	for (let index = 0; index < max;) {
+		const parsed = parseDiffLine(lines[index]!);
+		if (!parsed || !isChangedDiffLine(parsed)) {
+			index++;
+			continue;
+		}
+
+		const removedTokens: number[] = [];
+		const addedTokens: number[] = [];
+		let blockLines = 0;
+		while (index < max) {
+			const next = parseDiffLine(lines[index]!);
+			if (!next || !isChangedDiffLine(next)) break;
+			const normalized = normalizeDiffContent(next.content);
+			maxLineChars = Math.max(maxLineChars, normalized.length);
+			const tokenCount = Math.max(1, similarityTokens(normalized).length);
+			if (isRemovedDiffLine(next)) removedTokens.push(tokenCount);
+			else addedTokens.push(tokenCount);
+			blockLines++;
+			index++;
+		}
+
+		maxBlockLines = Math.max(maxBlockLines, blockLines);
+		const pairsInBlock = Math.min(removedTokens.length, addedTokens.length);
+		pairCount += pairsInBlock;
+		for (let pair = 0; pair < pairsInBlock; pair++) estimatedCost += (removedTokens[pair] ?? 1) * (addedTokens[pair] ?? 1);
+	}
+
+	if (pairCount === 0) return "skip";
+	if (estimatedCost <= WORD_EMPHASIS_SYNC_MAX_COST
+		&& maxLineChars <= WORD_EMPHASIS_SYNC_MAX_LINE_CHARS
+		&& pairCount <= WORD_EMPHASIS_SYNC_MAX_PAIRS
+		&& maxBlockLines <= WORD_EMPHASIS_SYNC_MAX_BLOCK_LINES) return "sync";
+	if (estimatedCost <= WORD_EMPHASIS_LAZY_MAX_COST
+		&& maxLineChars <= WORD_EMPHASIS_LAZY_MAX_LINE_CHARS
+		&& pairCount <= WORD_EMPHASIS_LAZY_MAX_PAIRS
+		&& maxBlockLines <= WORD_EMPHASIS_LAZY_MAX_BLOCK_LINES) return "lazy";
+	return "skip";
 }
 
 function renderSeparator(line: string, theme: Theme): string {

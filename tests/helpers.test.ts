@@ -6,7 +6,7 @@ import type { Theme } from "@mariozechner/pi-coding-agent";
 import { Box, visibleWidth, type Component } from "@mariozechner/pi-tui";
 import { test } from "node:test";
 import { getBashWarnings } from "../src/bash-warnings.js";
-import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../src/diff.js";
+import { createProgressiveSyntaxHighlightedDiffText, FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../src/diff.js";
 import { trimSingleTrailingNewline } from "../src/format.js";
 import { resolvePreviewLanguage } from "../src/language.js";
 import { parseGrepOutputLine } from "../src/grep-rendering.js";
@@ -255,6 +255,22 @@ test("word emphasis highlights long shared lines with appended text", () => {
 	const rendered = renderSyntaxHighlightedDiff(diff, "markdown", testTheme(), 2).split("\n");
 	assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
 	assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1m\. Project settings override global settings/);
+});
+
+test("word emphasis can be applied progressively for estimated medium-cost lines", async () => {
+	const shared = Array.from({ length: 300 }, (_, index) => `token${index}`).join(" ");
+	const diff = `-1 ${shared} oldValue ${shared}\n+1 ${shared} newValue ${shared}`;
+	let invalidations = 0;
+	const component = createProgressiveSyntaxHighlightedDiffText(diff, undefined, testTheme(), 2, { invalidate: () => invalidations++ });
+	const initial = renderComponent(component, 12000);
+	assert.doesNotMatch(initial, /\x1b\[48;2;148;62;70m\x1b\[1moldValue/);
+	assert.doesNotMatch(initial, /\x1b\[48;2;64;132;82m\x1b\[1mnewValue/);
+
+	await delay(20);
+	const emphasized = renderComponent(component, 12000);
+	assert.ok(invalidations > 0);
+	assert.match(emphasized, /\x1b\[48;2;148;62;70m\x1b\[1moldValue/);
+	assert.match(emphasized, /\x1b\[48;2;64;132;82m\x1b\[1mnewValue/);
 });
 
 test("registered grep renderer highlights literal matches only", () => {

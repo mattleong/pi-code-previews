@@ -14,7 +14,7 @@ import { formatEnabledCodePreviewTools } from "../src/tool-selection.js";
 export default async function codePreviews(pi: ExtensionAPI) {
 	const savedSettings = await loadSettingsFromDisk();
 	if (savedSettings) setCodePreviewSettings(savedSettings);
-	await initializeShiki(codePreviewSettings.shikiTheme);
+	if (codePreviewSettings.syntaxHighlighting) void initializeShiki(codePreviewSettings.shikiTheme);
 
 	pi.registerCommand("code-preview-health", {
 		description: "Show code preview renderer health and settings",

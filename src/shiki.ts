@@ -9,13 +9,18 @@ export { escapeControlChars } from "./terminal-text.js";
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
 let shikiInitVersion = 0;
 let shikiHighlighterGeneration = 0;
+let shikiInitializingTheme: string | undefined;
+let renderCacheChars = 0;
 const loadedShikiLanguages = new Set<string>();
 const pendingShikiLanguages = new Set<string>();
 const renderCache = new Map<string, string[]>();
+const renderCacheSizes = new Map<string, number>();
 const languageLoadCallbacks = new Map<string, Set<() => void>>();
+const highlighterReadyCallbacks = new Set<() => void>();
 
 const MAX_HIGHLIGHT_CHARS = envPositiveInteger("CODE_PREVIEW_MAX_HIGHLIGHT_CHARS", 80000);
 const CACHE_LIMIT = envPositiveInteger("CODE_PREVIEW_CACHE_LIMIT", 192);
+const CACHE_CHAR_LIMIT = envPositiveInteger("CODE_PREVIEW_CACHE_CHAR_LIMIT", 4_000_000);
 
 const PRELOADED_SHIKI_LANGUAGES = [
 	"bash",
@@ -30,7 +35,9 @@ const PRELOADED_SHIKI_LANGUAGES = [
 ] as const;
 
 export async function initializeShiki(theme: string) {
+	if (!codePreviewSettings.syntaxHighlighting) return;
 	const initVersion = ++shikiInitVersion;
+	shikiInitializingTheme = theme;
 	try {
 		const nextHighlighter = await createHighlighter({ themes: [theme], langs: [...PRELOADED_SHIKI_LANGUAGES] });
 		if (initVersion !== shikiInitVersion) {
@@ -40,25 +47,29 @@ export async function initializeShiki(theme: string) {
 
 		const previousHighlighter = shikiHighlighter;
 		shikiHighlighter = nextHighlighter;
+		shikiInitializingTheme = undefined;
 		shikiHighlighterGeneration++;
 		previousHighlighter?.dispose();
 
-		renderCache.clear();
+		clearRenderCache();
 		loadedShikiLanguages.clear();
 		pendingShikiLanguages.clear();
 		languageLoadCallbacks.clear();
 		setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: theme });
 		for (const lang of PRELOADED_SHIKI_LANGUAGES) loadedShikiLanguages.add(lang);
+		notifyHighlighterReady();
 	} catch (error) {
 		if (initVersion !== shikiInitVersion) return;
+		shikiInitializingTheme = undefined;
 		console.warn("[pi-code-previews] Shiki failed to initialize; previews will be plain text.", error);
 		shikiHighlighter?.dispose();
 		shikiHighlighter = undefined;
 		shikiHighlighterGeneration++;
-		renderCache.clear();
+		clearRenderCache();
 		loadedShikiLanguages.clear();
 		pendingShikiLanguages.clear();
 		languageLoadCallbacks.clear();
+		highlighterReadyCallbacks.clear();
 	}
 }
 
@@ -70,7 +81,11 @@ export function renderHighlightedText(text: string, lang: string | undefined, th
 }
 
 export function renderWithShiki(code: string, lang: string | undefined, invalidate?: () => void): string[] | undefined {
-	if (!codePreviewSettings.syntaxHighlighting || !shikiHighlighter || !lang || shouldSkipHighlight(code)) return undefined;
+	if (!codePreviewSettings.syntaxHighlighting || !lang || shouldSkipHighlight(code)) return undefined;
+	if (!shikiHighlighter) {
+		requestHighlighterInit(codePreviewSettings.shikiTheme, invalidate);
+		return undefined;
+	}
 	const shikiLang = normalizeShikiLanguage(lang);
 	const cacheKey = `${codePreviewSettings.shikiTheme}\0${shikiLang}\0${code.length}\0${hashString(code)}`;
 	const cached = renderCache.get(cacheKey);
@@ -106,12 +121,47 @@ export function getShikiStatus(): { initialized: boolean; cacheSize: number; cac
 }
 
 function cacheRendered(key: string, value: string[]): void {
+	const previousSize = renderCacheSizes.get(key) ?? 0;
+	if (previousSize > 0) renderCacheChars -= previousSize;
+	const size = renderedCharSize(value);
 	renderCache.set(key, value);
-	while (renderCache.size > CACHE_LIMIT) {
+	renderCacheSizes.set(key, size);
+	renderCacheChars += size;
+	while (renderCache.size > CACHE_LIMIT || renderCacheChars > CACHE_CHAR_LIMIT) {
 		const first = renderCache.keys().next().value;
 		if (typeof first !== "string") break;
-		renderCache.delete(first);
+		deleteCachedRender(first);
 	}
+}
+
+function deleteCachedRender(key: string): void {
+	renderCache.delete(key);
+	renderCacheChars -= renderCacheSizes.get(key) ?? 0;
+	renderCacheSizes.delete(key);
+}
+
+function clearRenderCache(): void {
+	renderCache.clear();
+	renderCacheSizes.clear();
+	renderCacheChars = 0;
+}
+
+function renderedCharSize(value: string[]): number {
+	let total = 0;
+	for (const line of value) total += line.length;
+	return total;
+}
+
+function requestHighlighterInit(theme: string, invalidate: (() => void) | undefined): void {
+	if (invalidate) highlighterReadyCallbacks.add(invalidate);
+	if (shikiInitializingTheme === theme) return;
+	void initializeShiki(theme);
+}
+
+function notifyHighlighterReady(): void {
+	const callbacks = [...highlighterReadyCallbacks];
+	highlighterReadyCallbacks.clear();
+	callbacks.forEach((callback) => callback());
 }
 
 function requestLanguageLoad(shikiLang: string, invalidate: (() => void) | undefined): void {

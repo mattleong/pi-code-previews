@@ -3,15 +3,15 @@ import { createWriteToolDefinition, getLanguageFromPath } from "@mariozechner/pi
 import { Text } from "@mariozechner/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "../async-preview.js";
 import { getObjectValue, getPathArg, getTextContent } from "../data.js";
-import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../diff.js";
-import { countLabel, formatBytes, metadata, previewFooter, showingFooter, trimTrailingEmptyLines } from "../format.js";
+import { createProgressiveSyntaxHighlightedDiffText, FullWidthDiffText, renderPlainDiff, summarizeDiff } from "../diff.js";
+import { countLabel, formatBytes, metadata, previewFooter, showingFooter } from "../format.js";
 import { resolvePreviewLanguage } from "../language.js";
 import { renderDisplayPath } from "../paths.js";
 import { codePreviewSettings } from "../settings.js";
 import { normalizeShikiLanguage, shouldSkipHighlight } from "../shiki.js";
 import { escapeControlChars } from "../terminal-text.js";
-import { createSimpleDiff, getWriteDiffSkipReason, readExistingFileForPreview, shouldSkipWriteDiffText } from "../write-diff.js";
-import { cachedPreview, countFileLines, previewCacheKey, renderHighlightedPreviewLines, withSecretWarning } from "./common.js";
+import { createSimpleDiff, getWriteDiffSkipReason, readExistingFileForPreview, shouldSkipWriteDiffBytes } from "../write-diff.js";
+import { cachedPreview, countFileLines, previewCacheKey, renderHighlightedPreviewText, withSecretWarning } from "./common.js";
 
 export function registerWrite(pi: ExtensionAPI, cwd: string) {
 	const originalWrite = createWriteToolDefinition(cwd);
@@ -32,20 +32,19 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
 			const path = getPathArg(args);
 			const content = typeof args.content === "string" ? args.content : "";
 			const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
-			const rawLines = trimTrailingEmptyLines(content.replace(/\t/g, "   ").split("\n"));
-			const limit = context.expanded ? rawLines.length : codePreviewSettings.writeCollapsedLines;
+			const limit = context.expanded ? 0 : codePreviewSettings.writeCollapsedLines;
 			const skipHighlight = shouldSkipHighlight(content);
-			const preview = renderHighlightedPreviewLines(rawLines, limit, skipHighlight ? undefined : lang, theme, context.invalidate);
+			const preview = renderHighlightedPreviewText(content, limit, skipHighlight ? undefined : lang, theme, context.invalidate);
 
 			let text = `${theme.fg("toolTitle", theme.bold("write"))} ${renderDisplayPath(path, cwd, theme)}`;
 			text += metadata(theme, [
 				formatBytes(Buffer.byteLength(content, "utf8")),
-				countLabel(rawLines.length, "line"),
+				countLabel(preview.total, "line"),
 				lang ? normalizeShikiLanguage(lang) : undefined,
 			]);
 			const contentPreview = preview.lines.length ? withSecretWarning(content, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty content");
 			text += `\n${contentPreview}`;
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "lines");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, preview.total, "lines");
 			if (skipHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large content");
 			return new Text(text, 0, 0);
 		},
@@ -61,6 +60,9 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
 			const skipReason = getWriteDiffSkipReason(before, content);
 			if (skipReason) return new Text(theme.fg("success", "✓ Write applied") + theme.fg("muted", ` · diff skipped: ${skipReason}`), 0, 0);
 			if (typeof beforeContent === "string" && beforeContent !== content) {
+				if (shouldSkipWriteDiffBytes(beforeContent, content)) {
+					return new Text(theme.fg("success", "✓ Write applied") + theme.fg("muted", " · diff skipped for large content"), 0, 0);
+				}
 				const render = () => renderWriteDiffPreview(beforeContent, content, path, expanded, theme, context.invalidate);
 				const source = `${beforeContent}\0${content}`;
 				const previewKey = previewCacheKey("write-result", source, path, expanded, theme);
@@ -75,19 +77,24 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
 }
 
 function renderWriteDiffPreview(before: string, content: string, path: string, expanded: boolean, theme: Theme, invalidate?: () => void): FullWidthDiffText {
-	if (shouldSkipWriteDiffText(before + content)) {
+	if (shouldSkipWriteDiffBytes(before, content)) {
 		return new FullWidthDiffText(theme.fg("success", "✓ Write applied") + theme.fg("muted", " · diff skipped for large content"), theme);
 	}
 	const diff = createSimpleDiff(before, content);
 	const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
 	const summary = summarizeDiff(diff);
 	const limit = expanded || codePreviewSettings.editCollapsedLines === "all" ? summary.totalLines : codePreviewSettings.editCollapsedLines;
-	let text = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeEditShape(summary))}${editSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
+	const header = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeEditShape(summary))}${editSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
 	const skipSyntaxHighlight = shouldSkipHighlight(diff);
-	text += skipSyntaxHighlight ? renderPlainDiff(diff, theme, limit) : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
-	if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
-	if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
-	return new FullWidthDiffText(text, theme);
+	const decorate = (body: string) => {
+		let text = header + body;
+		if (summary.totalLines > limit) text += showingFooter(theme, limit, summary.totalLines, "diff lines");
+		if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
+		return text;
+	};
+	return skipSyntaxHighlight
+		? new FullWidthDiffText(decorate(renderPlainDiff(diff, theme, limit)), theme)
+		: createProgressiveSyntaxHighlightedDiffText(diff, lang, theme, limit, { decorate, invalidate });
 }
 
 function editSummarySeparator(theme: Theme): string {

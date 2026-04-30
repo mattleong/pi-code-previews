@@ -1,15 +1,17 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import type { Component } from "@mariozechner/pi-tui";
-import { countLabel, hiddenLinesMarker, selectPreviewLines } from "../format.js";
+import { countLabel, hiddenLinesMarker, selectPreviewLines, selectPreviewTextLines } from "../format.js";
 import { hashString } from "../hash.js";
 import { getSecretWarnings } from "../secret-warnings.js";
 import { codePreviewSettings } from "../settings.js";
 import { renderHighlightedText } from "../shiki.js";
 import { escapeControlChars } from "../terminal-text.js";
 
+const SECRET_SCAN_CHARS = positiveEnvInteger("CODE_PREVIEW_SECRET_SCAN_CHARS", 200_000);
+
 export function withSecretWarning(source: string, theme: Theme, preview: string): string {
 	if (!codePreviewSettings.secretWarnings) return preview;
-	const warnings = getSecretWarnings(source);
+	const warnings = getSecretWarnings(secretScanSample(source));
 	if (warnings.length === 0) return preview;
 	return `${theme.fg("warning", `⚠ Preview ${countLabel(warnings.length, "warning")}: possible ${warnings.join(", ")}`)}\n${preview}`;
 }
@@ -27,22 +29,48 @@ export function renderHighlightedPreviewLines(
 	lang: string | undefined,
 	theme: Theme,
 	invalidate?: () => void,
-	lineNumbers?: { firstLine: number; lineNumberWidth: number },
+	lineNumbers?: { firstLine: number; lineNumberWidth?: number },
 ): { lines: string[]; shown: number; hidden: number } {
-	const preview = selectPreviewLines(rawLines, limit);
+	return renderHighlightedPreviewEntries(selectPreviewLines(rawLines, limit), lang, theme, invalidate, lineNumbers);
+}
+
+export function renderHighlightedPreviewText(
+	text: string,
+	limit: number,
+	lang: string | undefined,
+	theme: Theme,
+	invalidate?: () => void,
+	lineNumbers?: { firstLine: number; lineNumberWidth?: number },
+): { lines: string[]; shown: number; hidden: number; total: number } {
+	const preview = selectPreviewTextLines(text, limit);
+	const numbered = lineNumbers
+		? { ...lineNumbers, lineNumberWidth: lineNumbers.lineNumberWidth ?? String(lineNumbers.firstLine + Math.max(0, preview.total - 1)).length }
+		: undefined;
+	return { ...renderHighlightedPreviewEntries(preview, lang, theme, invalidate, numbered), total: preview.total };
+}
+
+function renderHighlightedPreviewEntries(
+	preview: { entries: ReturnType<typeof selectPreviewLines<string>>["entries"]; shown: number; hidden: number },
+	lang: string | undefined,
+	theme: Theme,
+	invalidate?: () => void,
+	lineNumbers?: { firstLine: number; lineNumberWidth?: number },
+): { lines: string[]; shown: number; hidden: number } {
 	const lines: string[] = [];
 	let chunk: Array<{ line: string; index: number }> = [];
 
 	function flushChunk(): void {
 		if (chunk.length === 0) return;
-		const highlighted = renderHighlightedText(chunk.map((entry) => entry.line).join("\n"), lang, theme, invalidate);
+		const normalizedChunk = chunk.map((entry) => entry.line.replace(/\t/g, "   "));
+		const highlighted = renderHighlightedText(normalizedChunk.join("\n"), lang, theme, invalidate);
 		for (let index = 0; index < chunk.length; index++) {
-			const rendered = highlighted[index] ?? theme.fg("toolOutput", escapeControlChars(chunk[index]!.line));
+			const rendered = highlighted[index] ?? theme.fg("toolOutput", escapeControlChars(normalizedChunk[index] ?? ""));
 			if (!lineNumbers || !codePreviewSettings.readLineNumbers) {
 				lines.push(rendered);
 				continue;
 			}
-			const lineNumber = String(lineNumbers.firstLine + chunk[index]!.index).padStart(lineNumbers.lineNumberWidth, " ");
+			const width = lineNumbers.lineNumberWidth ?? String(lineNumbers.firstLine + chunk[index]!.index).length;
+			const lineNumber = String(lineNumbers.firstLine + chunk[index]!.index).padStart(width, " ");
 			lines.push(`${theme.fg("dim", `${lineNumber} │ `)}${rendered}`);
 		}
 		chunk = [];
@@ -115,4 +143,15 @@ export function previewCacheKey(kind: string, source: string, path: string, expa
 
 export function previewArgsKey(kind: string, source: string, path: string): string {
 	return [kind, path, source.length, hashString(source)].join("\0");
+}
+
+function secretScanSample(source: string): string {
+	if (source.length <= SECRET_SCAN_CHARS) return source;
+	const half = Math.floor(SECRET_SCAN_CHARS / 2);
+	return `${source.slice(0, half)}\n${source.slice(-half)}`;
+}
+
+function positiveEnvInteger(name: string, fallback: number): number {
+	const value = Number.parseInt(process.env[name] ?? "", 10);
+	return Number.isFinite(value) && value > 0 ? value : fallback;
 }

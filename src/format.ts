@@ -39,6 +39,43 @@ export function previewLines(lines: string[], limit: number, theme: Theme): { li
 	};
 }
 
+export function selectPreviewTextLines(text: string, limit: number): { entries: Array<PreviewLineEntry<string>>; shown: number; hidden: number; total: number } {
+	const total = countTrimmedTextLines(text);
+	if (total === 0) return { entries: [], shown: 0, hidden: 0, total: 0 };
+	if (total <= limit || limit <= 0) {
+		const entries: Array<PreviewLineEntry<string>> = [];
+		forEachTrimmedTextLine(text, (line, index) => entries.push({ kind: "line", line, index }));
+		return { entries, shown: total, hidden: 0, total };
+	}
+	if (limit < 8) {
+		const entries: Array<PreviewLineEntry<string>> = [];
+		forEachTrimmedTextLine(text, (line, index) => {
+			if (index < limit) entries.push({ kind: "line", line, index });
+		});
+		return { entries, shown: limit, hidden: total - limit, total };
+	}
+	const head = Math.ceil(limit * 0.65);
+	const tail = Math.max(1, limit - head - 1);
+	const tailStart = total - tail;
+	const hidden = total - head - tail;
+	const entries: Array<PreviewLineEntry<string>> = [];
+	let markerAdded = false;
+	forEachTrimmedTextLine(text, (line, index) => {
+		if (index < head) {
+			entries.push({ kind: "line", line, index });
+			return;
+		}
+		if (index >= tailStart) {
+			if (!markerAdded) {
+				entries.push({ kind: "hidden", hidden });
+				markerAdded = true;
+			}
+			entries.push({ kind: "line", line, index });
+		}
+	});
+	return { entries, shown: head + tail, hidden, total };
+}
+
 export function hiddenLinesMarker(theme: Theme, hidden: number): string {
 	return theme.fg("muted", `      --- ${hidden} lines hidden ---`);
 }
@@ -72,6 +109,48 @@ export function trimTrailingEmptyLines(lines: string[]): string[] {
 	let end = lines.length;
 	while (end > 0 && lines[end - 1] === "") end--;
 	return lines.slice(0, end);
+}
+
+function countTrimmedTextLines(text: string): number {
+	let total = 0;
+	let pendingEmpty = 0;
+	forEachRawTextLine(text, (line) => {
+		if (line === "") pendingEmpty++;
+		else {
+			total += pendingEmpty + 1;
+			pendingEmpty = 0;
+		}
+	});
+	return total;
+}
+
+function forEachTrimmedTextLine(text: string, callback: (line: string, index: number) => void): void {
+	let index = 0;
+	let pendingEmpty = 0;
+	forEachRawTextLine(text, (line) => {
+		if (line === "") {
+			pendingEmpty++;
+			return;
+		}
+		while (pendingEmpty > 0) {
+			callback("", index++);
+			pendingEmpty--;
+		}
+		callback(line, index++);
+	});
+}
+
+function forEachRawTextLine(text: string, callback: (line: string) => void): void {
+	let start = 0;
+	while (start <= text.length) {
+		const newline = text.indexOf("\n", start);
+		if (newline < 0) {
+			callback(text.slice(start));
+			break;
+		}
+		callback(text.slice(start, newline));
+		start = newline + 1;
+	}
 }
 
 export function previewFooter(theme: Theme, text: string): string {

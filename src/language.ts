@@ -47,6 +47,8 @@ const SHEBANG_ALIASES = new Map<string, string>([
 	["php", "php"],
 ]);
 
+const CONTENT_LANGUAGE_DETECTION_CHARS = positiveEnvInteger("CODE_PREVIEW_CONTENT_LANGUAGE_DETECTION_CHARS", 50_000);
+
 export function resolvePreviewLanguage({
 	path,
 	content,
@@ -89,7 +91,8 @@ function languageFromShebang(content: string | undefined): string | undefined {
 }
 
 function languageFromContent(content: string | undefined): string | undefined {
-	const trimmed = content?.trim();
+	if (!content || content.length > CONTENT_LANGUAGE_DETECTION_CHARS) return undefined;
+	const trimmed = content.trim();
 	if (!trimmed) return undefined;
 	if ((trimmed.startsWith("{") || trimmed.startsWith("[")) && isJson(trimmed)) return "json";
 	if (/^<(!doctype\s+html|html)(\s|>)/i.test(trimmed)) return "html";
@@ -111,4 +114,9 @@ function isJson(text: string): boolean {
 	} catch {
 		return false;
 	}
+}
+
+function positiveEnvInteger(name: string, fallback: number): number {
+	const value = Number.parseInt(process.env[name] ?? "", 10);
+	return Number.isFinite(value) && value > 0 ? value : fallback;
 }

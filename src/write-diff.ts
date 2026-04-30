@@ -54,6 +54,15 @@ export function shouldSkipWriteDiffText(text: string): boolean {
 	return Buffer.byteLength(text, "utf8") > MAX_WRITE_DIFF_BYTES;
 }
 
+export function shouldSkipWriteDiffBytes(...texts: string[]): boolean {
+	let total = 0;
+	for (const text of texts) {
+		total += Buffer.byteLength(text, "utf8");
+		if (total > MAX_WRITE_DIFF_BYTES) return true;
+	}
+	return false;
+}
+
 export function getMaxWriteDiffBytes(): number {
 	return MAX_WRITE_DIFF_BYTES;
 }

@@ -2,13 +2,13 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createReadToolDefinition, getLanguageFromPath } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { getPathArg, getReadStartLine, getTextContent, isTruncated } from "../data.js";
-import { metadata, previewFooter, showingFooter, trimTrailingEmptyLines } from "../format.js";
+import { metadata, previewFooter, showingFooter } from "../format.js";
 import { resolvePreviewLanguage } from "../language.js";
 import { renderDisplayPath } from "../paths.js";
 import { codePreviewSettings } from "../settings.js";
 import { normalizeShikiLanguage, shouldSkipHighlight } from "../shiki.js";
 import { escapeControlChars } from "../terminal-text.js";
-import { renderHighlightedPreviewLines, withSecretWarning } from "./common.js";
+import { renderHighlightedPreviewText, withSecretWarning } from "./common.js";
 
 export function registerRead(pi: ExtensionAPI, cwd: string) {
 	const originalRead = createReadToolDefinition(cwd);
@@ -50,16 +50,12 @@ export function registerRead(pi: ExtensionAPI, cwd: string) {
 
 			const lang = resolvePreviewLanguage({ path, content: firstText, piLanguage: getLanguageFromPath(path) });
 			const firstLine = getReadStartLine(context.args);
-			const rawLines = trimTrailingEmptyLines(firstText.replace(/\t/g, "   ").split("\n"));
-			const limit = expanded ? rawLines.length : codePreviewSettings.readCollapsedLines;
+			const limit = expanded ? 0 : codePreviewSettings.readCollapsedLines;
 			const skipHighlight = shouldSkipHighlight(firstText);
-			const preview = renderHighlightedPreviewLines(rawLines, limit, skipHighlight ? undefined : lang, theme, context.invalidate, {
-				firstLine,
-				lineNumberWidth: String(firstLine + Math.max(0, rawLines.length - 1)).length,
-			});
+			const preview = renderHighlightedPreviewText(firstText, limit, skipHighlight ? undefined : lang, theme, context.invalidate, { firstLine });
 
 			let text = preview.lines.length ? withSecretWarning(firstText, theme, preview.lines.join("\n")) : theme.fg("muted", "Empty file");
-			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, rawLines.length, "lines");
+			if (preview.hidden > 0) text += showingFooter(theme, preview.shown, preview.total, "lines");
 
 			if (skipHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large file");
 			if (isTruncated(result.details)) text += previewFooter(theme, "Output truncated by read");

@@ -3,7 +3,7 @@ import { createEditToolDefinition, getLanguageFromPath, keyHint } from "@marioze
 import { Container, Text, type Component } from "@mariozechner/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "../async-preview.js";
 import { getEditDiff, getObjectValue, getPathArg, getTextContent } from "../data.js";
-import { FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../diff.js";
+import { createProgressiveSyntaxHighlightedDiffText, FullWidthDiffText, renderPlainDiff, renderSyntaxHighlightedDiff, summarizeDiff } from "../diff.js";
 import { countLabel, previewFooter, showingFooter } from "../format.js";
 import { resolvePreviewLanguage } from "../language.js";
 import { renderDisplayPath } from "../paths.js";
@@ -90,10 +90,15 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
 
 function renderEditDiffPreview(diff: string, lang: string | undefined, limit: number, totalLines: number, theme: Theme, invalidate?: () => void): FullWidthDiffText {
 	const skipSyntaxHighlight = shouldSkipHighlight(diff);
-	let text = skipSyntaxHighlight ? renderPlainDiff(diff, theme, limit) : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
-	if (totalLines > limit) text += showingFooter(theme, limit, totalLines, "diff lines");
-	if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
-	return new FullWidthDiffText(text, theme);
+	const footer = (body: string) => {
+		let text = body;
+		if (totalLines > limit) text += showingFooter(theme, limit, totalLines, "diff lines");
+		if (skipSyntaxHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large diff");
+		return text;
+	};
+	return skipSyntaxHighlight
+		? new FullWidthDiffText(footer(renderPlainDiff(diff, theme, limit)), theme)
+		: createProgressiveSyntaxHighlightedDiffText(diff, lang, theme, limit, { decorate: footer, invalidate });
 }
 
 function getEditPreviewOperations(args: unknown): Array<{ oldText: string; newText: string }> {
