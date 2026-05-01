@@ -175,7 +175,7 @@ Syntax highlighting is powered by Shiki. Language selection uses pi's built-in l
 
 ## Security
 
-Pi extensions run with full system permissions. Review `extensions/code-previews.ts` before installing any fork of this package.
+Pi extensions run with full system permissions. Review `index.ts` before installing any fork of this package.
 
 Bash and secret-looking value warnings are best-effort visual cues only. They do not block execution, redact output, change approval behavior, or provide a security boundary.
 
