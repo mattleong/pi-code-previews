@@ -27,7 +27,12 @@
   ],
   "type": "module",
   "scripts": {
-    "check": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint . --deny-warnings",
+    "lint:fix": "oxlint . --fix",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "test": "node --import tsx --test tests/*.test.ts",
     "pack:dry": "npm pack --dry-run"
   },
@@ -36,6 +41,8 @@
     "shiki": "^4.0.2"
   },
   "devDependencies": {
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },

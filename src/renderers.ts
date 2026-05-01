@@ -9,12 +9,12 @@ import { registerWrite } from "./tool-renderers/write.js";
 import { getEnabledCodePreviewTools } from "./tool-selection.js";
 
 export function registerToolRenderers(pi: ExtensionAPI, cwd: string) {
-	const enabledTools = getEnabledCodePreviewTools();
-	if (enabledTools.has("bash")) registerBash(pi, cwd);
-	if (enabledTools.has("read")) registerRead(pi, cwd);
-	if (enabledTools.has("write")) registerWrite(pi, cwd);
-	if (enabledTools.has("edit")) registerEdit(pi, cwd);
-	if (enabledTools.has("grep")) registerGrep(pi, cwd);
-	if (enabledTools.has("find")) registerFind(pi, cwd);
-	if (enabledTools.has("ls")) registerLs(pi, cwd);
+  const enabledTools = getEnabledCodePreviewTools();
+  if (enabledTools.has("bash")) registerBash(pi, cwd);
+  if (enabledTools.has("read")) registerRead(pi, cwd);
+  if (enabledTools.has("write")) registerWrite(pi, cwd);
+  if (enabledTools.has("edit")) registerEdit(pi, cwd);
+  if (enabledTools.has("grep")) registerGrep(pi, cwd);
+  if (enabledTools.has("find")) registerFind(pi, cwd);
+  if (enabledTools.has("ls")) registerLs(pi, cwd);
 }
