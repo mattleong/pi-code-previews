@@ -34,6 +34,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "test": "node --import tsx --test tests/*.test.ts",
+    "prepublishOnly": "npm run check && npm test",
     "pack:dry": "npm pack --dry-run"
   },
   "dependencies": {

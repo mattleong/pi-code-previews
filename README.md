@@ -38,12 +38,6 @@ Install from GitHub:
 pi install git:github.com/mattleong/pi-code-previews
 ```
 
-Install a pinned GitHub release:
-
-```bash
-pi install git:github.com/mattleong/pi-code-previews@v0.1.9
-```
-
 Try it for one run without installing:
 
 ```bash
