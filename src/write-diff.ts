@@ -2,7 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { diffLines } from "diff";
-import { formatBytes } from "./format.js";
+import { formatBytes } from "./format.ts";
 
 export type StructuredDiffLine = {
   kind: "context" | "add" | "remove" | "separator";

@@ -1,8 +1,8 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { getLanguageFromPath } from "@mariozechner/pi-coding-agent";
-import { resolvePreviewLanguage } from "./language.js";
-import { renderHighlightedText } from "./shiki.js";
-import { escapeControlChars } from "./terminal-text.js";
+import { resolvePreviewLanguage } from "./language.ts";
+import { renderHighlightedText } from "./shiki.ts";
+import { escapeControlChars } from "./terminal-text.ts";
 
 export type ParsedGrepOutputLine = {
   path: string;

@@ -8,8 +8,8 @@ import {
   type SettingItem,
 } from "@mariozechner/pi-tui";
 import { bundledThemes } from "shiki";
-import { getSettingsPath } from "./settings-store.js";
-import type { CodePreviewSettings } from "./settings.js";
+import { getSettingsPath } from "./settings-store.ts";
+import type { CodePreviewSettings } from "./settings.ts";
 
 export function createSettingsItems(current: CodePreviewSettings): SettingItem[] {
   return [

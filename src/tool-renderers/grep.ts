@@ -1,14 +1,14 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createGrepToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
-import { getTextContent } from "../data.js";
-import { metadata, previewFooter, showingFooter, trimSingleTrailingNewline } from "../format.js";
-import { renderGrepOutputLines } from "../grep-rendering.js";
-import { renderDisplayPath } from "../paths.js";
-import { codePreviewSettings } from "../settings.js";
-import { shouldSkipHighlight } from "../shiki.js";
-import { escapeControlChars } from "../terminal-text.js";
-import { renderSelectedOutputLines } from "./common.js";
+import { getTextContent } from "../data.ts";
+import { metadata, previewFooter, showingFooter, trimSingleTrailingNewline } from "../format.ts";
+import { renderGrepOutputLines } from "../grep-rendering.ts";
+import { renderDisplayPath } from "../paths.ts";
+import { codePreviewSettings } from "../settings.ts";
+import { shouldSkipHighlight } from "../shiki.ts";
+import { escapeControlChars } from "../terminal-text.ts";
+import { renderSelectedOutputLines } from "./common.ts";
 
 export function registerGrep(pi: ExtensionAPI, cwd: string) {
   const originalGrep = createGrepToolDefinition(cwd);

@@ -1,10 +1,10 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { createHighlighter } from "shiki";
-import { hashString } from "./hash.js";
-import { setCodePreviewSettings, codePreviewSettings } from "./settings.js";
-import { escapeControlChars } from "./terminal-text.js";
+import { hashString } from "./hash.ts";
+import { setCodePreviewSettings, codePreviewSettings } from "./settings.ts";
+import { escapeControlChars } from "./terminal-text.ts";
 
-export { escapeControlChars } from "./terminal-text.js";
+export { escapeControlChars } from "./terminal-text.ts";
 
 let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined;
 let shikiInitVersion = 0;

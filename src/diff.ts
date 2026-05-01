@@ -1,9 +1,9 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-tui";
 import { diffWordsWithSpace } from "diff";
-import { codePreviewSettings } from "./settings.js";
-import { renderWithShiki } from "./shiki.js";
-import { escapeControlChars, visibleLength, wrapAnsiToWidth } from "./terminal-text.js";
+import { codePreviewSettings } from "./settings.ts";
+import { renderWithShiki } from "./shiki.ts";
+import { escapeControlChars, visibleLength, wrapAnsiToWidth } from "./terminal-text.ts";
 
 const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
 const DIFF_REMOVE_MARKER = "\u0000PI_DIFF_REMOVE\u0000";

@@ -24,7 +24,7 @@ const EXTENSION_ALIASES = new Map<string, string>([
   [".zsh", "bash"],
   [".ts", "typescript"],
   [".tsx", "tsx"],
-  [".js", "javascript"],
+  [".ts", "javascript"],
   [".jsx", "jsx"],
   [".mjs", "javascript"],
   [".cjs", "javascript"],

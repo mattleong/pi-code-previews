@@ -5,12 +5,12 @@ import {
   hiddenLinesMarker,
   selectPreviewLines,
   selectPreviewTextLines,
-} from "../format.js";
-import { hashString } from "../hash.js";
-import { getSecretWarnings } from "../secret-warnings.js";
-import { codePreviewSettings } from "../settings.js";
-import { renderHighlightedText } from "../shiki.js";
-import { escapeControlChars } from "../terminal-text.js";
+} from "../format.ts";
+import { hashString } from "../hash.ts";
+import { getSecretWarnings } from "../secret-warnings.ts";
+import { codePreviewSettings } from "../settings.ts";
+import { renderHighlightedText } from "../shiki.ts";
+import { escapeControlChars } from "../terminal-text.ts";
 
 const SECRET_SCAN_CHARS = positiveEnvInteger("CODE_PREVIEW_SECRET_SCAN_CHARS", 200_000);
 

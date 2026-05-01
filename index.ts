@@ -1,12 +1,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { getSettingsListTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Text, SettingsList } from "@mariozechner/pi-tui";
-import { registerToolRenderers } from "./src/renderers.js";
-import { getSettingsPath, loadSettingsFromDisk, saveSettingsToDisk } from "./src/settings-store.js";
-import { createSettingsItems } from "./src/settings-ui.js";
-import { setCodePreviewSettings, codePreviewSettings, updateSetting } from "./src/settings.js";
-import { getShikiStatus, initializeShiki } from "./src/shiki.js";
-import { formatEnabledCodePreviewTools } from "./src/tool-selection.js";
+import { registerToolRenderers } from "./src/renderers.ts";
+import { getSettingsPath, loadSettingsFromDisk, saveSettingsToDisk } from "./src/settings-store.ts";
+import { createSettingsItems } from "./src/settings-ui.ts";
+import { setCodePreviewSettings, codePreviewSettings, updateSetting } from "./src/settings.ts";
+import { getShikiStatus, initializeShiki } from "./src/shiki.ts";
+import { formatEnabledCodePreviewTools } from "./src/tool-selection.ts";
 
 /**
  * Syntax-highlighted code previews for pi.

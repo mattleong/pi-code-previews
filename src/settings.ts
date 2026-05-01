@@ -1,5 +1,5 @@
 import { bundledThemes } from "shiki";
-import { getObjectValue } from "./data.js";
+import { getObjectValue } from "./data.ts";
 
 export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
 export type DiffWordEmphasis = "off" | "smart" | "all";

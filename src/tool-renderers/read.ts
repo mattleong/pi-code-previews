@@ -1,14 +1,14 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createReadToolDefinition, getLanguageFromPath } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
-import { getPathArg, getReadStartLine, getTextContent, isTruncated } from "../data.js";
-import { metadata, previewFooter, showingFooter } from "../format.js";
-import { resolvePreviewLanguage } from "../language.js";
-import { renderDisplayPath } from "../paths.js";
-import { codePreviewSettings } from "../settings.js";
-import { normalizeShikiLanguage, shouldSkipHighlight } from "../shiki.js";
-import { escapeControlChars } from "../terminal-text.js";
-import { renderHighlightedPreviewText, withSecretWarning } from "./common.js";
+import { getPathArg, getReadStartLine, getTextContent, isTruncated } from "../data.ts";
+import { metadata, previewFooter, showingFooter } from "../format.ts";
+import { resolvePreviewLanguage } from "../language.ts";
+import { renderDisplayPath } from "../paths.ts";
+import { codePreviewSettings } from "../settings.ts";
+import { normalizeShikiLanguage, shouldSkipHighlight } from "../shiki.ts";
+import { escapeControlChars } from "../terminal-text.ts";
+import { renderHighlightedPreviewText, withSecretWarning } from "./common.ts";
 
 export function registerRead(pi: ExtensionAPI, cwd: string) {
   const originalRead = createReadToolDefinition(cwd);

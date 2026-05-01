@@ -1,13 +1,13 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createFindToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
-import { getTextContent } from "../data.js";
-import { showingFooter, trimSingleTrailingNewline } from "../format.js";
-import { renderPathListLines } from "../path-list-rendering.js";
-import { renderDisplayPath } from "../paths.js";
-import { codePreviewSettings } from "../settings.js";
-import { escapeControlChars } from "../terminal-text.js";
-import { renderSelectedOutputLines } from "./common.js";
+import { getTextContent } from "../data.ts";
+import { showingFooter, trimSingleTrailingNewline } from "../format.ts";
+import { renderPathListLines } from "../path-list-rendering.ts";
+import { renderDisplayPath } from "../paths.ts";
+import { codePreviewSettings } from "../settings.ts";
+import { escapeControlChars } from "../terminal-text.ts";
+import { renderSelectedOutputLines } from "./common.ts";
 
 export function registerFind(pi: ExtensionAPI, cwd: string) {
   const originalFind = createFindToolDefinition(cwd);

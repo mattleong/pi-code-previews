@@ -33,7 +33,7 @@
     "lint:fix": "oxlint . --fix",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "vitest run",
     "prepublishOnly": "npm run check && npm test",
     "pack:dry": "npm pack --dry-run"
   },
@@ -45,7 +45,8 @@
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",

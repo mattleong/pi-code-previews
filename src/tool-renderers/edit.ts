@@ -5,23 +5,23 @@ import {
   keyHint,
 } from "@mariozechner/pi-coding-agent";
 import { Container, Text, type Component } from "@mariozechner/pi-tui";
-import { AsyncPreview, shouldRenderAsync } from "../async-preview.js";
-import { getEditDiff, getObjectValue, getPathArg, getTextContent } from "../data.js";
+import { AsyncPreview, shouldRenderAsync } from "../async-preview.ts";
+import { getEditDiff, getObjectValue, getPathArg, getTextContent } from "../data.ts";
 import {
   createProgressiveSyntaxHighlightedDiffText,
   FullWidthDiffText,
   renderPlainDiff,
   renderSyntaxHighlightedDiff,
   summarizeDiff,
-} from "../diff.js";
-import { countLabel, previewFooter, showingFooter } from "../format.js";
-import { resolvePreviewLanguage } from "../language.js";
-import { renderDisplayPath } from "../paths.js";
-import { codePreviewSettings } from "../settings.js";
-import { shouldSkipHighlight } from "../shiki.js";
-import { escapeControlChars } from "../terminal-text.js";
-import { createSimpleDiff } from "../write-diff.js";
-import { cachedPreview, previewArgsKey, previewCacheKey } from "./common.js";
+} from "../diff.ts";
+import { countLabel, previewFooter, showingFooter } from "../format.ts";
+import { resolvePreviewLanguage } from "../language.ts";
+import { renderDisplayPath } from "../paths.ts";
+import { codePreviewSettings } from "../settings.ts";
+import { shouldSkipHighlight } from "../shiki.ts";
+import { escapeControlChars } from "../terminal-text.ts";
+import { createSimpleDiff } from "../write-diff.ts";
+import { cachedPreview, previewArgsKey, previewCacheKey } from "./common.ts";
 
 export function registerEdit(pi: ExtensionAPI, cwd: string) {
   const originalEdit = createEditToolDefinition(cwd);

@@ -1,33 +1,33 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { createWriteToolDefinition, getLanguageFromPath } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
-import { AsyncPreview, shouldRenderAsync } from "../async-preview.js";
-import { getObjectValue, getPathArg, getTextContent } from "../data.js";
+import { AsyncPreview, shouldRenderAsync } from "../async-preview.ts";
+import { getObjectValue, getPathArg, getTextContent } from "../data.ts";
 import {
   createProgressiveSyntaxHighlightedDiffText,
   FullWidthDiffText,
   renderPlainDiff,
   summarizeDiff,
-} from "../diff.js";
-import { countLabel, formatBytes, metadata, previewFooter, showingFooter } from "../format.js";
-import { resolvePreviewLanguage } from "../language.js";
-import { renderDisplayPath } from "../paths.js";
-import { codePreviewSettings } from "../settings.js";
-import { normalizeShikiLanguage, shouldSkipHighlight } from "../shiki.js";
-import { escapeControlChars } from "../terminal-text.js";
+} from "../diff.ts";
+import { countLabel, formatBytes, metadata, previewFooter, showingFooter } from "../format.ts";
+import { resolvePreviewLanguage } from "../language.ts";
+import { renderDisplayPath } from "../paths.ts";
+import { codePreviewSettings } from "../settings.ts";
+import { normalizeShikiLanguage, shouldSkipHighlight } from "../shiki.ts";
+import { escapeControlChars } from "../terminal-text.ts";
 import {
   createSimpleDiff,
   getWriteDiffSkipReason,
   readExistingFileForPreview,
   shouldSkipWriteDiffBytes,
-} from "../write-diff.js";
+} from "../write-diff.ts";
 import {
   cachedPreview,
   countFileLines,
   previewCacheKey,
   renderHighlightedPreviewText,
   withSecretWarning,
-} from "./common.js";
+} from "./common.ts";
 
 export function registerWrite(pi: ExtensionAPI, cwd: string) {
   const originalWrite = createWriteToolDefinition(cwd);
