@@ -25,6 +25,7 @@ export default async function codePreviews(pi: ExtensionAPI) {
         `Shiki initialized: ${status.initialized ? "yes" : "no"}`,
         `Shiki theme: ${codePreviewSettings.shikiTheme}`,
         `Syntax highlighting: ${codePreviewSettings.syntaxHighlighting ? "on" : "off"}`,
+        `Word-level diff emphasis: ${codePreviewSettings.wordEmphasis}`,
         `Enabled tools: ${formatEnabledCodePreviewTools()}`,
         `Cache: ${status.cacheSize}/${status.cacheLimit}`,
         `Loaded languages: ${status.loadedLanguages}`,
@@ -100,6 +101,7 @@ class HealthPanel extends Container {
 function syncSettingsListValues(list: SettingsList): void {
   list.updateValue("shikiTheme", codePreviewSettings.shikiTheme);
   list.updateValue("diffIntensity", codePreviewSettings.diffIntensity);
+  list.updateValue("wordEmphasis", codePreviewSettings.wordEmphasis);
   list.updateValue("readCollapsedLines", String(codePreviewSettings.readCollapsedLines));
   list.updateValue("writeCollapsedLines", String(codePreviewSettings.writeCollapsedLines));
   list.updateValue("editCollapsedLines", String(codePreviewSettings.editCollapsedLines));

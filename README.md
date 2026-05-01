@@ -66,6 +66,7 @@ CODE_PREVIEW_THEME=github-dark
 CODE_PREVIEW_READ_LINES=20
 CODE_PREVIEW_WRITE_LINES=20
 CODE_PREVIEW_EDIT_LINES=120 # or all
+CODE_PREVIEW_WORD_EMPHASIS=smart # smart, all, or off
 CODE_PREVIEW_GREP_LINES=40
 CODE_PREVIEW_PATH_LIST_LINES=40
 CODE_PREVIEW_PATH_ICONS=unicode # unicode, nerd, or off
@@ -80,6 +81,7 @@ You can also set defaults in `.pi/settings.json`:
 {
   "codePreview": {
     "shikiTheme": "dark-plus",
+    "wordEmphasis": "smart",
     "grepCollapsedLines": 40,
     "pathListCollapsedLines": 40,
     "pathIcons": "unicode"
@@ -88,7 +90,6 @@ You can also set defaults in `.pi/settings.json`:
 ```
 
 ## Screenshot
-
 
 Write:
 <img width="780" height="482" alt="Screenshot 2026-04-30 at 11 47 26 PM" src="https://github.com/user-attachments/assets/98241dc0-192c-4549-8467-381d0abd0d18" />

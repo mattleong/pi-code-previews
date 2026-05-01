@@ -219,6 +219,7 @@ test("settings normalization and reset preserve defaults", () => {
   assert.equal(normalized.syntaxHighlighting, false);
   assert.equal(normalized.secretWarnings, false);
   assert.equal(normalized.bashWarnings, false);
+  assert.equal(normalized.wordEmphasis, defaultCodePreviewSettings.wordEmphasis);
   assert.equal(normalized.readCollapsedLines, defaultCodePreviewSettings.readCollapsedLines);
   assert.deepEqual(
     updateSetting(normalized, "resetToDefaults", "reset now"),
@@ -245,6 +246,8 @@ test("settings normalization falls back to accumulated settings for invalid over
   );
   assert.equal(validOverride.shikiTheme, "dark-plus");
   assert.equal(validOverride.readCollapsedLines, 20);
+  assert.equal(updateSetting(validOverride, "wordEmphasis", "all").wordEmphasis, "all");
+  assert.equal(normalizeSettings({ wordEmphasis: "off" }, fallback).wordEmphasis, "off");
 });
 
 test("extractCodePreviewSettings accepts nested, prefixed, and saved raw settings", () => {
@@ -318,6 +321,39 @@ test("word emphasis ignores lines that only share punctuation or method shape", 
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
   assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
   assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;64;132;82m/);
+});
+
+test("smart word emphasis suppresses low-signal wrapper syntax", () => {
+  const previous = { ...codePreviewSettings };
+  const diff = "-1   .map((item) => item.title)\n+1   (item) => item.title";
+  try {
+    setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "smart" });
+    const smart = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2);
+    assert.doesNotMatch(smart, /\x1b\[48;2;148;62;70m/);
+
+    setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "all" });
+    const all = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2);
+    assert.match(all, /\x1b\[48;2;148;62;70m\x1b\[1m\.map/);
+  } finally {
+    setCodePreviewSettings(previous);
+  }
+});
+
+test("word emphasis can be disabled", () => {
+  const previous = { ...codePreviewSettings };
+  try {
+    setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "off" });
+    const rendered = renderSyntaxHighlightedDiff(
+      "-1 const value = oldValue;\n+1 const value = newValue;",
+      undefined,
+      testTheme(),
+      2,
+    );
+    assert.doesNotMatch(rendered, /\x1b\[48;2;148;62;70m/);
+    assert.doesNotMatch(rendered, /\x1b\[48;2;64;132;82m/);
+  } finally {
+    setCodePreviewSettings(previous);
+  }
 });
 
 test("word emphasis ranges stay aligned when indentation changes", () => {

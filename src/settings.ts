@@ -2,11 +2,13 @@ import { bundledThemes } from "shiki";
 import { getObjectValue } from "./data.js";
 
 export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
+export type DiffWordEmphasis = "off" | "smart" | "all";
 export type PathIconMode = "off" | "unicode" | "nerd";
 
 export interface CodePreviewSettings {
   shikiTheme: string;
   diffIntensity: DiffBackgroundIntensity;
+  wordEmphasis: DiffWordEmphasis;
   readCollapsedLines: number;
   writeCollapsedLines: number;
   editCollapsedLines: number | "all";
@@ -22,6 +24,7 @@ export interface CodePreviewSettings {
 export const defaultCodePreviewSettings: CodePreviewSettings = {
   shikiTheme: envTheme("CODE_PREVIEW_THEME", "dark-plus"),
   diffIntensity: envDiffIntensity("CODE_PREVIEW_DIFF_INTENSITY", "subtle"),
+  wordEmphasis: envDiffWordEmphasis("CODE_PREVIEW_WORD_EMPHASIS", "smart"),
   readCollapsedLines: envNumber("CODE_PREVIEW_READ_LINES", 10),
   writeCollapsedLines: envNumber("CODE_PREVIEW_WRITE_LINES", 10),
   editCollapsedLines: envEditLines("CODE_PREVIEW_EDIT_LINES", 160),
@@ -46,6 +49,7 @@ export function normalizeSettings(
 ): CodePreviewSettings {
   const shikiTheme = getObjectValue(data, "shikiTheme");
   const diffIntensity = getObjectValue(data, "diffIntensity");
+  const wordEmphasis = getObjectValue(data, "wordEmphasis");
   const readLineNumbers = getObjectValue(data, "readLineNumbers");
   const bashWarnings = getObjectValue(data, "bashWarnings");
   const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
@@ -56,6 +60,7 @@ export function normalizeSettings(
     diffIntensity: isDiffBackgroundIntensity(diffIntensity)
       ? diffIntensity
       : fallback.diffIntensity,
+    wordEmphasis: isDiffWordEmphasis(wordEmphasis) ? wordEmphasis : fallback.wordEmphasis,
     readCollapsedLines: coerceNumber(
       getObjectValue(data, "readCollapsedLines"),
       fallback.readCollapsedLines,
@@ -94,6 +99,7 @@ export function updateSetting(
   const next = { ...current };
   if (id === "shikiTheme" && isBundledThemeName(value)) next.shikiTheme = value;
   else if (id === "diffIntensity" && isDiffBackgroundIntensity(value)) next.diffIntensity = value;
+  else if (id === "wordEmphasis" && isDiffWordEmphasis(value)) next.wordEmphasis = value;
   else if (id === "readCollapsedLines")
     next.readCollapsedLines = coerceStringNumber(value, current.readCollapsedLines);
   else if (id === "writeCollapsedLines")
@@ -151,6 +157,11 @@ function envDiffIntensity(
   return isDiffBackgroundIntensity(value) ? value : fallback;
 }
 
+function envDiffWordEmphasis(name: string, fallback: DiffWordEmphasis): DiffWordEmphasis {
+  const value = process.env[name]?.toLowerCase();
+  return isDiffWordEmphasis(value) ? value : fallback;
+}
+
 function envPathIconMode(name: string, fallback: PathIconMode): PathIconMode {
   const value = process.env[name]?.toLowerCase();
   return isPathIconMode(value) ? value : fallback;
@@ -175,6 +186,10 @@ function coerceEditPreviewLines(value: unknown, fallback: number | "all"): numbe
 
 function isDiffBackgroundIntensity(value: unknown): value is DiffBackgroundIntensity {
   return value === "off" || value === "subtle" || value === "medium";
+}
+
+function isDiffWordEmphasis(value: unknown): value is DiffWordEmphasis {
+  return value === "off" || value === "smart" || value === "all";
 }
 
 function isPathIconMode(value: unknown): value is PathIconMode {

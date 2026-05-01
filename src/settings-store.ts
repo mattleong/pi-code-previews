@@ -54,6 +54,7 @@ function hasDirectCodePreviewSettings(object: Record<string, unknown>): boolean 
   return [
     "shikiTheme",
     "diffIntensity",
+    "wordEmphasis",
     "readCollapsedLines",
     "writeCollapsedLines",
     "editCollapsedLines",

@@ -28,6 +28,14 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       values: ["off", "subtle", "medium"],
     },
     {
+      id: "wordEmphasis",
+      label: "Word-level diff emphasis",
+      description:
+        "Highlight changed words inside edit diffs. Smart mode suppresses low-signal punctuation and wrapper syntax.",
+      currentValue: current.wordEmphasis,
+      values: ["smart", "all", "off"],
+    },
+    {
       id: "readCollapsedLines",
       label: "Read preview lines",
       description: "Maximum read result lines shown before collapsing.",
