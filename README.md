@@ -4,26 +4,6 @@ Syntax-highlighted previews for pi's built-in tool calls.
 
 `pi-code-previews` makes `bash`, `read`, `write`, `edit`, `grep`, `find`, and `ls` output easier to scan in the pi TUI without changing what the tools do.
 
-## Features
-
-- Syntax-highlighted previews for commands, files, diffs, and search results.
-- Clearer `edit` and `write` diffs, including pending edit previews.
-- Readable `grep` results grouped by file.
-- Compact `find` and `ls` path lists with optional icons.
-- Optional visual warnings for risky-looking shell commands and secret-looking output.
-- Configurable themes, line counts, icons, and highlighting behavior.
-
-## Screenshot
-
-| Before                                                                                                                                                             | After                                                                                                                                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| <img width="1549" height="1133" alt="Screenshot 2026-04-26 at 1 20 00 PM" src="https://github.com/user-attachments/assets/d68c10a8-b931-4e9a-8144-24558605c045" /> | <img width="1548" height="1097" alt="Screenshot 2026-04-26 at 1 18 42 PM" src="https://github.com/user-attachments/assets/5d18b219-c73f-4347-bd8c-a0bf179edf8d" /> |
-
-## Requirements
-
-- Node.js 20 or newer.
-- pi coding agent.
-
 ## Install
 
 Install from npm:
@@ -38,17 +18,14 @@ Install from GitHub:
 pi install git:github.com/mattleong/pi-code-previews
 ```
 
-Try it for one run without installing:
+## Features
 
-```bash
-pi -e npm:pi-code-previews
-```
-
-After installing, restart pi or run:
-
-```text
-/reload
-```
+- Syntax-highlighted previews for commands, files, diffs, and search results.
+- Clearer `edit` and `write` diffs, including pending edit previews.
+- Readable `grep` results grouped by file.
+- Compact `find` and `ls` path lists with optional icons.
+- Optional visual warnings for risky-looking shell commands and secret-looking output.
+- Configurable themes, line counts, icons, and highlighting behavior.
 
 ## Usage
 
@@ -110,12 +87,20 @@ You can also set defaults in `.pi/settings.json`:
 }
 ```
 
-## Security
+## Screenshot
 
-Pi extensions run with full system permissions. Review `index.ts` before installing any fork of this package.
 
-Warnings are visual cues only. They do not block execution, redact output, or provide a security boundary.
+Write:
+<img width="780" height="482" alt="Screenshot 2026-04-30 at 11 47 26 PM" src="https://github.com/user-attachments/assets/98241dc0-192c-4549-8467-381d0abd0d18" />
 
-## License
+Read:
+<img width="781" height="465" alt="Screenshot 2026-04-30 at 11 47 38 PM" src="https://github.com/user-attachments/assets/beabf2e4-e453-4548-bde4-1af9e7f8ce6a" />
 
-MIT
+Edit:
+<img width="780" height="497" alt="Screenshot 2026-04-30 at 11 47 52 PM" src="https://github.com/user-attachments/assets/b6f17d63-667f-4bfc-acbf-892012b930f4" />
+
+Bash, ls, find:
+<img width="1034" height="276" alt="Screenshot 2026-04-30 at 11 47 59 PM" src="https://github.com/user-attachments/assets/99d769c2-f987-4844-a9de-fe01f2018e52" />
+
+Grep:
+<img width="780" height="541" alt="Screenshot 2026-04-30 at 11 48 10 PM" src="https://github.com/user-attachments/assets/56169abf-deef-4b6f-b647-c2b6a668ac06" />
