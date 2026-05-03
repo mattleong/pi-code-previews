@@ -1,21 +1,33 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { getAgentDir } from "@mariozechner/pi-coding-agent";
 import { codePreviewSettings, normalizeSettings, type CodePreviewSettings } from "./settings.ts";
 
 export function getSettingsPath(): string {
-  return join(homedir(), ".pi", "agent", "code-previews.json");
+  return join(getAgentDir(), "code-previews.json");
+}
+
+function getLegacyAgentDir(): string {
+  return join(homedir(), ".pi", "agent");
+}
+
+function getLegacySettingsPath(): string {
+  return join(getLegacyAgentDir(), "code-previews.json");
 }
 
 export async function loadSettingsFromDisk(): Promise<CodePreviewSettings | undefined> {
   let loaded = false;
   let effective = codePreviewSettings;
-  for (const settingsPath of [
+  const settingsPaths = [
     join(homedir(), ".pi", "settings.json"),
-    join(homedir(), ".pi", "agent", "settings.json"),
+    join(getLegacyAgentDir(), "settings.json"),
+    join(getAgentDir(), "settings.json"),
     join(process.cwd(), ".pi", "settings.json"),
+    getLegacySettingsPath(),
     getSettingsPath(),
-  ]) {
+  ];
+  for (const settingsPath of new Set(settingsPaths)) {
     try {
       const content = await readFile(settingsPath, "utf8");
       effective = normalizeSettings(extractCodePreviewSettings(JSON.parse(content)), effective);

@@ -51,7 +51,13 @@ Check status with:
 /code-preview-health
 ```
 
-Settings are stored globally in:
+Settings are stored globally in Pi's agent config directory:
+
+```text
+$PI_CODING_AGENT_DIR/code-previews.json
+```
+
+When `PI_CODING_AGENT_DIR` is not set, this defaults to:
 
 ```text
 ~/.pi/agent/code-previews.json

@@ -1,7 +1,41 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, test } from "vitest";
 import { defaultCodePreviewSettings } from "../src/settings.ts";
-import { extractCodePreviewSettings } from "../src/settings-store.ts";
+import {
+  extractCodePreviewSettings,
+  getSettingsPath,
+  loadSettingsFromDisk,
+  saveSettingsToDisk,
+} from "../src/settings-store.ts";
+
+const originalPiCodingAgentDir = process.env.PI_CODING_AGENT_DIR;
+
+afterEach(() => {
+  if (originalPiCodingAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+  else process.env.PI_CODING_AGENT_DIR = originalPiCodingAgentDir;
+});
+
+test("getSettingsPath uses Pi's agent directory resolution", () => {
+  process.env.PI_CODING_AGENT_DIR = join("~", ".config", "pi");
+
+  assert.equal(getSettingsPath(), join(homedir(), ".config", "pi", "code-previews.json"));
+});
+
+test("saveSettingsToDisk and loadSettingsFromDisk respect PI_CODING_AGENT_DIR", async () => {
+  const configDir = await mkdtemp(join(tmpdir(), "pi-code-previews-settings-"));
+  process.env.PI_CODING_AGENT_DIR = configDir;
+
+  await saveSettingsToDisk({ ...defaultCodePreviewSettings, readCollapsedLines: 37 });
+
+  const saved = JSON.parse(await readFile(join(configDir, "code-previews.json"), "utf8"));
+  assert.equal(saved.readCollapsedLines, 37);
+
+  const loaded = await loadSettingsFromDisk();
+  assert.equal(loaded?.readCollapsedLines, 37);
+});
 
 test("extractCodePreviewSettings accepts nested, prefixed, and saved raw settings", () => {
   assert.deepEqual(extractCodePreviewSettings({ codePreview: { readCollapsedLines: 20 } }), {
