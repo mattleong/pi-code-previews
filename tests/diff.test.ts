@@ -76,11 +76,35 @@ test("word emphasis pairs the most similar lines inside change blocks", () => {
   assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mline/);
 });
 
-test("word emphasis marks low-overlap changed pairs instead of skipping them", () => {
+test("word emphasis marks low-overlap one-to-one changed pairs instead of skipping them", () => {
   const diff = "-1 out.push(pair.removed, pair.added);\n+1 block.push(next);";
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
   assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mout/);
   assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mblock/);
+});
+
+test("word emphasis narrows compound identifier changes to changed segments", () => {
+  setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "all" });
+  const ranges = changedRanges(
+    "const limit = readCollapsedLines;",
+    "const limit = editCollapsedLines;",
+  );
+  assert.deepEqual(ranges.removed, [[14, 18]]);
+  assert.deepEqual(ranges.added, [[14, 18]]);
+});
+
+test("word emphasis skips low-confidence positional pairs inside larger blocks", () => {
+  const diff = [
+    "-1 const total = calculateTotal(items);",
+    "-2 notifyLegacySystem(payload);",
+    "+1 const total = calculateTotal(next);",
+    "+2 renderCompletelyDifferentScreen();",
+  ].join("\n");
+  const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 4).split("\n");
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mitems/);
+  assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;148;62;70m/);
+  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mnext/);
+  assert.doesNotMatch(rendered[3] ?? "", /\x1b\[48;2;64;132;82m/);
 });
 
 test("smart word emphasis suppresses low-signal wrapper syntax", () => {
@@ -134,8 +158,8 @@ test("word emphasis is applied synchronously for large changed lines", () => {
   });
   const rendered = renderComponent(component, 12000);
   assert.equal(invalidations, 0);
-  assert.match(rendered, /\x1b\[48;2;148;62;70m\x1b\[1moldValue/);
-  assert.match(rendered, /\x1b\[48;2;64;132;82m\x1b\[1mnewValue/);
+  assert.match(rendered, /\x1b\[48;2;148;62;70m\x1b\[1mold/);
+  assert.match(rendered, /\x1b\[48;2;64;132;82m\x1b\[1mnew/);
 });
 
 test("word range emphasis returns changed spans for unrelated token-heavy lines", () => {

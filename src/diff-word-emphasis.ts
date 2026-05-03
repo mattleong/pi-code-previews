@@ -11,6 +11,10 @@ type DiffToken = {
   end: number;
 };
 
+export function wordEmphasisTokenValues(text: string): string[] {
+  return tokenizeForWordEmphasis(text).map((token) => token.value);
+}
+
 export function changedRanges(before: string, after: string): WordChangeRanges {
   const beforeTokens = tokenizeForWordEmphasis(before);
   const afterTokens = tokenizeForWordEmphasis(after);
@@ -28,10 +32,12 @@ export function changedRanges(before: string, after: string): WordChangeRanges {
       added: addedTokens,
     },
   );
-  const ranges = {
-    removed: rangesForChangedTokens(beforeTokens, removedTokens),
-    added: rangesForChangedTokens(afterTokens, addedTokens),
-  };
+  const ranges = refinedRangesForChangedTokens(
+    beforeTokens,
+    afterTokens,
+    removedTokens,
+    addedTokens,
+  );
   return codePreviewSettings.wordEmphasis === "smart"
     ? filterLowSignalWordEmphasis(before, after, ranges)
     : ranges;
@@ -48,6 +54,21 @@ function tokenizeForWordEmphasis(text: string): DiffToken[] {
     tokens.push({ value, start, end: start + value.length });
   }
   return tokens;
+}
+
+function isIdentifierToken(value: string): boolean {
+  return /^[A-Za-z_$][\w$]*$/.test(value);
+}
+
+function splitIdentifierToken(value: string, start: number): DiffToken[] {
+  const parts: DiffToken[] = [];
+  const partPattern = /[$_]+|[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|\d+|[A-Z]+/g;
+  for (const match of value.matchAll(partPattern)) {
+    const part = match[0] ?? "";
+    const offset = match.index ?? 0;
+    parts.push({ value: part, start: start + offset, end: start + offset + part.length });
+  }
+  return parts.length > 0 ? parts : [{ value, start, end: start + value.length }];
 }
 
 function collectChangedTokenIndexes(
@@ -247,19 +268,116 @@ function markTokenRange(changed: Set<number>, start: number, end: number): void 
   for (let index = start; index < end; index++) changed.add(index);
 }
 
+type TokenGroup = { start: number; end: number };
+
+function refinedRangesForChangedTokens(
+  beforeTokens: DiffToken[],
+  afterTokens: DiffToken[],
+  removedTokens: Set<number>,
+  addedTokens: Set<number>,
+): WordChangeRanges {
+  const removedGroups = changedTokenGroups(beforeTokens, removedTokens);
+  const addedGroups = changedTokenGroups(afterTokens, addedTokens);
+  const removed: Array<[number, number]> = [];
+  const added: Array<[number, number]> = [];
+  const groupCount = Math.max(removedGroups.length, addedGroups.length);
+
+  for (let index = 0; index < groupCount; index++) {
+    const removedGroup = removedGroups[index];
+    const addedGroup = addedGroups[index];
+    const refined =
+      removedGroup && addedGroup
+        ? refinedIdentifierTokenRanges(beforeTokens, removedGroup, afterTokens, addedGroup)
+        : undefined;
+    if (refined) {
+      removed.push(...refined.removed);
+      added.push(...refined.added);
+      continue;
+    }
+    if (removedGroup) removed.push(...rangesForTokenGroup(beforeTokens, removedGroup));
+    if (addedGroup) added.push(...rangesForTokenGroup(afterTokens, addedGroup));
+  }
+
+  return { removed: mergeRanges(removed), added: mergeRanges(added) };
+}
+
+function changedTokenGroups(tokens: DiffToken[], changed: Set<number>): TokenGroup[] {
+  const groups: TokenGroup[] = [];
+  let start: number | undefined;
+  for (let index = 0; index < tokens.length; index++) {
+    if (changed.has(index)) {
+      start ??= index;
+      continue;
+    }
+    if (start !== undefined) {
+      groups.push({ start, end: index });
+      start = undefined;
+    }
+  }
+  if (start !== undefined) groups.push({ start, end: tokens.length });
+  return groups;
+}
+
+function refinedIdentifierTokenRanges(
+  beforeTokens: DiffToken[],
+  beforeGroup: TokenGroup,
+  afterTokens: DiffToken[],
+  afterGroup: TokenGroup,
+): WordChangeRanges | undefined {
+  if (beforeGroup.end - beforeGroup.start !== 1 || afterGroup.end - afterGroup.start !== 1)
+    return undefined;
+  const beforeToken = beforeTokens[beforeGroup.start]!;
+  const afterToken = afterTokens[afterGroup.start]!;
+  if (!isIdentifierToken(beforeToken.value) || !isIdentifierToken(afterToken.value))
+    return undefined;
+  const beforeParts = splitIdentifierToken(beforeToken.value, beforeToken.start);
+  const afterParts = splitIdentifierToken(afterToken.value, afterToken.start);
+  if (beforeParts.length <= 1 && afterParts.length <= 1) return undefined;
+
+  const removed = new Set<number>();
+  const added = new Set<number>();
+  collectChangedTokenIndexes(beforeParts, 0, beforeParts.length, afterParts, 0, afterParts.length, {
+    removed,
+    added,
+  });
+  return {
+    removed: rangesForChangedTokens(beforeParts, removed),
+    added: rangesForChangedTokens(afterParts, added),
+  };
+}
+
+function rangesForTokenGroup(tokens: DiffToken[], group: TokenGroup): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  for (let index = group.start; index < group.end; index++)
+    appendTokenRange(ranges, tokens[index]!);
+  return ranges;
+}
+
 function rangesForChangedTokens(
   tokens: DiffToken[],
   changed: Set<number>,
 ): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
   for (let index = 0; index < tokens.length; index++) {
-    if (!changed.has(index)) continue;
-    const token = tokens[index]!;
-    const previous = ranges.at(-1);
-    if (previous && token.start - previous[1] <= 1) previous[1] = token.end;
-    else ranges.push([token.start, token.end]);
+    if (changed.has(index)) appendTokenRange(ranges, tokens[index]!);
   }
   return ranges;
+}
+
+function appendTokenRange(ranges: Array<[number, number]>, token: DiffToken): void {
+  const previous = ranges.at(-1);
+  if (previous && token.start - previous[1] <= 1) previous[1] = token.end;
+  else ranges.push([token.start, token.end]);
+}
+
+function mergeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
+  const merged: Array<[number, number]> = [];
+  for (const range of ranges) {
+    const previous = merged.at(-1);
+    if (previous && range[0] - previous[1] <= 1) previous[1] = range[1];
+    else merged.push([...range]);
+  }
+  return merged;
 }
 
 function filterLowSignalWordEmphasis(

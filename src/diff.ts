@@ -1,6 +1,10 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@mariozechner/pi-tui";
-import { changedRanges, type WordChangeRanges } from "./diff-word-emphasis.ts";
+import {
+  changedRanges,
+  wordEmphasisTokenValues,
+  type WordChangeRanges,
+} from "./diff-word-emphasis.ts";
 import { codePreviewSettings } from "./settings.ts";
 import { renderWithShiki } from "./shiki.ts";
 import { escapeControlChars, visibleLength, wrapAnsiToWidth } from "./terminal-text.ts";
@@ -355,10 +359,14 @@ function matchChangedLines(
     }
   }
 
-  return addPositionalFallbackPairs(removed, added, pairs.reverse());
+  const similarPairs = pairs.reverse();
+  if (similarPairs.length === 0 && removed.length === 1 && added.length === 1)
+    return [[removed[0]!.index, added[0]!.index]];
+  return addPositionalFallbackPairs(removed, added, scores, similarPairs);
 }
 
 const MIN_CHANGED_LINE_PAIR_SCORE = 0.45;
+const MIN_POSITIONAL_FALLBACK_PAIR_SCORE = 0.28;
 const MAX_CHANGED_LINE_PAIR_CELLS = 256;
 
 function matchChangedLinesByPosition(
@@ -367,7 +375,10 @@ function matchChangedLinesByPosition(
 ): Array<[number, number]> {
   const pairs: Array<[number, number]> = [];
   for (let index = 0; index < Math.min(removed.length, added.length); index++) {
-    pairs.push([removed[index]!.index, added[index]!.index]);
+    const removedTokens = similarityTokens(normalizeDiffContent(removed[index]!.line.content));
+    const addedTokens = similarityTokens(normalizeDiffContent(added[index]!.line.content));
+    if (tokenSimilarity(removedTokens, addedTokens) >= MIN_POSITIONAL_FALLBACK_PAIR_SCORE)
+      pairs.push([removed[index]!.index, added[index]!.index]);
   }
   return pairs;
 }
@@ -375,6 +386,7 @@ function matchChangedLinesByPosition(
 function addPositionalFallbackPairs(
   removed: Array<IndexedChangedLine<RemovedDiffLine>>,
   added: Array<IndexedChangedLine<AddedDiffLine>>,
+  scores: number[][],
   similarPairs: Array<[number, number]>,
 ): Array<[number, number]> {
   const pairs: Array<[number, number]> = [];
@@ -382,14 +394,30 @@ function addPositionalFallbackPairs(
   let addedCursor = 0;
   for (const [removedPosition, addedPosition] of similarPairs) {
     pairs.push(
-      ...positionPairs(removed, added, removedCursor, removedPosition, addedCursor, addedPosition),
+      ...positionPairs(
+        removed,
+        added,
+        scores,
+        removedCursor,
+        removedPosition,
+        addedCursor,
+        addedPosition,
+      ),
     );
     pairs.push([removed[removedPosition]!.index, added[addedPosition]!.index]);
     removedCursor = removedPosition + 1;
     addedCursor = addedPosition + 1;
   }
   pairs.push(
-    ...positionPairs(removed, added, removedCursor, removed.length, addedCursor, added.length),
+    ...positionPairs(
+      removed,
+      added,
+      scores,
+      removedCursor,
+      removed.length,
+      addedCursor,
+      added.length,
+    ),
   );
   return pairs;
 }
@@ -397,16 +425,22 @@ function addPositionalFallbackPairs(
 function positionPairs(
   removed: Array<IndexedChangedLine<RemovedDiffLine>>,
   added: Array<IndexedChangedLine<AddedDiffLine>>,
+  scores: number[][],
   removedStart: number,
   removedEnd: number,
   addedStart: number,
   addedEnd: number,
 ): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
   const count = Math.min(removedEnd - removedStart, addedEnd - addedStart);
-  return Array.from({ length: count }, (_, offset) => [
-    removed[removedStart + offset]!.index,
-    added[addedStart + offset]!.index,
-  ]);
+  for (let offset = 0; offset < count; offset++) {
+    const removedPosition = removedStart + offset;
+    const addedPosition = addedStart + offset;
+    const score = scores[removedPosition]?.[addedPosition] ?? 0;
+    if (score < MIN_POSITIONAL_FALLBACK_PAIR_SCORE) continue;
+    pairs.push([removed[removedPosition]!.index, added[addedPosition]!.index]);
+  }
+  return pairs;
 }
 
 function tokenSimilarity(beforeTokens: string[], afterTokens: string[]): number {
@@ -440,7 +474,7 @@ function tokenWeight(token: string): number {
 }
 
 function similarityTokens(text: string): string[] {
-  return text.match(/[A-Za-z_$][\w$]*|\d+(?:\.\d+)?|===|!==|=>|==|!=|<=|>=|&&|\|\||[^\s]/g) ?? [];
+  return wordEmphasisTokenValues(text);
 }
 
 function dimAnsi(text: string): string {
