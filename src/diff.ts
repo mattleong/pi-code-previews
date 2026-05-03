@@ -59,37 +59,11 @@ export class FullWidthDiffText implements Component {
 }
 
 const DIFF_WRAP_ROWS = envPositiveInteger("CODE_PREVIEW_DIFF_WRAP_ROWS", 3);
-// Thresholds are based on local jsdiff timings: ~40k token-pair cost was ~7ms,
-// ~250k was ~35ms, and ~1M was ~150ms for unrelated word-heavy lines.
-const WORD_EMPHASIS_SYNC_MAX_COST = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_SYNC_COST",
-  50_000,
-);
-const WORD_EMPHASIS_LAZY_MAX_COST = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_LAZY_COST",
-  500_000,
-);
-const WORD_EMPHASIS_SYNC_MAX_LINE_CHARS = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_SYNC_LINE_CHARS",
-  1_500,
-);
-const WORD_EMPHASIS_LAZY_MAX_LINE_CHARS = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_LAZY_LINE_CHARS",
-  6_000,
-);
-const WORD_EMPHASIS_SYNC_MAX_PAIRS = envPositiveInteger("CODE_PREVIEW_WORD_EMPHASIS_SYNC_PAIRS", 8);
-const WORD_EMPHASIS_LAZY_MAX_PAIRS = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_LAZY_PAIRS",
-  32,
-);
-const WORD_EMPHASIS_SYNC_MAX_BLOCK_LINES = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_SYNC_BLOCK_LINES",
-  24,
-);
-const WORD_EMPHASIS_LAZY_MAX_BLOCK_LINES = envPositiveInteger(
-  "CODE_PREVIEW_WORD_EMPHASIS_LAZY_BLOCK_LINES",
-  100,
-);
+
+function envPositiveInteger(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 function continuationPrefix(line: string): string {
   const pipe = line.indexOf("│ ");
@@ -172,7 +146,7 @@ export function renderSyntaxHighlightedDiff(
     theme,
     limit,
     invalidate,
-    getWordEmphasisMode(diff, limit) === "sync",
+    codePreviewSettings.wordEmphasis !== "off",
   );
 }
 
@@ -184,33 +158,15 @@ export function createProgressiveSyntaxHighlightedDiffText(
   options: { decorate?: (body: string) => string; invalidate?: () => void } = {},
 ): FullWidthDiffText {
   const decorate = options.decorate ?? ((body: string) => body);
-  const mode = getWordEmphasisMode(diff, limit);
   const initialBody = renderSyntaxHighlightedDiffWithWordEmphasis(
     diff,
     lang,
     theme,
     limit,
     options.invalidate,
-    mode === "sync",
+    codePreviewSettings.wordEmphasis !== "off",
   );
   const component = new FullWidthDiffText(decorate(initialBody), theme);
-  if (mode === "lazy") {
-    setTimeout(() => {
-      component.setText(
-        decorate(
-          renderSyntaxHighlightedDiffWithWordEmphasis(
-            diff,
-            lang,
-            theme,
-            limit,
-            options.invalidate,
-            true,
-          ),
-        ),
-      );
-      options.invalidate?.();
-    }, 0);
-  }
   return component;
 }
 
@@ -284,64 +240,6 @@ function renderDiff(diff: string, options: DiffRenderOptions): string {
   return out.join("\n");
 }
 
-type WordEmphasisRenderMode = "sync" | "lazy" | "skip";
-
-function getWordEmphasisMode(diff: string, limit: number): WordEmphasisRenderMode {
-  if (codePreviewSettings.wordEmphasis === "off") return "skip";
-  const lines = diff.split("\n");
-  const max = Math.min(lines.length, Math.max(0, Math.floor(limit)));
-  let estimatedCost = 0;
-  let maxLineChars = 0;
-  let maxBlockLines = 0;
-  let pairCount = 0;
-
-  for (let index = 0; index < max; ) {
-    const parsed = parseDiffLine(lines[index]!);
-    if (!parsed || !isChangedDiffLine(parsed)) {
-      index++;
-      continue;
-    }
-
-    const removedTokens: number[] = [];
-    const addedTokens: number[] = [];
-    let blockLines = 0;
-    while (index < max) {
-      const next = parseDiffLine(lines[index]!);
-      if (!next || !isChangedDiffLine(next)) break;
-      const normalized = normalizeDiffContent(next.content);
-      maxLineChars = Math.max(maxLineChars, normalized.length);
-      const tokenCount = Math.max(1, similarityTokens(normalized).length);
-      if (isRemovedDiffLine(next)) removedTokens.push(tokenCount);
-      else addedTokens.push(tokenCount);
-      blockLines++;
-      index++;
-    }
-
-    maxBlockLines = Math.max(maxBlockLines, blockLines);
-    const pairsInBlock = Math.min(removedTokens.length, addedTokens.length);
-    pairCount += pairsInBlock;
-    for (let pair = 0; pair < pairsInBlock; pair++)
-      estimatedCost += (removedTokens[pair] ?? 1) * (addedTokens[pair] ?? 1);
-  }
-
-  if (pairCount === 0) return "skip";
-  if (
-    estimatedCost <= WORD_EMPHASIS_SYNC_MAX_COST &&
-    maxLineChars <= WORD_EMPHASIS_SYNC_MAX_LINE_CHARS &&
-    pairCount <= WORD_EMPHASIS_SYNC_MAX_PAIRS &&
-    maxBlockLines <= WORD_EMPHASIS_SYNC_MAX_BLOCK_LINES
-  )
-    return "sync";
-  if (
-    estimatedCost <= WORD_EMPHASIS_LAZY_MAX_COST &&
-    maxLineChars <= WORD_EMPHASIS_LAZY_MAX_LINE_CHARS &&
-    pairCount <= WORD_EMPHASIS_LAZY_MAX_PAIRS &&
-    maxBlockLines <= WORD_EMPHASIS_LAZY_MAX_BLOCK_LINES
-  )
-    return "lazy";
-  return "skip";
-}
-
 function renderSeparator(line: string, theme: Theme): string {
   const safeLine = escapeControlChars(line);
   const trimmed = safeLine.trim();
@@ -394,7 +292,7 @@ function renderChangeBlock(
     const removedContent = normalizeDiffContent(removedLine.content);
     const addedContent = normalizeDiffContent(addedLine.content);
     const ranges = changedRanges(removedContent, addedContent);
-    if (!shouldEmphasizeChangedPair(removedContent, addedContent, ranges)) continue;
+    if (!shouldEmphasizeChangedPair(ranges)) continue;
     emphasis.set(removedIndex, { ranges: ranges.removed, kind: "remove" });
     emphasis.set(addedIndex, { ranges: ranges.added, kind: "add" });
   }
@@ -413,12 +311,12 @@ function matchChangedLines(
   added: Array<IndexedChangedLine<AddedDiffLine>>,
 ): Array<[number, number]> {
   if (removed.length === 0 || added.length === 0) return [];
+  if (removed.length * added.length > MAX_CHANGED_LINE_PAIR_CELLS)
+    return matchChangedLinesByPosition(removed, added);
   const removedTokens = removed.map(({ line }) =>
     similarityTokens(normalizeDiffContent(line.content)),
   );
   const addedTokens = added.map(({ line }) => similarityTokens(normalizeDiffContent(line.content)));
-  if (removed.length * added.length > MAX_CHANGED_LINE_PAIR_CELLS)
-    return matchChangedLinesByPosition(removed, added, removedTokens, addedTokens);
   const scores = removedTokens.map((tokens) =>
     addedTokens.map((addedLineTokens) => tokenSimilarity(tokens, addedLineTokens)),
   );
@@ -447,7 +345,7 @@ function matchChangedLines(
         ? dp[i - 1]![j - 1]! + score + 0.01
         : Number.NEGATIVE_INFINITY;
     if (Math.abs(dp[i]![j]! - pair) < 1e-9) {
-      pairs.push([removed[i - 1]!.index, added[j - 1]!.index]);
+      pairs.push([i - 1, j - 1]);
       i--;
       j--;
     } else if (dp[i - 1]![j]! >= dp[i]![j - 1]!) {
@@ -457,34 +355,58 @@ function matchChangedLines(
     }
   }
 
-  return pairs.reverse();
+  return addPositionalFallbackPairs(removed, added, pairs.reverse());
 }
 
 const MIN_CHANGED_LINE_PAIR_SCORE = 0.45;
-const MIN_WORD_DIFF_UNCHANGED_RATIO = 0.45;
-const MAX_CHANGED_LINE_PAIR_CELLS = 20000;
-
-function envPositiveInteger(name: string, fallback: number): number {
-  const value = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
+const MAX_CHANGED_LINE_PAIR_CELLS = 256;
 
 function matchChangedLinesByPosition(
   removed: Array<IndexedChangedLine<RemovedDiffLine>>,
   added: Array<IndexedChangedLine<AddedDiffLine>>,
-  removedTokens: string[][],
-  addedTokens: string[][],
 ): Array<[number, number]> {
   const pairs: Array<[number, number]> = [];
   for (let index = 0; index < Math.min(removed.length, added.length); index++) {
-    if (
-      tokenSimilarity(removedTokens[index] ?? [], addedTokens[index] ?? []) >=
-      MIN_CHANGED_LINE_PAIR_SCORE
-    ) {
-      pairs.push([removed[index]!.index, added[index]!.index]);
-    }
+    pairs.push([removed[index]!.index, added[index]!.index]);
   }
   return pairs;
+}
+
+function addPositionalFallbackPairs(
+  removed: Array<IndexedChangedLine<RemovedDiffLine>>,
+  added: Array<IndexedChangedLine<AddedDiffLine>>,
+  similarPairs: Array<[number, number]>,
+): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  let removedCursor = 0;
+  let addedCursor = 0;
+  for (const [removedPosition, addedPosition] of similarPairs) {
+    pairs.push(
+      ...positionPairs(removed, added, removedCursor, removedPosition, addedCursor, addedPosition),
+    );
+    pairs.push([removed[removedPosition]!.index, added[addedPosition]!.index]);
+    removedCursor = removedPosition + 1;
+    addedCursor = addedPosition + 1;
+  }
+  pairs.push(
+    ...positionPairs(removed, added, removedCursor, removed.length, addedCursor, added.length),
+  );
+  return pairs;
+}
+
+function positionPairs(
+  removed: Array<IndexedChangedLine<RemovedDiffLine>>,
+  added: Array<IndexedChangedLine<AddedDiffLine>>,
+  removedStart: number,
+  removedEnd: number,
+  addedStart: number,
+  addedEnd: number,
+): Array<[number, number]> {
+  const count = Math.min(removedEnd - removedStart, addedEnd - addedStart);
+  return Array.from({ length: count }, (_, offset) => [
+    removed[removedStart + offset]!.index,
+    added[addedStart + offset]!.index,
+  ]);
 }
 
 function tokenSimilarity(beforeTokens: string[], afterTokens: string[]): number {
@@ -575,22 +497,8 @@ function normalizeDiffContent(content: string): string {
   return escapeControlChars(content.replace(/\t/g, "   "));
 }
 
-function shouldEmphasizeChangedPair(
-  removedContent: string,
-  addedContent: string,
-  ranges: WordChangeRanges,
-): boolean {
-  if (ranges.removed.length === 0 && ranges.added.length === 0) return false;
-  return (
-    unchangedRatio(removedContent.length, ranges.removed) >= MIN_WORD_DIFF_UNCHANGED_RATIO &&
-    unchangedRatio(addedContent.length, ranges.added) >= MIN_WORD_DIFF_UNCHANGED_RATIO
-  );
-}
-
-function unchangedRatio(length: number, ranges: Array<[number, number]>): number {
-  if (length === 0) return ranges.length === 0 ? 1 : 0;
-  const changed = ranges.reduce((total, [start, end]) => total + Math.max(0, end - start), 0);
-  return Math.max(0, length - changed) / length;
+function shouldEmphasizeChangedPair(ranges: WordChangeRanges): boolean {
+  return ranges.removed.length > 0 || ranges.added.length > 0;
 }
 
 function emphasizeChangedSpans(

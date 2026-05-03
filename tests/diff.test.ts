@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Box, visibleWidth } from "@mariozechner/pi-tui";
 import { afterEach, beforeEach, test } from "vitest";
 import { codePreviewSettings, setCodePreviewSettings } from "../src/settings.ts";
-import { delay, renderComponent, testTheme } from "./test-utils.ts";
+import { renderComponent, testTheme } from "./test-utils.ts";
 import {
   createProgressiveSyntaxHighlightedDiffText,
   FullWidthDiffText,
@@ -10,6 +10,7 @@ import {
   renderSyntaxHighlightedDiff,
   summarizeDiff,
 } from "../src/diff.ts";
+import { changedRanges } from "../src/diff-word-emphasis.ts";
 
 let previousCodePreviewSettings = { ...codePreviewSettings };
 
@@ -75,11 +76,11 @@ test("word emphasis pairs the most similar lines inside change blocks", () => {
   assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mline/);
 });
 
-test("word emphasis ignores lines that only share punctuation or method shape", () => {
+test("word emphasis marks low-overlap changed pairs instead of skipping them", () => {
   const diff = "-1 out.push(pair.removed, pair.added);\n+1 block.push(next);";
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
-  assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
-  assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;64;132;82m/);
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mout/);
+  assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mblock/);
 });
 
 test("smart word emphasis suppresses low-signal wrapper syntax", () => {
@@ -124,20 +125,23 @@ test("word emphasis highlights long shared lines with appended text", () => {
   );
 });
 
-test("word emphasis can be applied progressively for estimated medium-cost lines", async () => {
+test("word emphasis is applied synchronously for large changed lines", () => {
   const shared = Array.from({ length: 300 }, (_, index) => `token${index}`).join(" ");
   const diff = `-1 ${shared} oldValue ${shared}\n+1 ${shared} newValue ${shared}`;
   let invalidations = 0;
   const component = createProgressiveSyntaxHighlightedDiffText(diff, undefined, testTheme(), 2, {
     invalidate: () => invalidations++,
   });
-  const initial = renderComponent(component, 12000);
-  assert.doesNotMatch(initial, /\x1b\[48;2;148;62;70m\x1b\[1moldValue/);
-  assert.doesNotMatch(initial, /\x1b\[48;2;64;132;82m\x1b\[1mnewValue/);
+  const rendered = renderComponent(component, 12000);
+  assert.equal(invalidations, 0);
+  assert.match(rendered, /\x1b\[48;2;148;62;70m\x1b\[1moldValue/);
+  assert.match(rendered, /\x1b\[48;2;64;132;82m\x1b\[1mnewValue/);
+});
 
-  await delay(20);
-  const emphasized = renderComponent(component, 12000);
-  assert.ok(invalidations > 0);
-  assert.match(emphasized, /\x1b\[48;2;148;62;70m\x1b\[1moldValue/);
-  assert.match(emphasized, /\x1b\[48;2;64;132;82m\x1b\[1mnewValue/);
+test("word range emphasis returns changed spans for unrelated token-heavy lines", () => {
+  const before = Array.from({ length: 400 }, (_, index) => `before_${index}`).join(" ");
+  const after = Array.from({ length: 400 }, (_, index) => `after_${index}`).join(" ");
+  const ranges = changedRanges(before, after);
+  assert.deepEqual(ranges.removed, [[0, before.length]]);
+  assert.deepEqual(ranges.added, [[0, after.length]]);
 });

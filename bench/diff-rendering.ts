@@ -2,15 +2,6 @@ import { performance } from "node:perf_hooks";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import type { DiffWordEmphasis } from "../src/settings.ts";
 
-process.env.CODE_PREVIEW_WORD_EMPHASIS_SYNC_COST ??= "1000000000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_SYNC_LINE_CHARS ??= "1000000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_SYNC_PAIRS ??= "100000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_SYNC_BLOCK_LINES ??= "100000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_LAZY_COST ??= "1000000000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_LAZY_LINE_CHARS ??= "1000000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_LAZY_PAIRS ??= "100000";
-process.env.CODE_PREVIEW_WORD_EMPHASIS_LAZY_BLOCK_LINES ??= "100000";
-
 const { renderSyntaxHighlightedDiff } = await import("../src/diff.ts");
 const { changedRanges } = await import("../src/diff-word-emphasis.ts");
 const { initializeShiki } = await import("../src/shiki.ts");
@@ -177,7 +168,8 @@ function printSummary(results: BenchResult[], benchCases: BenchCase[]): void {
     const smartRanges = findResult(results, benchCase.name, "word-ranges", "smart");
     const smartOverhead = smartRender && off ? Math.max(0, smartRender.meanMs - off.meanMs) : 0;
     const allOverhead = allRender && off ? Math.max(0, allRender.meanMs - off.meanMs) : 0;
-    const signalMs = Math.max(smartOverhead, smartRanges?.meanMs ?? 0);
+    const smartRangeP95 = smartRanges?.p95Ms ?? 0;
+    const signalMs = Math.max(smartOverhead, smartRangeP95);
     return {
       case: benchCase.name,
       pairs: benchCase.rangePairs.length,
@@ -185,6 +177,7 @@ function printSummary(results: BenchResult[], benchCases: BenchCase[]): void {
       "smart render +ms": formatMs(smartOverhead),
       "all render +ms": formatMs(allOverhead),
       "smart ranges ms": formatMs(smartRanges?.meanMs ?? 0),
+      "smart ranges p95": formatMs(smartRangeP95),
       verdict: verdict(signalMs),
     };
   });
@@ -192,7 +185,7 @@ function printSummary(results: BenchResult[], benchCases: BenchCase[]): void {
   console.log("Word emphasis risk summary");
   console.table(rows);
   console.log(
-    "Verdict bands use mean cost: fine < 1ms, watch 1-8ms, problem > 8ms. The render columns show overhead versus wordEmphasis=off.",
+    "Verdict bands use render mean overhead and word-range p95 cost: fine < 1ms, watch 1-8ms, problem > 8ms. The render columns show overhead versus wordEmphasis=off.",
   );
   console.log("");
 }
