@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { type Component } from "@mariozechner/pi-tui";
 import { afterEach, beforeEach, test } from "vitest";
 import { registerToolRenderers } from "../src/renderers.ts";
+import {
+  formatActiveCodePreviewTools,
+  formatSkippedCodePreviewToolLines,
+} from "../src/tool-status.ts";
 import { delay, renderComponent, stripAnsi, testTheme } from "./test-utils.ts";
 
 let previousCodePreviewTools: string | undefined;
@@ -13,6 +17,62 @@ beforeEach(() => {
 afterEach(() => {
   if (previousCodePreviewTools === undefined) delete process.env.CODE_PREVIEW_TOOLS;
   else process.env.CODE_PREVIEW_TOOLS = previousCodePreviewTools;
+});
+
+test("renderer registration skips tools already owned by another extension", () => {
+  process.env.CODE_PREVIEW_TOOLS = "read,grep,write";
+  const registered: Array<{ name: string }> = [];
+  registerToolRenderers(
+    {
+      getAllTools: () => [
+        {
+          name: "read",
+          description: "read via fff",
+          parameters: {},
+          sourceInfo: {
+            source: "npm:pi-fff",
+            path: "/tmp/pi-fff/index.ts",
+            scope: "user",
+            origin: "package",
+          },
+        },
+        {
+          name: "grep",
+          description: "grep via fff",
+          parameters: {},
+          sourceInfo: {
+            source: "npm:pi-fff",
+            path: "/tmp/pi-fff/index.ts",
+            scope: "user",
+            origin: "package",
+          },
+        },
+        {
+          name: "write",
+          description: "write",
+          parameters: {},
+          sourceInfo: {
+            source: "builtin",
+            path: "<builtin:write>",
+            scope: "temporary",
+            origin: "top-level",
+          },
+        },
+      ],
+      registerTool: (tool: unknown) => registered.push(tool as { name: string }),
+    } as never,
+    "/tmp/project",
+  );
+
+  assert.deepEqual(
+    registered.map((tool) => tool.name),
+    ["write"],
+  );
+  assert.equal(formatActiveCodePreviewTools(), "write");
+  assert.deepEqual(formatSkippedCodePreviewToolLines(), [
+    "  read — owned by npm:pi-fff",
+    "  grep — owned by npm:pi-fff",
+  ]);
 });
 
 test("registered grep renderer highlights literal matches only", () => {

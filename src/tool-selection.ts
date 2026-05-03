@@ -1,19 +1,17 @@
-const ALL_CODE_PREVIEW_TOOLS = ["bash", "read", "write", "edit", "grep", "find", "ls"] as const;
-export type CodePreviewToolName = (typeof ALL_CODE_PREVIEW_TOOLS)[number];
+import { codePreviewSettings } from "./settings.ts";
+import {
+  ALL_CODE_PREVIEW_TOOLS,
+  isCodePreviewToolName,
+  parseCodePreviewTools,
+  type CodePreviewToolName,
+} from "./tool-names.ts";
+
+export { ALL_CODE_PREVIEW_TOOLS, isCodePreviewToolName, type CodePreviewToolName };
 
 export function getEnabledCodePreviewTools(): Set<CodePreviewToolName> {
-  const raw = process.env.CODE_PREVIEW_TOOLS?.trim();
-  if (!raw || raw.toLowerCase() === "all") return new Set(ALL_CODE_PREVIEW_TOOLS);
-  if (raw.toLowerCase() === "none") return new Set();
-  const requested = raw
-    .split(/[\s,]+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const enabled = new Set<CodePreviewToolName>();
-  for (const tool of requested) {
-    if (isCodePreviewToolName(tool)) enabled.add(tool);
-  }
-  return enabled;
+  const envTools = parseCodePreviewTools(process.env.CODE_PREVIEW_TOOLS);
+  if (envTools) return envTools;
+  return new Set(codePreviewSettings.tools);
 }
 
 export function isCodePreviewToolEnabled(
@@ -25,8 +23,4 @@ export function isCodePreviewToolEnabled(
 
 export function formatEnabledCodePreviewTools(enabled = getEnabledCodePreviewTools()): string {
   return ALL_CODE_PREVIEW_TOOLS.filter((tool) => enabled.has(tool)).join(", ") || "none";
-}
-
-function isCodePreviewToolName(value: string): value is CodePreviewToolName {
-  return (ALL_CODE_PREVIEW_TOOLS as readonly string[]).includes(value);
 }

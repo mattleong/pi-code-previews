@@ -1,5 +1,11 @@
 import { bundledThemes } from "shiki";
 import { getObjectValue } from "./data.ts";
+import {
+  ALL_CODE_PREVIEW_TOOLS,
+  isCodePreviewToolName,
+  parseCodePreviewTools,
+  type CodePreviewToolName,
+} from "./tool-names.ts";
 
 export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
 export type DiffWordEmphasis = "off" | "smart" | "all";
@@ -19,6 +25,7 @@ export interface CodePreviewSettings {
   syntaxHighlighting: boolean;
   secretWarnings: boolean;
   pathIcons: PathIconMode;
+  tools: CodePreviewToolName[];
 }
 
 export const defaultCodePreviewSettings: CodePreviewSettings = {
@@ -35,6 +42,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
   syntaxHighlighting: envBoolean("CODE_PREVIEW_SYNTAX", true),
   secretWarnings: envBoolean("CODE_PREVIEW_SECRET_WARNINGS", true),
   pathIcons: envPathIconMode("CODE_PREVIEW_PATH_ICONS", "unicode"),
+  tools: [...ALL_CODE_PREVIEW_TOOLS],
 };
 
 export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
@@ -88,6 +96,7 @@ export function normalizeSettings(
       typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : fallback.syntaxHighlighting,
     secretWarnings: typeof secretWarnings === "boolean" ? secretWarnings : fallback.secretWarnings,
     pathIcons: isPathIconMode(pathIcons) ? pathIcons : fallback.pathIcons,
+    tools: coerceTools(getObjectValue(data, "tools"), fallback.tools),
   };
 }
 
@@ -121,6 +130,8 @@ export function updateSetting(
   else if (id === "syntaxHighlighting") next.syntaxHighlighting = value === "on";
   else if (id === "secretWarnings") next.secretWarnings = value === "on";
   else if (id === "pathIcons" && isPathIconMode(value)) next.pathIcons = value;
+  else if (id === "tools") next.tools = coerceTools(value, current.tools);
+  else if (id.startsWith("tool:")) next.tools = updateToolToggle(current.tools, id, value);
   else if (id === "resetToDefaults" && value === "reset now")
     return { ...defaultCodePreviewSettings };
   return next;
@@ -182,6 +193,28 @@ function coerceEditPreviewLines(value: unknown, fallback: number | "all"): numbe
   if (value === "all") return "all";
   if (typeof value === "number" && Number.isFinite(value) && value > 0) return Math.floor(value);
   return fallback;
+}
+
+function coerceTools(value: unknown, fallback: CodePreviewToolName[]): CodePreviewToolName[] {
+  if (typeof value === "string") return [...(parseCodePreviewTools(value) ?? fallback)];
+  if (!Array.isArray(value)) return fallback;
+  const tools = value.filter(
+    (tool): tool is CodePreviewToolName => typeof tool === "string" && isCodePreviewToolName(tool),
+  );
+  return [...new Set(tools)];
+}
+
+function updateToolToggle(
+  currentTools: CodePreviewToolName[],
+  id: string,
+  value: string,
+): CodePreviewToolName[] {
+  const tool = id.slice("tool:".length);
+  if (!isCodePreviewToolName(tool)) return currentTools;
+  const enabled = new Set(currentTools);
+  if (value === "on") enabled.add(tool);
+  else if (value === "off") enabled.delete(tool);
+  return ALL_CODE_PREVIEW_TOOLS.filter((candidate) => enabled.has(candidate));
 }
 
 function isDiffBackgroundIntensity(value: unknown): value is DiffBackgroundIntensity {

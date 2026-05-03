@@ -8,12 +8,14 @@ test("settings normalization and reset preserve defaults", () => {
     secretWarnings: false,
     bashWarnings: false,
     readCollapsedLines: -1,
+    tools: ["bash", "not-a-tool", "write", "bash"],
   });
   assert.equal(normalized.syntaxHighlighting, false);
   assert.equal(normalized.secretWarnings, false);
   assert.equal(normalized.bashWarnings, false);
   assert.equal(normalized.wordEmphasis, defaultCodePreviewSettings.wordEmphasis);
   assert.equal(normalized.readCollapsedLines, defaultCodePreviewSettings.readCollapsedLines);
+  assert.deepEqual(normalized.tools, ["bash", "write"]);
   assert.deepEqual(
     updateSetting(normalized, "resetToDefaults", "reset now"),
     defaultCodePreviewSettings,
@@ -41,4 +43,16 @@ test("settings normalization falls back to accumulated settings for invalid over
   assert.equal(validOverride.readCollapsedLines, 20);
   assert.equal(updateSetting(validOverride, "wordEmphasis", "all").wordEmphasis, "all");
   assert.equal(normalizeSettings({ wordEmphasis: "off" }, fallback).wordEmphasis, "off");
+  assert.deepEqual(normalizeSettings({ tools: "read,grep" }, fallback).tools, ["read", "grep"]);
+});
+
+test("individual tool toggles update configured previews", () => {
+  const withoutGrep = updateSetting(defaultCodePreviewSettings, "tool:grep", "off");
+  assert.deepEqual(
+    withoutGrep.tools,
+    defaultCodePreviewSettings.tools.filter((tool) => tool !== "grep"),
+  );
+
+  const withGrep = updateSetting(withoutGrep, "tool:grep", "on");
+  assert.deepEqual(withGrep.tools, defaultCodePreviewSettings.tools);
 });

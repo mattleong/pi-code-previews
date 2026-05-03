@@ -77,6 +77,7 @@ function hasDirectCodePreviewSettings(object: Record<string, unknown>): boolean 
     "syntaxHighlighting",
     "secretWarnings",
     "pathIcons",
+    "tools",
   ].some((key) => key in object);
 }
 

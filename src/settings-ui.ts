@@ -1,7 +1,8 @@
-import { getSelectListTheme } from "@mariozechner/pi-coding-agent";
+import { getSelectListTheme, getSettingsListTheme } from "@mariozechner/pi-coding-agent";
 import {
   Container,
   SelectList,
+  SettingsList,
   Spacer,
   Text,
   type SelectItem,
@@ -10,6 +11,16 @@ import {
 import { bundledThemes } from "shiki";
 import { getSettingsPath } from "./settings-store.ts";
 import type { CodePreviewSettings } from "./settings.ts";
+import {
+  ALL_CODE_PREVIEW_TOOLS,
+  parseCodePreviewTools,
+  type CodePreviewToolName,
+} from "./tool-names.ts";
+import {
+  formatToolOwner,
+  getCodePreviewToolStatuses,
+  type CodePreviewToolStatus,
+} from "./tool-status.ts";
 
 export function createSettingsItems(current: CodePreviewSettings): SettingItem[] {
   return [
@@ -34,6 +45,14 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
         "Highlight changed words inside edit diffs. Smart mode suppresses low-signal punctuation and wrapper syntax.",
       currentValue: current.wordEmphasis,
       values: ["smart", "all", "off"],
+    },
+    {
+      id: "tools",
+      label: "Preview tools",
+      description:
+        "Open granular tool preview toggles. Changes take effect after /reload. Tools already owned by another extension are skipped automatically.",
+      currentValue: current.tools.join(", "),
+      submenu: (currentValue, done) => new ToolPreviewSettingsSubmenu(currentValue, done),
     },
     {
       id: "readCollapsedLines",
@@ -123,6 +142,76 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       values: ["keep current", "reset now"],
     },
   ];
+}
+
+class ToolPreviewSettingsSubmenu extends Container {
+  private readonly selectedTools: Set<CodePreviewToolName>;
+  private readonly settingsList: SettingsList;
+
+  constructor(currentValue: string, done: (selectedValue?: string) => void) {
+    super();
+    this.selectedTools = parseCodePreviewTools(currentValue) ?? new Set(ALL_CODE_PREVIEW_TOOLS);
+    this.settingsList = new SettingsList(
+      createToolToggleItems(this.selectedTools, getCodePreviewToolStatuses()),
+      ALL_CODE_PREVIEW_TOOLS.length + 2,
+      getSettingsListTheme(),
+      (id, value) => {
+        const tool = parseToolToggleId(id);
+        if (!tool) return;
+        if (value === "on") this.selectedTools.add(tool);
+        else this.selectedTools.delete(tool);
+      },
+      () => done(this.formatSelectedTools()),
+    );
+
+    this.addChild(new Text("Preview tools", 0, 0));
+    this.addChild(
+      new Text("Toggle tool previews individually. Changes take effect after /reload.", 0, 0),
+    );
+    this.addChild(new Spacer(1));
+    this.addChild(this.settingsList);
+  }
+
+  handleInput(data: string): void {
+    this.settingsList.handleInput(data);
+  }
+
+  private formatSelectedTools(): string {
+    return ALL_CODE_PREVIEW_TOOLS.filter((tool) => this.selectedTools.has(tool)).join(",");
+  }
+}
+
+function createToolToggleItems(
+  enabledTools: Set<CodePreviewToolName>,
+  statuses: Map<CodePreviewToolName, CodePreviewToolStatus>,
+): SettingItem[] {
+  return ALL_CODE_PREVIEW_TOOLS.map((tool) => {
+    const status = statuses.get(tool);
+    if (status?.state === "skipped-conflict") {
+      const owner = formatToolOwner(status.owner);
+      return {
+        id: `tool:${tool}`,
+        label: `${tool} preview`,
+        description: `${tool} preview is disabled because ${owner} owns the ${tool} tool. Disable that extension or change package order to let pi-code-previews own it.`,
+        currentValue: `disabled (${owner})`,
+      };
+    }
+
+    const statusText =
+      status?.state === "active" ? "currently active" : "takes effect after /reload";
+    return {
+      id: `tool:${tool}`,
+      label: `${tool} preview`,
+      description: `${tool} preview registration (${statusText}). Tools already owned by another extension are disabled automatically.`,
+      currentValue: enabledTools.has(tool) ? "on" : "off",
+      values: ["on", "off"],
+    };
+  });
+}
+
+function parseToolToggleId(id: string): CodePreviewToolName | undefined {
+  const tool = id.startsWith("tool:") ? id.slice("tool:".length) : "";
+  return ALL_CODE_PREVIEW_TOOLS.find((candidate) => candidate === tool);
 }
 
 class ThemeSelectSubmenu extends Container {

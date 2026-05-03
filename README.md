@@ -2,7 +2,7 @@
 
 Syntax-highlighted previews for pi's built-in tool calls.
 
-`pi-code-previews` makes `bash`, `read`, `write`, `edit`, `grep`, `find`, and `ls` output easier to scan in the pi TUI without changing what the tools do.
+`pi-code-previews` makes `bash`, `read`, `write`, `edit`, `grep`, `find`, and `ls` output easier to scan in the pi TUI without changing what the tools do. If another extension already owns one of those tools, `pi-code-previews` skips that preview instead of conflicting with it.
 
 ## Install
 
@@ -51,6 +51,8 @@ Check status with:
 /code-preview-health
 ```
 
+The health panel shows configured tools, active previews, disabled tools, and previews skipped because another extension owns that tool. Individual tool toggles are available in the Preview tools submenu in `/code-preview-settings` and take effect after `/reload`.
+
 Settings are stored globally in Pi's agent config directory:
 
 ```text
@@ -79,6 +81,8 @@ CODE_PREVIEW_PATH_ICONS=unicode # unicode, nerd, or off
 CODE_PREVIEW_TOOLS=write,edit,grep # comma/space list, all, or none
 ```
 
+`CODE_PREVIEW_TOOLS` overrides `codePreview.tools` for the current pi process.
+
 ## Project settings
 
 You can also set defaults in `.pi/settings.json`:
@@ -90,7 +94,8 @@ You can also set defaults in `.pi/settings.json`:
     "wordEmphasis": "smart",
     "grepCollapsedLines": 40,
     "pathListCollapsedLines": 40,
-    "pathIcons": "unicode"
+    "pathIcons": "unicode",
+    "tools": ["bash", "write", "edit", "find", "ls"]
   }
 }
 ```
