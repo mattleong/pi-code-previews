@@ -74,7 +74,7 @@ CODE_PREVIEW_THEME=github-dark
 CODE_PREVIEW_READ_LINES=20
 CODE_PREVIEW_WRITE_LINES=20
 CODE_PREVIEW_EDIT_LINES=120 # or all
-CODE_PREVIEW_WORD_EMPHASIS=smart # smart, all, or off
+CODE_PREVIEW_WORD_EMPHASIS=all # all, smart, or off
 CODE_PREVIEW_GREP_LINES=40
 CODE_PREVIEW_PATH_LIST_LINES=40
 CODE_PREVIEW_PATH_ICONS=unicode # unicode, nerd, or off
@@ -91,7 +91,7 @@ You can also set defaults in `.pi/settings.json`:
 {
   "codePreview": {
     "shikiTheme": "dark-plus",
-    "wordEmphasis": "smart",
+    "wordEmphasis": "all",
     "grepCollapsedLines": 40,
     "pathListCollapsedLines": 40,
     "pathIcons": "unicode",

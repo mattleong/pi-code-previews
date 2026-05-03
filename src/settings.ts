@@ -31,7 +31,7 @@ export interface CodePreviewSettings {
 export const defaultCodePreviewSettings: CodePreviewSettings = {
   shikiTheme: envTheme("CODE_PREVIEW_THEME", "dark-plus"),
   diffIntensity: envDiffIntensity("CODE_PREVIEW_DIFF_INTENSITY", "subtle"),
-  wordEmphasis: envDiffWordEmphasis("CODE_PREVIEW_WORD_EMPHASIS", "smart"),
+  wordEmphasis: envDiffWordEmphasis("CODE_PREVIEW_WORD_EMPHASIS", "all"),
   readCollapsedLines: envNumber("CODE_PREVIEW_READ_LINES", 10),
   writeCollapsedLines: envNumber("CODE_PREVIEW_WRITE_LINES", 10),
   editCollapsedLines: envEditLines("CODE_PREVIEW_EDIT_LINES", 160),

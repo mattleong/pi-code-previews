@@ -42,9 +42,9 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       id: "wordEmphasis",
       label: "Word-level diff emphasis",
       description:
-        "Highlight changed words inside edit diffs. Smart mode suppresses low-signal punctuation and wrapper syntax.",
+        "Highlight changed words inside edit diffs. All mode is the default; smart suppresses low-signal punctuation and wrapper syntax.",
       currentValue: current.wordEmphasis,
-      values: ["smart", "all", "off"],
+      values: ["all", "smart", "off"],
     },
     {
       id: "tools",
