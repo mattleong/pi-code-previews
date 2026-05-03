@@ -1,5 +1,5 @@
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import { createHighlighter } from "shiki";
+import { bundledThemesInfo, createHighlighter } from "shiki";
 import { hashString } from "./hash.ts";
 import { setCodePreviewSettings, codePreviewSettings } from "./settings.ts";
 import { escapeControlChars } from "./terminal-text.ts";
@@ -17,6 +17,7 @@ const renderCache = new Map<string, string[]>();
 const renderCacheSizes = new Map<string, number>();
 const languageLoadCallbacks = new Map<string, Set<() => void>>();
 const highlighterReadyCallbacks = new Set<() => void>();
+const shikiThemeTypes = new Map(bundledThemesInfo.map((theme) => [theme.id, theme.type]));
 
 const MAX_HIGHLIGHT_CHARS = envPositiveInteger("CODE_PREVIEW_MAX_HIGHLIGHT_CHARS", 80000);
 const CACHE_LIMIT = envPositiveInteger("CODE_PREVIEW_CACHE_LIMIT", 192);
@@ -249,6 +250,7 @@ export function normalizeShikiLanguage(lang: string): string {
 }
 
 function normalizeShikiContrast(ansi: string): string {
+  if (shikiThemeTypes.get(codePreviewSettings.shikiTheme) === "light") return ansi;
   return ansi.replace(/\x1b\[([0-9;]*)m/g, (seq, params: string) =>
     isLowContrastFg(params) ? "\x1b[38;2;139;148;158m" : seq,
   );
