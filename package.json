@@ -33,6 +33,7 @@
     "lint:fix": "oxlint . --fix",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
+    "bench:diff": "tsx bench/diff-rendering.ts",
     "test": "vitest run",
     "prepublishOnly": "npm run check && npm test",
     "pack:dry": "npm pack --dry-run"
