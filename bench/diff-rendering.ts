@@ -38,14 +38,23 @@ type BenchResult = {
   opsPerSec: number;
 };
 
+type LargeScenario = {
+  name: string;
+  baseCase: string;
+  pairCounts: number[];
+  makePair: (index: number) => { before: string; after: string };
+};
+
 const WARMUP_MS = readPositiveNumber("BENCH_WARMUP_MS", 20);
 const SAMPLE_MS = readPositiveNumber("BENCH_SAMPLE_MS", 80);
 const SAMPLES = Math.floor(readPositiveNumber("BENCH_SAMPLES", 5));
 const MODES: DiffWordEmphasis[] = ["off", "smart", "all"];
 const VERBOSE = isEnabled("BENCH_VERBOSE");
+const LARGE_ACTUAL = isEnabled("BENCH_LARGE_ACTUAL");
 let sink = 0;
 
 const cases = makeCases();
+const largeScenarios = makeLargeScenarios();
 const previousSettings = { ...codePreviewSettings };
 
 await initializeShiki(codePreviewSettings.shikiTheme);
@@ -106,8 +115,12 @@ try {
   }
 
   printSummary(results, cases);
+  printLargeDiffEstimates(results, cases, largeScenarios);
+  if (LARGE_ACTUAL) printActualLargeDiffTimings(largeScenarios);
   if (VERBOSE) printResults(results);
   else console.log("Set BENCH_VERBOSE=1 to print the full raw benchmark table.");
+  if (!LARGE_ACTUAL)
+    console.log("Set BENCH_LARGE_ACTUAL=1 to run one-shot actual large diff renders.");
   if (sink === Number.MIN_SAFE_INTEGER) console.log("sink", sink);
 } finally {
   setCodePreviewSettings(previousSettings);
@@ -184,6 +197,86 @@ function printSummary(results: BenchResult[], benchCases: BenchCase[]): void {
   console.log("");
 }
 
+function printLargeDiffEstimates(
+  results: BenchResult[],
+  benchCases: BenchCase[],
+  scenarios: LargeScenario[],
+): void {
+  const rows = scenarios.map((scenario) => {
+    const sourceCase = benchCases.find((benchCase) => benchCase.name === scenario.baseCase);
+    const smartRanges = findResult(results, scenario.baseCase, "word-ranges", "smart");
+    const msPerPair =
+      smartRanges && sourceCase
+        ? smartRanges.meanMs / Math.max(1, sourceCase.rangePairs.length)
+        : 0;
+    const estimates = Object.fromEntries(
+      scenario.pairCounts.map((pairCount) => [
+        `${pairCount} pairs`,
+        formatDuration(msPerPair * pairCount),
+      ]),
+    );
+    return {
+      scenario: scenario.name,
+      "chars/pair": sourceCase ? maxPairChars(sourceCase.rangePairs) : "?",
+      "measured ms/pair": formatMs(msPerPair),
+      ...estimates,
+    };
+  });
+
+  console.log("Large diff word-emphasis estimates");
+  console.table(rows);
+  console.log(
+    "These estimates multiply the measured smart word-ranges cost per changed pair. They isolate word-emphasis analysis, not syntax highlighting or terminal wrapping.",
+  );
+  console.log("");
+}
+
+function printActualLargeDiffTimings(scenarios: LargeScenario[]): void {
+  const rows: Array<Record<string, string | number>> = [];
+  for (const scenario of scenarios) {
+    for (const pairCount of scenario.pairCounts) {
+      const benchCase = largeCase(
+        `${scenario.name} (${pairCount} pairs)`,
+        pairCount,
+        scenario.makePair,
+      );
+      setCodePreviewSettings({
+        ...codePreviewSettings,
+        wordEmphasis: "off",
+        syntaxHighlighting: false,
+      });
+      const off = timeOnce(() =>
+        renderSyntaxHighlightedDiff(benchCase.diff, undefined, benchTheme(), benchCase.limit),
+      );
+      setCodePreviewSettings({
+        ...codePreviewSettings,
+        wordEmphasis: "smart",
+        syntaxHighlighting: false,
+      });
+      const smart = timeOnce(() =>
+        renderSyntaxHighlightedDiff(benchCase.diff, undefined, benchTheme(), benchCase.limit),
+      );
+      rows.push({
+        scenario: scenario.name,
+        pairs: pairCount,
+        "off render": formatDuration(off),
+        "smart render": formatDuration(smart),
+        "smart overhead": formatDuration(Math.max(0, smart - off)),
+      });
+    }
+  }
+
+  console.log("Actual large diff one-shot timings");
+  console.table(rows);
+  console.log("");
+}
+
+function timeOnce(fn: () => string): number {
+  const start = performance.now();
+  sink += fn().length;
+  return performance.now() - start;
+}
+
 function findResult(
   results: BenchResult[],
   caseName: string,
@@ -209,6 +302,11 @@ function formatMs(ms: number): string {
   return ms.toFixed(ms >= 10 ? 1 : 3);
 }
 
+function formatDuration(ms: number): string {
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 1 : 2)}s`;
+  return `${formatMs(ms)}ms`;
+}
+
 function printResults(results: BenchResult[]): void {
   const rows = results.map((result) => ({
     benchmark: result.name,
@@ -225,8 +323,7 @@ function printResults(results: BenchResult[]): void {
 function makeCases(): BenchCase[] {
   const mediumShared = numberedWords("token", 180).join(" ");
   const longShared = numberedWords("shared", 600).join(" ");
-  const beforeUnrelated = numberedWords("before", 420).join(" ");
-  const afterUnrelated = numberedWords("after", 420).join(" ");
+  const unrelatedPair = unrelatedTokenPair(0, 420);
   const beforeMulti = Array.from(
     { length: 12 },
     (_, index) =>
@@ -263,7 +360,7 @@ function makeCases(): BenchCase[] {
       `${mediumShared} oldValue ${mediumShared}`,
       `${mediumShared} newValue ${mediumShared}`,
     ),
-    pairCase("unrelated token-heavy", "typescript", beforeUnrelated, afterUnrelated),
+    pairCase("unrelated token-heavy", "typescript", unrelatedPair.before, unrelatedPair.after),
     {
       name: "multi-line replacements",
       lang: "typescript",
@@ -285,6 +382,29 @@ function makeCases(): BenchCase[] {
   ];
 }
 
+function makeLargeScenarios(): LargeScenario[] {
+  return [
+    {
+      name: "unrelated token-heavy",
+      baseCase: "unrelated token-heavy",
+      pairCounts: [10, 50, 100, 500],
+      makePair: (index) => unrelatedTokenPair(index, 420),
+    },
+    {
+      name: "code-like replacements",
+      baseCase: "multi-line replacements",
+      pairCounts: [100, 500, 1000],
+      makePair: codeLikePair,
+    },
+    {
+      name: "very long shared tokens",
+      baseCase: "very long shared tokens",
+      pairCounts: [10, 50, 100],
+      makePair: veryLongSharedPair,
+    },
+  ];
+}
+
 function pairCase(name: string, lang: string, before: string, after: string): BenchCase {
   return {
     name,
@@ -297,8 +417,50 @@ function pairCase(name: string, lang: string, before: string, after: string): Be
   };
 }
 
+function largeCase(
+  name: string,
+  count: number,
+  makePair: (index: number) => { before: string; after: string },
+): BenchCase {
+  const pairs = Array.from({ length: count }, (_, index) => makePair(index));
+  return {
+    name,
+    lang: "typescript",
+    diff: [
+      ...pairs.map((pair, index) => `- ${index + 1} ${pair.before}`),
+      ...pairs.map((pair, index) => `+ ${index + 1} ${pair.after}`),
+    ].join("\n"),
+    before: pairs.map((pair) => pair.before).join("\n"),
+    after: pairs.map((pair) => pair.after).join("\n"),
+    rangePairs: pairs,
+    limit: pairs.length * 2,
+  };
+}
+
 function numberedWords(prefix: string, count: number): string[] {
   return Array.from({ length: count }, (_, index) => `${prefix}${index}`);
+}
+
+function unrelatedTokenPair(index: number, tokenCount: number): { before: string; after: string } {
+  return {
+    before: numberedWords(`before${index}_`, tokenCount).join(" "),
+    after: numberedWords(`after${index}_`, tokenCount).join(" "),
+  };
+}
+
+function codeLikePair(index: number): { before: string; after: string } {
+  return {
+    before: `const value${index} = source.${index % 2 ? "oldName" : "oldValue"} ?? fallback${index};`,
+    after: `const value${index} = target.${index % 2 ? "newName" : "newValue"} ?? fallback${index};`,
+  };
+}
+
+function veryLongSharedPair(index: number): { before: string; after: string } {
+  const shared = numberedWords(`shared${index}_`, 600).join(" ");
+  return {
+    before: `${shared} oldValue ${shared}`,
+    after: `${shared} newValue ${shared}`,
+  };
 }
 
 function benchTheme(): Theme {
