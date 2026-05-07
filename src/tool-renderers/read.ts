@@ -56,6 +56,8 @@ export function registerRead(pi: ExtensionAPI, cwd: string) {
         );
       }
 
+      if (!codePreviewSettings.readContentPreview) return new Text("", 0, 0);
+
       const lang = resolvePreviewLanguage({
         path,
         content: firstText,

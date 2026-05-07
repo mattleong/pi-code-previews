@@ -55,6 +55,14 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       submenu: (currentValue, done) => new ToolPreviewSettingsSubmenu(currentValue, done),
     },
     {
+      id: "readContentPreview",
+      label: "Read content preview",
+      description:
+        "Show file contents in read results. Turn off to keep the read tool call visible without rendering code.",
+      currentValue: current.readContentPreview ? "on" : "off",
+      values: ["on", "off"],
+    },
+    {
       id: "readCollapsedLines",
       label: "Read preview lines",
       description: "Maximum read result lines shown before collapsing.",

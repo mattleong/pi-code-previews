@@ -16,6 +16,7 @@ export interface CodePreviewSettings {
   diffIntensity: DiffBackgroundIntensity;
   wordEmphasis: DiffWordEmphasis;
   readCollapsedLines: number;
+  readContentPreview: boolean;
   writeCollapsedLines: number;
   editCollapsedLines: number | "all";
   grepCollapsedLines: number;
@@ -33,6 +34,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
   diffIntensity: envDiffIntensity("CODE_PREVIEW_DIFF_INTENSITY", "subtle"),
   wordEmphasis: envDiffWordEmphasis("CODE_PREVIEW_WORD_EMPHASIS", "all"),
   readCollapsedLines: envNumber("CODE_PREVIEW_READ_LINES", 10),
+  readContentPreview: envBoolean("CODE_PREVIEW_READ_CONTENT", true),
   writeCollapsedLines: envNumber("CODE_PREVIEW_WRITE_LINES", 10),
   editCollapsedLines: envEditLines("CODE_PREVIEW_EDIT_LINES", 160),
   grepCollapsedLines: envNumber("CODE_PREVIEW_GREP_LINES", 15),
@@ -45,10 +47,16 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
   tools: [...ALL_CODE_PREVIEW_TOOLS],
 };
 
-export let codePreviewSettings: CodePreviewSettings = { ...defaultCodePreviewSettings };
+export const codePreviewSettings: CodePreviewSettings = cloneCodePreviewSettings(
+  defaultCodePreviewSettings,
+);
 
 export function setCodePreviewSettings(next: CodePreviewSettings) {
-  codePreviewSettings = next;
+  Object.assign(codePreviewSettings, cloneCodePreviewSettings(next));
+}
+
+function cloneCodePreviewSettings(settings: CodePreviewSettings): CodePreviewSettings {
+  return { ...settings, tools: [...settings.tools] };
 }
 
 export function normalizeSettings(
@@ -58,6 +66,7 @@ export function normalizeSettings(
   const shikiTheme = getObjectValue(data, "shikiTheme");
   const diffIntensity = getObjectValue(data, "diffIntensity");
   const wordEmphasis = getObjectValue(data, "wordEmphasis");
+  const readContentPreview = getObjectValue(data, "readContentPreview");
   const readLineNumbers = getObjectValue(data, "readLineNumbers");
   const bashWarnings = getObjectValue(data, "bashWarnings");
   const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
@@ -73,6 +82,8 @@ export function normalizeSettings(
       getObjectValue(data, "readCollapsedLines"),
       fallback.readCollapsedLines,
     ),
+    readContentPreview:
+      typeof readContentPreview === "boolean" ? readContentPreview : fallback.readContentPreview,
     writeCollapsedLines: coerceNumber(
       getObjectValue(data, "writeCollapsedLines"),
       fallback.writeCollapsedLines,
@@ -111,6 +122,7 @@ export function updateSetting(
   else if (id === "wordEmphasis" && isDiffWordEmphasis(value)) next.wordEmphasis = value;
   else if (id === "readCollapsedLines")
     next.readCollapsedLines = coerceStringNumber(value, current.readCollapsedLines);
+  else if (id === "readContentPreview") next.readContentPreview = value === "on";
   else if (id === "writeCollapsedLines")
     next.writeCollapsedLines = coerceStringNumber(value, current.writeCollapsedLines);
   else if (id === "editCollapsedLines")

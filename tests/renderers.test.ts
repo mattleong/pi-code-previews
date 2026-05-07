@@ -3,6 +3,11 @@ import { type Component } from "@mariozechner/pi-tui";
 import { afterEach, beforeEach, test } from "vitest";
 import { registerToolRenderers } from "../src/renderers.ts";
 import {
+  codePreviewSettings,
+  defaultCodePreviewSettings,
+  setCodePreviewSettings,
+} from "../src/settings.ts";
+import {
   formatActiveCodePreviewTools,
   formatSkippedCodePreviewToolLines,
 } from "../src/tool-status.ts";
@@ -226,6 +231,54 @@ test("registered result renderers reuse async previews after they settle", async
   assert.equal(settledWritePreview, firstWritePreview);
   assert.ok(writeInvalidations > 0);
   assert.doesNotMatch(stripAnsi(renderComponent(settledWritePreview, 80)), /Rendering write diff/);
+});
+
+test("registered read renderer can hide successful text content while preserving calls", () => {
+  process.env.CODE_PREVIEW_TOOLS = "read";
+  const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
+  setCodePreviewSettings({ ...defaultCodePreviewSettings, readContentPreview: false });
+  try {
+    const registered: Array<{
+      name: string;
+      renderCall?: (...args: unknown[]) => Component;
+      renderResult?: (...args: unknown[]) => Component;
+    }> = [];
+    registerToolRenderers(
+      {
+        registerTool: (tool: unknown) =>
+          registered.push(
+            tool as {
+              name: string;
+              renderCall?: (...args: unknown[]) => Component;
+              renderResult?: (...args: unknown[]) => Component;
+            },
+          ),
+      } as never,
+      "/tmp/project",
+    );
+    const read = registered.find((tool) => tool.name === "read");
+    assert.ok(read?.renderCall);
+    assert.ok(read.renderResult);
+
+    const call = stripAnsi(
+      renderComponent(read.renderCall({ path: "src/a.ts" }, testTheme(), {} as never)),
+    );
+    assert.match(call, /read src\/a\.ts/);
+
+    const result = stripAnsi(
+      renderComponent(
+        read.renderResult(
+          { content: [{ type: "text", text: "const secret = 1;" }] },
+          { expanded: true, isPartial: false },
+          testTheme(),
+          { args: { path: "src/a.ts" }, isError: false, invalidate: () => undefined, state: {} },
+        ),
+      ),
+    );
+    assert.equal(result, "");
+  } finally {
+    setCodePreviewSettings(previousSettings);
+  }
 });
 
 test("registered read renderer leaves image rendering to pi", () => {

@@ -44,6 +44,9 @@ test("extractCodePreviewSettings accepts nested, prefixed, and saved raw setting
   assert.deepEqual(extractCodePreviewSettings({ codePreviewReadCollapsedLines: 30 }), {
     readCollapsedLines: 30,
   });
+  assert.deepEqual(extractCodePreviewSettings({ codePreviewReadContentPreview: false }), {
+    readContentPreview: false,
+  });
   assert.deepEqual(extractCodePreviewSettings({ codePreviewTools: ["bash", "write"] }), {
     tools: ["bash", "write"],
   });

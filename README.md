@@ -72,6 +72,7 @@ Optional defaults can be set before pi starts:
 ```bash
 CODE_PREVIEW_THEME=github-dark
 CODE_PREVIEW_READ_LINES=20
+CODE_PREVIEW_READ_CONTENT=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_WRITE_LINES=20
 CODE_PREVIEW_EDIT_LINES=120 # or all
 CODE_PREVIEW_WORD_EMPHASIS=all # all, smart, or off
@@ -92,6 +93,7 @@ You can also set defaults in `.pi/settings.json`:
   "codePreview": {
     "shikiTheme": "dark-plus",
     "wordEmphasis": "all",
+    "readContentPreview": false,
     "grepCollapsedLines": 40,
     "pathListCollapsedLines": 40,
     "pathIcons": "unicode",

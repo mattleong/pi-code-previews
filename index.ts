@@ -4,7 +4,12 @@ import { SettingsList, truncateToWidth, visibleWidth, type Component } from "@ma
 import { registerToolRenderers } from "./src/renderers.ts";
 import { getSettingsPath, loadSettingsFromDisk, saveSettingsToDisk } from "./src/settings-store.ts";
 import { createSettingsItems } from "./src/settings-ui.ts";
-import { setCodePreviewSettings, codePreviewSettings, updateSetting } from "./src/settings.ts";
+import {
+  setCodePreviewSettings,
+  codePreviewSettings,
+  updateSetting,
+  type CodePreviewSettings,
+} from "./src/settings.ts";
 import { getShikiStatus, initializeShiki } from "./src/shiki.ts";
 import {
   formatActiveCodePreviewTools,
@@ -34,6 +39,7 @@ export default async function codePreviews(pi: ExtensionAPI) {
         `Shiki initialized: ${status.initialized ? "yes" : "no"}`,
         `Shiki theme: ${codePreviewSettings.shikiTheme}`,
         `Syntax highlighting: ${codePreviewSettings.syntaxHighlighting ? "on" : "off"}`,
+        `Read content preview: ${codePreviewSettings.readContentPreview ? "on" : "off"}`,
         `Word-level diff emphasis: ${codePreviewSettings.wordEmphasis}`,
         `Configured tools: ${formatEnabledCodePreviewTools()}`,
         `Active previews: ${formatActiveCodePreviewTools()}`,
@@ -77,19 +83,20 @@ export default async function codePreviews(pi: ExtensionAPI) {
             if (resetRequested) syncSettingsListValues(list);
             if (codePreviewSettings.shikiTheme !== previousTheme)
               void initializeShiki(codePreviewSettings.shikiTheme);
-            void saveSettingsToDisk(codePreviewSettings)
+            void queueSettingsSave(codePreviewSettings)
               .then(() => {
                 if (resetRequested)
                   ctx.ui.notify("Code preview settings reset to defaults", "info");
               })
               .catch((error) => {
-                ctx.ui.notify(
-                  `Failed to save code preview settings: ${error instanceof Error ? error.message : String(error)}`,
-                  "warning",
-                );
+                ctx.ui.notify(formatSettingsSaveError(error), "warning");
               });
           },
-          () => done(undefined),
+          () => {
+            void flushSettingsSaveQueue()
+              .catch(() => undefined)
+              .finally(() => done(undefined));
+          },
         );
         return list;
       });
@@ -140,11 +147,35 @@ class HealthPanel implements Component {
   }
 }
 
+let settingsSaveQueue: Promise<void> = Promise.resolve();
+
+function queueSettingsSave(settings: CodePreviewSettings): Promise<void> {
+  const snapshot = cloneSettingsForSave(settings);
+  const nextSave = settingsSaveQueue
+    .catch(() => undefined)
+    .then(() => saveSettingsToDisk(snapshot));
+  settingsSaveQueue = nextSave;
+  return nextSave;
+}
+
+function flushSettingsSaveQueue(): Promise<void> {
+  return settingsSaveQueue;
+}
+
+function cloneSettingsForSave(settings: CodePreviewSettings): CodePreviewSettings {
+  return { ...settings, tools: [...settings.tools] };
+}
+
+function formatSettingsSaveError(error: unknown): string {
+  return `Failed to save code preview settings: ${error instanceof Error ? error.message : String(error)}`;
+}
+
 function syncSettingsListValues(list: SettingsList): void {
   list.updateValue("shikiTheme", codePreviewSettings.shikiTheme);
   list.updateValue("diffIntensity", codePreviewSettings.diffIntensity);
   list.updateValue("wordEmphasis", codePreviewSettings.wordEmphasis);
   list.updateValue("tools", codePreviewSettings.tools.join(", "));
+  list.updateValue("readContentPreview", codePreviewSettings.readContentPreview ? "on" : "off");
   list.updateValue("readCollapsedLines", String(codePreviewSettings.readCollapsedLines));
   list.updateValue("writeCollapsedLines", String(codePreviewSettings.writeCollapsedLines));
   list.updateValue("editCollapsedLines", String(codePreviewSettings.editCollapsedLines));

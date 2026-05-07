@@ -68,6 +68,7 @@ function hasDirectCodePreviewSettings(object: Record<string, unknown>): boolean 
     "diffIntensity",
     "wordEmphasis",
     "readCollapsedLines",
+    "readContentPreview",
     "writeCollapsedLines",
     "editCollapsedLines",
     "grepCollapsedLines",
