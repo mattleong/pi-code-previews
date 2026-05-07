@@ -2,7 +2,13 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createGrepToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { getTextContent } from "../data.ts";
-import { metadata, previewFooter, showingFooter, trimSingleTrailingNewline } from "../format.ts";
+import {
+  hiddenPreviewExpandHint,
+  metadata,
+  previewFooter,
+  showingFooter,
+  trimSingleTrailingNewline,
+} from "../format.ts";
 import { renderGrepOutputLines } from "../grep-rendering.ts";
 import { renderDisplayPath } from "../paths.ts";
 import { codePreviewSettings } from "../settings.ts";
@@ -43,7 +49,8 @@ export function registerGrep(pi: ExtensionAPI, cwd: string) {
           0,
         );
       }
-      if (!codePreviewSettings.grepResultPreview) return new Text("", 0, 0);
+      if (!expanded && !codePreviewSettings.grepResultPreview)
+        return new Text(hiddenPreviewExpandHint(theme), 0, 0);
       if (!output || output === "No matches found")
         return new Text(theme.fg("muted", output || "No matches found"), 0, 0);
 

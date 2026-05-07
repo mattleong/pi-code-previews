@@ -87,7 +87,7 @@ CODE_PREVIEW_TOOLS=write,edit,grep # comma/space list, all, or none
 ```
 
 `CODE_PREVIEW_TOOLS` overrides `codePreview.tools` for the current pi process.
-When `CODE_PREVIEW_BASH_RESULTS` is disabled, successful `bash` output is hidden while the tool call, running state, and errors remain visible. When grep/find/ls result previews are disabled, matching `bash` commands that start with `grep`, `find`, or `ls` also hide their successful output while keeping the tool call visible.
+When result previews are disabled, collapsed successful output is hidden while the tool call stays visible; use pi's expand shortcut to view the output on demand. `CODE_PREVIEW_BASH_RESULTS=false` applies to all successful `bash` output, while grep/find/ls result toggles also hide matching `bash` commands that start with `grep`, `find`, or `ls`.
 
 ## Project settings
 

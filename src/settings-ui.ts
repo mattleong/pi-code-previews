@@ -58,7 +58,7 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       id: "readContentPreview",
       label: "Read content preview",
       description:
-        "Show file contents in read results. Turn off to keep the read tool call visible without rendering code.",
+        "Show file contents in read results. Turn off to hide collapsed output while still allowing expanded output.",
       currentValue: current.readContentPreview ? "on" : "off",
       values: ["on", "off"],
     },
@@ -88,7 +88,7 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       id: "grepResultPreview",
       label: "Grep result preview",
       description:
-        "Show grep matches in tool results. Turn off to keep only the grep tool call visible.",
+        "Show grep matches in tool results. Turn off to hide collapsed output while still allowing expanded output.",
       currentValue: current.grepResultPreview ? "on" : "off",
       values: ["on", "off"],
     },
@@ -103,7 +103,7 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       id: "findResultPreview",
       label: "Find result preview",
       description:
-        "Show find paths in tool results. Turn off to keep only the find tool call visible.",
+        "Show find paths in tool results. Turn off to hide collapsed output while still allowing expanded output.",
       currentValue: current.findResultPreview ? "on" : "off",
       values: ["on", "off"],
     },
@@ -111,7 +111,7 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       id: "lsResultPreview",
       label: "Ls result preview",
       description:
-        "Show ls entries in tool results. Turn off to keep only the ls tool call visible.",
+        "Show ls entries in tool results. Turn off to hide collapsed output while still allowing expanded output.",
       currentValue: current.lsResultPreview ? "on" : "off",
       values: ["on", "off"],
     },
@@ -141,7 +141,7 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       id: "bashResultPreview",
       label: "Bash result preview",
       description:
-        "Show successful bash output. Turn off to keep only the bash tool call, running state, and errors visible.",
+        "Show successful bash output. Turn off to hide collapsed output while still allowing expanded output, running state, and errors.",
       currentValue: current.bashResultPreview ? "on" : "off",
       values: ["on", "off"],
     },

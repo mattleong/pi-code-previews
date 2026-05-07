@@ -233,7 +233,7 @@ test("registered result renderers reuse async previews after they settle", async
   assert.doesNotMatch(stripAnsi(renderComponent(settledWritePreview, 80)), /Rendering write diff/);
 });
 
-test("registered read renderer can hide successful text content while preserving calls", () => {
+test("registered read renderer hides successful text content until expanded", () => {
   process.env.CODE_PREVIEW_TOOLS = "read";
   const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
   setCodePreviewSettings({ ...defaultCodePreviewSettings, readContentPreview: false });
@@ -265,7 +265,19 @@ test("registered read renderer can hide successful text content while preserving
     );
     assert.match(call, /read src\/a\.ts/);
 
-    const result = stripAnsi(
+    const collapsed = stripAnsi(
+      renderComponent(
+        read.renderResult(
+          { content: [{ type: "text", text: "const secret = 1;" }] },
+          { expanded: false, isPartial: false },
+          testTheme(),
+          { args: { path: "src/a.ts" }, isError: false, invalidate: () => undefined, state: {} },
+        ),
+      ),
+    );
+    assert.match(collapsed, /expand/);
+
+    const expanded = stripAnsi(
       renderComponent(
         read.renderResult(
           { content: [{ type: "text", text: "const secret = 1;" }] },
@@ -275,13 +287,13 @@ test("registered read renderer can hide successful text content while preserving
         ),
       ),
     );
-    assert.equal(result, "");
+    assert.match(expanded, /const secret = 1/);
   } finally {
     setCodePreviewSettings(previousSettings);
   }
 });
 
-test("registered grep, find, and ls renderers can hide successful results while preserving calls", () => {
+test("registered grep, find, and ls renderers hide successful results until expanded", () => {
   process.env.CODE_PREVIEW_TOOLS = "grep,find,ls";
   const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
   setCodePreviewSettings({
@@ -337,7 +349,24 @@ test("registered grep, find, and ls renderers can hide successful results while 
       assert.ok(tool.renderResult);
       const call = stripAnsi(renderComponent(tool.renderCall(testCase.callArgs, testTheme())));
       assert.match(call, new RegExp(`\\b${testCase.name}\\b`));
-      const result = stripAnsi(
+      const collapsed = stripAnsi(
+        renderComponent(
+          tool.renderResult(
+            { content: [{ type: "text", text: testCase.resultText }] },
+            { expanded: false, isPartial: false },
+            testTheme(),
+            {
+              args: testCase.contextArgs,
+              isError: false,
+              invalidate: () => undefined,
+              state: {},
+            },
+          ),
+        ),
+      );
+      assert.match(collapsed, /expand/);
+
+      const expanded = stripAnsi(
         renderComponent(
           tool.renderResult(
             { content: [{ type: "text", text: testCase.resultText }] },
@@ -352,7 +381,7 @@ test("registered grep, find, and ls renderers can hide successful results while 
           ),
         ),
       );
-      assert.equal(result, "");
+      assert.match(expanded, /src\/a\.ts/);
     }
   } finally {
     setCodePreviewSettings(previousSettings);
@@ -378,7 +407,19 @@ test("registered bash renderer can hide all successful output while preserving e
     const bash = registered.find((tool) => tool.name === "bash");
     assert.ok(bash?.renderResult);
 
-    const success = stripAnsi(
+    const successCollapsed = stripAnsi(
+      renderComponent(
+        bash.renderResult(
+          { content: [{ type: "text", text: "hidden output" }] },
+          { expanded: false, isPartial: false },
+          testTheme(),
+          { args: { command: "npm test" }, isError: false, invalidate: () => undefined, state: {} },
+        ),
+      ),
+    );
+    assert.match(successCollapsed, /expand/);
+
+    const successExpanded = stripAnsi(
       renderComponent(
         bash.renderResult(
           { content: [{ type: "text", text: "hidden output" }] },
@@ -388,7 +429,7 @@ test("registered bash renderer can hide all successful output while preserving e
         ),
       ),
     );
-    assert.equal(success, "");
+    assert.match(successExpanded, /hidden output/);
 
     const error = stripAnsi(
       renderComponent(
@@ -435,7 +476,19 @@ test("registered bash renderer hides grep, find, and ls command output when matc
       "ls src/tool-renderers | head -5",
       "find src/tool-renderers -maxdepth 1 -name '*.ts'",
     ]) {
-      const rendered = stripAnsi(
+      const collapsed = stripAnsi(
+        renderComponent(
+          bash.renderResult(
+            { content: [{ type: "text", text: "hidden output" }] },
+            { expanded: false, isPartial: false },
+            testTheme(),
+            { args: { command }, isError: false, invalidate: () => undefined, state: {} },
+          ),
+        ),
+      );
+      assert.match(collapsed, /expand/);
+
+      const expanded = stripAnsi(
         renderComponent(
           bash.renderResult(
             { content: [{ type: "text", text: "hidden output" }] },
@@ -445,7 +498,7 @@ test("registered bash renderer hides grep, find, and ls command output when matc
           ),
         ),
       );
-      assert.equal(rendered, "");
+      assert.match(expanded, /hidden output/);
     }
   } finally {
     setCodePreviewSettings(previousSettings);

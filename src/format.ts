@@ -121,6 +121,10 @@ export function metadata(theme: Theme, parts: Array<string | undefined>): string
   return present.length ? theme.fg("dim", ` · ${present.join(" · ")}`) : "";
 }
 
+export function hiddenPreviewExpandHint(theme: Theme): string {
+  return theme.fg("muted", keyHint("app.tools.expand", "expand"));
+}
+
 export function showingFooter(theme: Theme, shown: number, total: number, label: string): string {
   return previewFooter(
     theme,

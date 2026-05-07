@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createReadToolDefinition, getLanguageFromPath } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { getPathArg, getReadStartLine, getTextContent, isTruncated } from "../data.ts";
-import { metadata, previewFooter, showingFooter } from "../format.ts";
+import { hiddenPreviewExpandHint, metadata, previewFooter, showingFooter } from "../format.ts";
 import { resolvePreviewLanguage } from "../language.ts";
 import { renderDisplayPath } from "../paths.ts";
 import { codePreviewSettings } from "../settings.ts";
@@ -56,7 +56,8 @@ export function registerRead(pi: ExtensionAPI, cwd: string) {
         );
       }
 
-      if (!codePreviewSettings.readContentPreview) return new Text("", 0, 0);
+      if (!expanded && !codePreviewSettings.readContentPreview)
+        return new Text(hiddenPreviewExpandHint(theme), 0, 0);
 
       const lang = resolvePreviewLanguage({
         path,

@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createLsToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { getTextContent } from "../data.ts";
-import { showingFooter, trimSingleTrailingNewline } from "../format.ts";
+import { hiddenPreviewExpandHint, showingFooter, trimSingleTrailingNewline } from "../format.ts";
 import { renderPathListLines } from "../path-list-rendering.ts";
 import { renderDisplayPath } from "../paths.ts";
 import { codePreviewSettings } from "../settings.ts";
@@ -33,7 +33,8 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
           0,
           0,
         );
-      if (!codePreviewSettings.lsResultPreview) return new Text("", 0, 0);
+      if (!expanded && !codePreviewSettings.lsResultPreview)
+        return new Text(hiddenPreviewExpandHint(theme), 0, 0);
       if (!output || output === "(empty directory)")
         return new Text(theme.fg("muted", "Empty directory"), 0, 0);
       const rawLines = output.split("\n");

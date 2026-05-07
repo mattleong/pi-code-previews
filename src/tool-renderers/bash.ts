@@ -5,6 +5,7 @@ import { getBashWarnings } from "../bash-warnings.ts";
 import { getObjectValue, getTextContent, isTruncated } from "../data.ts";
 import {
   countLabel,
+  hiddenPreviewExpandHint,
   previewFooter,
   previewLines,
   showingFooter,
@@ -48,7 +49,8 @@ export function registerBash(pi: ExtensionAPI, cwd: string) {
 
     renderResult(result, { expanded, isPartial }, theme, context) {
       if (isPartial) return new Text(theme.fg("warning", "Running…"), 0, 0);
-      if (!context.isError && shouldHideBashResult(context.args)) return new Text("", 0, 0);
+      if (!expanded && !context.isError && shouldHideBashResult(context.args))
+        return new Text(hiddenPreviewExpandHint(theme), 0, 0);
       const output = trimSingleTrailingNewline(getTextContent(result.content));
       const lines = output
         ? output
