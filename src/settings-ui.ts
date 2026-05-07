@@ -138,6 +138,14 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       values: ["unicode", "nerd", "off"],
     },
     {
+      id: "bashResultPreview",
+      label: "Bash result preview",
+      description:
+        "Show successful bash output. Turn off to keep only the bash tool call, running state, and errors visible.",
+      currentValue: current.bashResultPreview ? "on" : "off",
+      values: ["on", "off"],
+    },
+    {
       id: "bashWarnings",
       label: "Bash visual warnings",
       description: "Show preview-only warnings for potentially destructive shell commands.",

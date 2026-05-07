@@ -80,13 +80,14 @@ CODE_PREVIEW_GREP_LINES=40
 CODE_PREVIEW_GREP_RESULTS=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_FIND_RESULTS=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_LS_RESULTS=false # true/false, on/off, yes/no, or 1/0
+CODE_PREVIEW_BASH_RESULTS=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_PATH_LIST_LINES=40
 CODE_PREVIEW_PATH_ICONS=unicode # unicode, nerd, or off
 CODE_PREVIEW_TOOLS=write,edit,grep # comma/space list, all, or none
 ```
 
 `CODE_PREVIEW_TOOLS` overrides `codePreview.tools` for the current pi process.
-When grep/find/ls result previews are disabled, matching `bash` commands that start with `grep`, `find`, or `ls` also hide their successful output while keeping the tool call visible.
+When `CODE_PREVIEW_BASH_RESULTS` is disabled, successful `bash` output is hidden while the tool call, running state, and errors remain visible. When grep/find/ls result previews are disabled, matching `bash` commands that start with `grep`, `find`, or `ls` also hide their successful output while keeping the tool call visible.
 
 ## Project settings
 
@@ -101,6 +102,7 @@ You can also set defaults in `.pi/settings.json`:
     "grepResultPreview": false,
     "findResultPreview": false,
     "lsResultPreview": false,
+    "bashResultPreview": false,
     "grepCollapsedLines": 40,
     "pathListCollapsedLines": 40,
     "pathIcons": "unicode",

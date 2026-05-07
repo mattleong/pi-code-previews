@@ -77,6 +77,7 @@ function hasDirectCodePreviewSettings(object: Record<string, unknown>): boolean 
     "lsResultPreview",
     "pathListCollapsedLines",
     "readLineNumbers",
+    "bashResultPreview",
     "bashWarnings",
     "syntaxHighlighting",
     "secretWarnings",

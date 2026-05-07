@@ -74,6 +74,7 @@ export function registerBash(pi: ExtensionAPI, cwd: string) {
 }
 
 function shouldHideBashResult(args: unknown): boolean {
+  if (!codePreviewSettings.bashResultPreview) return true;
   const command = getObjectValue(args, "command");
   if (typeof command !== "string") return false;
   const shellCommand = getFirstShellCommandName(command);

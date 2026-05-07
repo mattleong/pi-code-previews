@@ -25,6 +25,7 @@ export interface CodePreviewSettings {
   lsResultPreview: boolean;
   pathListCollapsedLines: number;
   readLineNumbers: boolean;
+  bashResultPreview: boolean;
   bashWarnings: boolean;
   syntaxHighlighting: boolean;
   secretWarnings: boolean;
@@ -46,6 +47,7 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
   lsResultPreview: envBoolean("CODE_PREVIEW_LS_RESULTS", true),
   pathListCollapsedLines: envNumber("CODE_PREVIEW_PATH_LIST_LINES", 20),
   readLineNumbers: envBoolean("CODE_PREVIEW_READ_LINE_NUMBERS", true),
+  bashResultPreview: envBoolean("CODE_PREVIEW_BASH_RESULTS", true),
   bashWarnings: envBoolean("CODE_PREVIEW_BASH_WARNINGS", true),
   syntaxHighlighting: envBoolean("CODE_PREVIEW_SYNTAX", true),
   secretWarnings: envBoolean("CODE_PREVIEW_SECRET_WARNINGS", true),
@@ -77,6 +79,7 @@ export function normalizeSettings(
   const findResultPreview = getObjectValue(data, "findResultPreview");
   const lsResultPreview = getObjectValue(data, "lsResultPreview");
   const readLineNumbers = getObjectValue(data, "readLineNumbers");
+  const bashResultPreview = getObjectValue(data, "bashResultPreview");
   const bashWarnings = getObjectValue(data, "bashWarnings");
   const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
   const secretWarnings = getObjectValue(data, "secretWarnings");
@@ -117,6 +120,8 @@ export function normalizeSettings(
     ),
     readLineNumbers:
       typeof readLineNumbers === "boolean" ? readLineNumbers : fallback.readLineNumbers,
+    bashResultPreview:
+      typeof bashResultPreview === "boolean" ? bashResultPreview : fallback.bashResultPreview,
     bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : fallback.bashWarnings,
     syntaxHighlighting:
       typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : fallback.syntaxHighlighting,
@@ -156,6 +161,7 @@ export function updateSetting(
   else if (id === "pathListCollapsedLines")
     next.pathListCollapsedLines = coerceStringNumber(value, current.pathListCollapsedLines);
   else if (id === "readLineNumbers") next.readLineNumbers = value === "on";
+  else if (id === "bashResultPreview") next.bashResultPreview = value === "on";
   else if (id === "bashWarnings") next.bashWarnings = value === "on";
   else if (id === "syntaxHighlighting") next.syntaxHighlighting = value === "on";
   else if (id === "secretWarnings") next.secretWarnings = value === "on";
@@ -242,7 +248,12 @@ export function getRequiredCodePreviewTools(
   if (!settings.grepResultPreview) tools.add("grep");
   if (!settings.findResultPreview) tools.add("find");
   if (!settings.lsResultPreview) tools.add("ls");
-  if (!settings.grepResultPreview || !settings.findResultPreview || !settings.lsResultPreview)
+  if (
+    !settings.bashResultPreview ||
+    !settings.grepResultPreview ||
+    !settings.findResultPreview ||
+    !settings.lsResultPreview
+  )
     tools.add("bash");
   return tools;
 }

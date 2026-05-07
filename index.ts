@@ -43,6 +43,7 @@ export default async function codePreviews(pi: ExtensionAPI) {
         `Grep result preview: ${codePreviewSettings.grepResultPreview ? "on" : "off"}`,
         `Find result preview: ${codePreviewSettings.findResultPreview ? "on" : "off"}`,
         `Ls result preview: ${codePreviewSettings.lsResultPreview ? "on" : "off"}`,
+        `Bash result preview: ${codePreviewSettings.bashResultPreview ? "on" : "off"}`,
         `Word-level diff emphasis: ${codePreviewSettings.wordEmphasis}`,
         `Configured tools: ${formatEnabledCodePreviewTools()}`,
         `Active previews: ${formatActiveCodePreviewTools()}`,
@@ -189,6 +190,7 @@ function syncSettingsListValues(list: SettingsList): void {
   list.updateValue("pathListCollapsedLines", String(codePreviewSettings.pathListCollapsedLines));
   list.updateValue("readLineNumbers", codePreviewSettings.readLineNumbers ? "on" : "off");
   list.updateValue("pathIcons", codePreviewSettings.pathIcons);
+  list.updateValue("bashResultPreview", codePreviewSettings.bashResultPreview ? "on" : "off");
   list.updateValue("bashWarnings", codePreviewSettings.bashWarnings ? "on" : "off");
   list.updateValue("syntaxHighlighting", codePreviewSettings.syntaxHighlighting ? "on" : "off");
   list.updateValue("secretWarnings", codePreviewSettings.secretWarnings ? "on" : "off");

@@ -359,6 +359,53 @@ test("registered grep, find, and ls renderers can hide successful results while 
   }
 });
 
+test("registered bash renderer can hide all successful output while preserving errors", () => {
+  process.env.CODE_PREVIEW_TOOLS = "bash";
+  const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
+  setCodePreviewSettings({ ...defaultCodePreviewSettings, bashResultPreview: false });
+  try {
+    const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> =
+      [];
+    registerToolRenderers(
+      {
+        registerTool: (tool: unknown) =>
+          registered.push(
+            tool as { name: string; renderResult?: (...args: unknown[]) => Component },
+          ),
+      } as never,
+      "/tmp/project",
+    );
+    const bash = registered.find((tool) => tool.name === "bash");
+    assert.ok(bash?.renderResult);
+
+    const success = stripAnsi(
+      renderComponent(
+        bash.renderResult(
+          { content: [{ type: "text", text: "hidden output" }] },
+          { expanded: true, isPartial: false },
+          testTheme(),
+          { args: { command: "npm test" }, isError: false, invalidate: () => undefined, state: {} },
+        ),
+      ),
+    );
+    assert.equal(success, "");
+
+    const error = stripAnsi(
+      renderComponent(
+        bash.renderResult(
+          { content: [{ type: "text", text: "failed output" }] },
+          { expanded: true, isPartial: false },
+          testTheme(),
+          { args: { command: "npm test" }, isError: true, invalidate: () => undefined, state: {} },
+        ),
+      ),
+    );
+    assert.match(error, /failed output/);
+  } finally {
+    setCodePreviewSettings(previousSettings);
+  }
+});
+
 test("registered bash renderer hides grep, find, and ls command output when matching previews are off", () => {
   process.env.CODE_PREVIEW_TOOLS = "bash";
   const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };

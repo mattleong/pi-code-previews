@@ -13,6 +13,7 @@ test("settings normalization and reset preserve defaults", () => {
     syntaxHighlighting: false,
     secretWarnings: false,
     bashWarnings: false,
+    bashResultPreview: false,
     readContentPreview: false,
     grepResultPreview: false,
     findResultPreview: false,
@@ -23,6 +24,7 @@ test("settings normalization and reset preserve defaults", () => {
   assert.equal(normalized.syntaxHighlighting, false);
   assert.equal(normalized.secretWarnings, false);
   assert.equal(normalized.bashWarnings, false);
+  assert.equal(normalized.bashResultPreview, false);
   assert.equal(normalized.readContentPreview, false);
   assert.equal(normalized.grepResultPreview, false);
   assert.equal(normalized.findResultPreview, false);
@@ -60,6 +62,7 @@ test("settings normalization falls back to accumulated settings for invalid over
   assert.equal(updateSetting(validOverride, "grepResultPreview", "off").grepResultPreview, false);
   assert.equal(updateSetting(validOverride, "findResultPreview", "off").findResultPreview, false);
   assert.equal(updateSetting(validOverride, "lsResultPreview", "off").lsResultPreview, false);
+  assert.equal(updateSetting(validOverride, "bashResultPreview", "off").bashResultPreview, false);
   assert.equal(normalizeSettings({ wordEmphasis: "off" }, fallback).wordEmphasis, "off");
   assert.deepEqual(normalizeSettings({ tools: "read,grep" }, fallback).tools, ["read", "grep"]);
 });
@@ -84,6 +87,7 @@ test("disabled result previews keep corresponding tool renderers enabled", () =>
   const normalized = normalizeSettings(
     {
       readContentPreview: false,
+      bashResultPreview: false,
       grepResultPreview: false,
       findResultPreview: false,
       lsResultPreview: false,
