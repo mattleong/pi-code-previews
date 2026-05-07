@@ -37,6 +37,15 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
         return new Text(hiddenPreviewExpandHint(theme), 0, 0);
       if (!output || output === "(empty directory)")
         return new Text(theme.fg("muted", "Empty directory"), 0, 0);
+      if (expanded && !codePreviewSettings.lsResultPreview)
+        return new Text(
+          output
+            .split("\n")
+            .map((line) => theme.fg("toolOutput", escapeControlChars(line)))
+            .join("\n"),
+          0,
+          0,
+        );
       const rawLines = output.split("\n");
       const limit = expanded ? rawLines.length : codePreviewSettings.pathListCollapsedLines;
       const preview = renderSelectedOutputLines(rawLines, limit, theme, (chunk) =>

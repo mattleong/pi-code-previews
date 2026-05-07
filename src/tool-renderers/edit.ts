@@ -1,9 +1,5 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
-import {
-  createEditToolDefinition,
-  getLanguageFromPath,
-  keyHint,
-} from "@mariozechner/pi-coding-agent";
+import { createEditToolDefinition, getLanguageFromPath } from "@mariozechner/pi-coding-agent";
 import { Container, Text, type Component } from "@mariozechner/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "../async-preview.ts";
 import { getEditDiff, getObjectValue, getPathArg, getTextContent } from "../data.ts";
@@ -14,7 +10,7 @@ import {
   renderSyntaxHighlightedDiff,
   summarizeDiff,
 } from "../diff.ts";
-import { countLabel, previewFooter, showingFooter } from "../format.ts";
+import { countLabel, previewFooter, showingFooter, themedKeyHint } from "../format.ts";
 import { resolvePreviewLanguage } from "../language.ts";
 import { renderDisplayPath } from "../paths.ts";
 import { codePreviewSettings } from "../settings.ts";
@@ -106,10 +102,7 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
           : codePreviewSettings.editCollapsedLines;
       context.state.editSummaryText = formatEditSummary(summary, limit, theme);
       if (!expanded && summary.totalLines > limit)
-        context.state.editSummaryText += theme.fg(
-          "dim",
-          ` (${keyHint("app.tools.expand", "expand")})`,
-        );
+        context.state.editSummaryText += ` (${themedKeyHint(theme, "app.tools.expand", "expand")})`;
       updateEditHeader(context, cwd, theme);
       const render = () =>
         renderEditDiffPreview(diff, lang, limit, summary.totalLines, theme, context.invalidate);
@@ -235,7 +228,7 @@ function renderEditCallPreview(
         ? codePreviewSettings.editCollapsedLines
         : totalLines)
   ) {
-    text += theme.fg("dim", ` (${keyHint("app.tools.expand", "expand")})`);
+    text += ` (${themedKeyHint(theme, "app.tools.expand", "expand")})`;
   }
   return new FullWidthDiffText(text, theme);
 }

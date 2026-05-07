@@ -38,6 +38,15 @@ export function registerFind(pi: ExtensionAPI, cwd: string) {
         return new Text(hiddenPreviewExpandHint(theme), 0, 0);
       if (!output || output === "No files found matching pattern")
         return new Text(theme.fg("muted", output || "No files found"), 0, 0);
+      if (expanded && !codePreviewSettings.findResultPreview)
+        return new Text(
+          output
+            .split("\n")
+            .map((line) => theme.fg("toolOutput", escapeControlChars(line)))
+            .join("\n"),
+          0,
+          0,
+        );
       const rawLines = output.split("\n");
       const limit = expanded ? rawLines.length : codePreviewSettings.pathListCollapsedLines;
       const preview = renderSelectedOutputLines(rawLines, limit, theme, (chunk) =>

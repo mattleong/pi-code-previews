@@ -1,5 +1,5 @@
-import type { Theme } from "@mariozechner/pi-coding-agent";
-import { keyHint } from "@mariozechner/pi-coding-agent";
+import type { AppKeybinding, Theme } from "@mariozechner/pi-coding-agent";
+import { getKeybindings } from "@mariozechner/pi-tui";
 
 export type PreviewLineEntry<T> =
   | { kind: "line"; line: T; index: number }
@@ -121,14 +121,27 @@ export function metadata(theme: Theme, parts: Array<string | undefined>): string
   return present.length ? theme.fg("dim", ` · ${present.join(" · ")}`) : "";
 }
 
+export function themedKeyHint(
+  theme: Theme,
+  keybinding: AppKeybinding,
+  description: string,
+): string {
+  const keyText = formatKeys(getKeybindings().getKeys(keybinding));
+  if (!keyText) return theme.fg("muted", description);
+  return theme.fg("dim", keyText) + theme.fg("muted", ` ${description}`);
+}
+
 export function hiddenPreviewExpandHint(theme: Theme): string {
-  return theme.fg("muted", `╰─ output hidden - ${keyHint("app.tools.expand", "expand")}`);
+  return theme.fg(
+    "muted",
+    `╰─ output hidden - ${themedKeyHint(theme, "app.tools.expand", "expand")}`,
+  );
 }
 
 export function showingFooter(theme: Theme, shown: number, total: number, label: string): string {
   return previewFooter(
     theme,
-    `Showing ${shown} of ${total} ${label} · ${keyHint("app.tools.expand", "expand")}`,
+    `Showing ${shown} of ${total} ${label} · ${themedKeyHint(theme, "app.tools.expand", "expand")}`,
   );
 }
 
@@ -136,6 +149,12 @@ export function trimTrailingEmptyLines(lines: string[]): string[] {
   let end = lines.length;
   while (end > 0 && lines[end - 1] === "") end--;
   return lines.slice(0, end);
+}
+
+function formatKeys(keys: string[]): string {
+  if (keys.length === 0) return "";
+  if (keys.length === 1) return keys[0]!;
+  return keys.join("/");
 }
 
 function countTrimmedTextLines(text: string): number {
