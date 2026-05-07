@@ -122,7 +122,7 @@ export function metadata(theme: Theme, parts: Array<string | undefined>): string
 }
 
 export function hiddenPreviewExpandHint(theme: Theme): string {
-  return theme.fg("muted", keyHint("app.tools.expand", "expand"));
+  return theme.fg("muted", `╰─ output hidden - ${keyHint("app.tools.expand", "expand")}`);
 }
 
 export function showingFooter(theme: Theme, shown: number, total: number, label: string): string {
