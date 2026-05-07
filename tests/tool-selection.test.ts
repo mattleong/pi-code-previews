@@ -42,3 +42,15 @@ test("CODE_PREVIEW_TOOLS overrides configured renderer settings", () => {
   process.env.CODE_PREVIEW_TOOLS = "grep";
   assert.deepEqual([...getEnabledCodePreviewTools()], ["grep"]);
 });
+
+test("disabled result previews force required renderers even with CODE_PREVIEW_TOOLS", () => {
+  setCodePreviewSettings({
+    ...defaultCodePreviewSettings,
+    grepResultPreview: false,
+    findResultPreview: false,
+    lsResultPreview: false,
+    tools: [],
+  });
+  process.env.CODE_PREVIEW_TOOLS = "none";
+  assert.deepEqual([...getEnabledCodePreviewTools()], ["grep", "find", "ls", "bash"]);
+});

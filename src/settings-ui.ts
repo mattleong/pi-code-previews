@@ -85,11 +85,35 @@ export function createSettingsItems(current: CodePreviewSettings): SettingItem[]
       values: ["all", "60", "100", "160", "240"],
     },
     {
+      id: "grepResultPreview",
+      label: "Grep result preview",
+      description:
+        "Show grep matches in tool results. Turn off to keep only the grep tool call visible.",
+      currentValue: current.grepResultPreview ? "on" : "off",
+      values: ["on", "off"],
+    },
+    {
       id: "grepCollapsedLines",
       label: "Grep preview lines",
       description: "Maximum grep result lines shown before collapsing.",
       currentValue: String(current.grepCollapsedLines),
       values: ["10", "15", "25", "40", "80"],
+    },
+    {
+      id: "findResultPreview",
+      label: "Find result preview",
+      description:
+        "Show find paths in tool results. Turn off to keep only the find tool call visible.",
+      currentValue: current.findResultPreview ? "on" : "off",
+      values: ["on", "off"],
+    },
+    {
+      id: "lsResultPreview",
+      label: "Ls result preview",
+      description:
+        "Show ls entries in tool results. Turn off to keep only the ls tool call visible.",
+      currentValue: current.lsResultPreview ? "on" : "off",
+      values: ["on", "off"],
     },
     {
       id: "pathListCollapsedLines",

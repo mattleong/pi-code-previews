@@ -1,4 +1,4 @@
-import { codePreviewSettings } from "./settings.ts";
+import { codePreviewSettings, getRequiredCodePreviewTools } from "./settings.ts";
 import {
   ALL_CODE_PREVIEW_TOOLS,
   isCodePreviewToolName,
@@ -9,9 +9,10 @@ import {
 export { ALL_CODE_PREVIEW_TOOLS, isCodePreviewToolName, type CodePreviewToolName };
 
 export function getEnabledCodePreviewTools(): Set<CodePreviewToolName> {
-  const envTools = parseCodePreviewTools(process.env.CODE_PREVIEW_TOOLS);
-  if (envTools) return envTools;
-  return new Set(codePreviewSettings.tools);
+  const enabled =
+    parseCodePreviewTools(process.env.CODE_PREVIEW_TOOLS) ?? new Set(codePreviewSettings.tools);
+  for (const tool of getRequiredCodePreviewTools()) enabled.add(tool);
+  return enabled;
 }
 
 export function isCodePreviewToolEnabled(

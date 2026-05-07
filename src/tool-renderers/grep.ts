@@ -43,6 +43,7 @@ export function registerGrep(pi: ExtensionAPI, cwd: string) {
           0,
         );
       }
+      if (!codePreviewSettings.grepResultPreview) return new Text("", 0, 0);
       if (!output || output === "No matches found")
         return new Text(theme.fg("muted", output || "No matches found"), 0, 0);
 

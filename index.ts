@@ -40,6 +40,9 @@ export default async function codePreviews(pi: ExtensionAPI) {
         `Shiki theme: ${codePreviewSettings.shikiTheme}`,
         `Syntax highlighting: ${codePreviewSettings.syntaxHighlighting ? "on" : "off"}`,
         `Read content preview: ${codePreviewSettings.readContentPreview ? "on" : "off"}`,
+        `Grep result preview: ${codePreviewSettings.grepResultPreview ? "on" : "off"}`,
+        `Find result preview: ${codePreviewSettings.findResultPreview ? "on" : "off"}`,
+        `Ls result preview: ${codePreviewSettings.lsResultPreview ? "on" : "off"}`,
         `Word-level diff emphasis: ${codePreviewSettings.wordEmphasis}`,
         `Configured tools: ${formatEnabledCodePreviewTools()}`,
         `Active previews: ${formatActiveCodePreviewTools()}`,
@@ -179,7 +182,10 @@ function syncSettingsListValues(list: SettingsList): void {
   list.updateValue("readCollapsedLines", String(codePreviewSettings.readCollapsedLines));
   list.updateValue("writeCollapsedLines", String(codePreviewSettings.writeCollapsedLines));
   list.updateValue("editCollapsedLines", String(codePreviewSettings.editCollapsedLines));
+  list.updateValue("grepResultPreview", codePreviewSettings.grepResultPreview ? "on" : "off");
   list.updateValue("grepCollapsedLines", String(codePreviewSettings.grepCollapsedLines));
+  list.updateValue("findResultPreview", codePreviewSettings.findResultPreview ? "on" : "off");
+  list.updateValue("lsResultPreview", codePreviewSettings.lsResultPreview ? "on" : "off");
   list.updateValue("pathListCollapsedLines", String(codePreviewSettings.pathListCollapsedLines));
   list.updateValue("readLineNumbers", codePreviewSettings.readLineNumbers ? "on" : "off");
   list.updateValue("pathIcons", codePreviewSettings.pathIcons);

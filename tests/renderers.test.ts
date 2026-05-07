@@ -281,6 +281,130 @@ test("registered read renderer can hide successful text content while preserving
   }
 });
 
+test("registered grep, find, and ls renderers can hide successful results while preserving calls", () => {
+  process.env.CODE_PREVIEW_TOOLS = "grep,find,ls";
+  const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
+  setCodePreviewSettings({
+    ...defaultCodePreviewSettings,
+    grepResultPreview: false,
+    findResultPreview: false,
+    lsResultPreview: false,
+  });
+  try {
+    const registered: Array<{
+      name: string;
+      renderCall?: (...args: unknown[]) => Component;
+      renderResult?: (...args: unknown[]) => Component;
+    }> = [];
+    registerToolRenderers(
+      {
+        registerTool: (tool: unknown) =>
+          registered.push(
+            tool as {
+              name: string;
+              renderCall?: (...args: unknown[]) => Component;
+              renderResult?: (...args: unknown[]) => Component;
+            },
+          ),
+      } as never,
+      "/tmp/project",
+    );
+
+    const cases = [
+      {
+        name: "grep",
+        callArgs: { pattern: "TODO", path: "src" },
+        resultText: "src/a.ts:1: TODO",
+        contextArgs: { pattern: "TODO" },
+      },
+      {
+        name: "find",
+        callArgs: { pattern: "*.ts", path: "src" },
+        resultText: "src/a.ts\nsrc/b.ts",
+        contextArgs: {},
+      },
+      {
+        name: "ls",
+        callArgs: { path: "src" },
+        resultText: "src/a.ts\nsrc/b.ts",
+        contextArgs: {},
+      },
+    ];
+
+    for (const testCase of cases) {
+      const tool = registered.find((candidate) => candidate.name === testCase.name);
+      assert.ok(tool?.renderCall);
+      assert.ok(tool.renderResult);
+      const call = stripAnsi(renderComponent(tool.renderCall(testCase.callArgs, testTheme())));
+      assert.match(call, new RegExp(`\\b${testCase.name}\\b`));
+      const result = stripAnsi(
+        renderComponent(
+          tool.renderResult(
+            { content: [{ type: "text", text: testCase.resultText }] },
+            { expanded: true, isPartial: false },
+            testTheme(),
+            {
+              args: testCase.contextArgs,
+              isError: false,
+              invalidate: () => undefined,
+              state: {},
+            },
+          ),
+        ),
+      );
+      assert.equal(result, "");
+    }
+  } finally {
+    setCodePreviewSettings(previousSettings);
+  }
+});
+
+test("registered bash renderer hides grep, find, and ls command output when matching previews are off", () => {
+  process.env.CODE_PREVIEW_TOOLS = "bash";
+  const previousSettings = { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
+  setCodePreviewSettings({
+    ...defaultCodePreviewSettings,
+    grepResultPreview: false,
+    findResultPreview: false,
+    lsResultPreview: false,
+  });
+  try {
+    const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> =
+      [];
+    registerToolRenderers(
+      {
+        registerTool: (tool: unknown) =>
+          registered.push(
+            tool as { name: string; renderResult?: (...args: unknown[]) => Component },
+          ),
+      } as never,
+      "/tmp/project",
+    );
+    const bash = registered.find((tool) => tool.name === "bash");
+    assert.ok(bash?.renderResult);
+
+    for (const command of [
+      "grep -n TODO src/a.ts",
+      "ls src/tool-renderers | head -5",
+      "find src/tool-renderers -maxdepth 1 -name '*.ts'",
+    ]) {
+      const rendered = stripAnsi(
+        renderComponent(
+          bash.renderResult(
+            { content: [{ type: "text", text: "hidden output" }] },
+            { expanded: true, isPartial: false },
+            testTheme(),
+            { args: { command }, isError: false, invalidate: () => undefined, state: {} },
+          ),
+        ),
+      );
+      assert.equal(rendered, "");
+    }
+  } finally {
+    setCodePreviewSettings(previousSettings);
+  }
+});
+
 test("registered read renderer leaves image rendering to pi", () => {
   process.env.CODE_PREVIEW_TOOLS = "read";
   const registered: Array<{ name: string; renderResult?: (...args: unknown[]) => Component }> = [];

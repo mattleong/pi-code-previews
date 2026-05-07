@@ -34,6 +34,7 @@ export function registerFind(pi: ExtensionAPI, cwd: string) {
           0,
           0,
         );
+      if (!codePreviewSettings.findResultPreview) return new Text("", 0, 0);
       if (!output || output === "No files found matching pattern")
         return new Text(theme.fg("muted", output || "No files found"), 0, 0);
       const rawLines = output.split("\n");

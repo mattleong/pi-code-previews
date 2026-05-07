@@ -14,6 +14,9 @@ test("settings normalization and reset preserve defaults", () => {
     secretWarnings: false,
     bashWarnings: false,
     readContentPreview: false,
+    grepResultPreview: false,
+    findResultPreview: false,
+    lsResultPreview: false,
     readCollapsedLines: -1,
     tools: ["bash", "not-a-tool", "write", "bash"],
   });
@@ -21,9 +24,12 @@ test("settings normalization and reset preserve defaults", () => {
   assert.equal(normalized.secretWarnings, false);
   assert.equal(normalized.bashWarnings, false);
   assert.equal(normalized.readContentPreview, false);
+  assert.equal(normalized.grepResultPreview, false);
+  assert.equal(normalized.findResultPreview, false);
+  assert.equal(normalized.lsResultPreview, false);
   assert.equal(normalized.wordEmphasis, defaultCodePreviewSettings.wordEmphasis);
   assert.equal(normalized.readCollapsedLines, defaultCodePreviewSettings.readCollapsedLines);
-  assert.deepEqual(normalized.tools, ["bash", "write"]);
+  assert.deepEqual(normalized.tools, ["bash", "read", "write", "grep", "find", "ls"]);
   assert.deepEqual(
     updateSetting(normalized, "resetToDefaults", "reset now"),
     defaultCodePreviewSettings,
@@ -51,6 +57,9 @@ test("settings normalization falls back to accumulated settings for invalid over
   assert.equal(validOverride.readCollapsedLines, 20);
   assert.equal(updateSetting(validOverride, "wordEmphasis", "all").wordEmphasis, "all");
   assert.equal(updateSetting(validOverride, "readContentPreview", "off").readContentPreview, false);
+  assert.equal(updateSetting(validOverride, "grepResultPreview", "off").grepResultPreview, false);
+  assert.equal(updateSetting(validOverride, "findResultPreview", "off").findResultPreview, false);
+  assert.equal(updateSetting(validOverride, "lsResultPreview", "off").lsResultPreview, false);
   assert.equal(normalizeSettings({ wordEmphasis: "off" }, fallback).wordEmphasis, "off");
   assert.deepEqual(normalizeSettings({ tools: "read,grep" }, fallback).tools, ["read", "grep"]);
 });
@@ -69,6 +78,27 @@ test("setCodePreviewSettings updates existing settings object references", () =>
   } finally {
     setCodePreviewSettings(previous);
   }
+});
+
+test("disabled result previews keep corresponding tool renderers enabled", () => {
+  const normalized = normalizeSettings(
+    {
+      readContentPreview: false,
+      grepResultPreview: false,
+      findResultPreview: false,
+      lsResultPreview: false,
+      tools: [],
+    },
+    defaultCodePreviewSettings,
+  );
+  assert.deepEqual(normalized.tools, ["bash", "read", "grep", "find", "ls"]);
+
+  const withoutGrep = updateSetting(
+    { ...normalized, tools: normalized.tools.filter((tool) => tool !== "grep") },
+    "tool:grep",
+    "off",
+  );
+  assert.ok(withoutGrep.tools.includes("grep"));
 });
 
 test("individual tool toggles update configured previews", () => {

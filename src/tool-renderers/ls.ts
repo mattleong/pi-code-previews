@@ -33,6 +33,7 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
           0,
           0,
         );
+      if (!codePreviewSettings.lsResultPreview) return new Text("", 0, 0);
       if (!output || output === "(empty directory)")
         return new Text(theme.fg("muted", "Empty directory"), 0, 0);
       const rawLines = output.split("\n");
