@@ -63,6 +63,38 @@ test("registered bash renderer can hide all successful output while preserving e
   }
 });
 
+test("registered bash renderer mutes successful output while preserving error color", () => {
+  process.env.CODE_PREVIEW_TOOLS = "bash";
+  const bash = findRenderer(registerRenderers(), "bash");
+  assert.ok(bash.renderResult);
+
+  const coloredTheme = {
+    ...testTheme(),
+    fg: (key: string, text: string) =>
+      ["muted", "error"].includes(key) ? `<${key}>${text}</${key}>` : text,
+  };
+
+  const success = renderComponent(
+    bash.renderResult(
+      { content: [{ type: "text", text: "ok" }] },
+      { expanded: true, isPartial: false },
+      coloredTheme,
+      { args: {}, isError: false, invalidate: () => undefined, state: {} },
+    ),
+  );
+  assert.equal(success.trimEnd(), "<muted>ok</muted>");
+
+  const error = renderComponent(
+    bash.renderResult(
+      { content: [{ type: "text", text: "failed" }] },
+      { expanded: true, isPartial: false },
+      coloredTheme,
+      { args: {}, isError: true, invalidate: () => undefined, state: {} },
+    ),
+  );
+  assert.equal(error.trimEnd(), "<error>failed</error>");
+});
+
 test("registered bash renderer hides grep, find, and ls command output when matching previews are off", () => {
   process.env.CODE_PREVIEW_TOOLS = "bash";
   const previousSettings = cloneCodePreviewSettingsForTest();

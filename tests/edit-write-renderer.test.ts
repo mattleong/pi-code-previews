@@ -48,6 +48,43 @@ test("registered edit call previews proposed edits before execution", () => {
   assert.doesNotMatch(started, /proposed edit/);
 });
 
+test("registered edit result header omits insertion and deletion shape counts", () => {
+  process.env.CODE_PREVIEW_TOOLS = "edit";
+  const edit = findRenderer(registerRenderers(), "edit");
+  assert.ok(edit.renderCall);
+  assert.ok(edit.renderResult);
+
+  const state = {};
+  const header = edit.renderCall({ path: "src/a.ts" }, testTheme(), {
+    argsComplete: true,
+    expanded: true,
+    executionStarted: true,
+    lastComponent: undefined,
+    state,
+    invalidate: () => undefined,
+  });
+
+  edit.renderResult(
+    {
+      content: [{ type: "text", text: "ok" }],
+      details: { diff: "-old\n+new\n+added\n context\n-removed" },
+    },
+    { expanded: true, isPartial: false },
+    testTheme(),
+    {
+      args: { path: "src/a.ts" },
+      isError: false,
+      invalidate: () => undefined,
+      state,
+    },
+  );
+
+  const rendered = stripAnsi(renderComponent(header));
+  assert.match(rendered, /edit src\/a\.ts · 2 hunks · \+2 -2/);
+  assert.doesNotMatch(rendered, /\binsertions?\b/);
+  assert.doesNotMatch(rendered, /\bdeletions?\b/);
+});
+
 test("registered result renderers reuse async previews after they settle", async () => {
   process.env.CODE_PREVIEW_TOOLS = "write,edit";
   const registered = registerRenderers();

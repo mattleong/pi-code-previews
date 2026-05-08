@@ -57,7 +57,7 @@ export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOp
           ? output
               .split("\n")
               .map((line) =>
-                theme.fg(renderContext.isError ? "error" : "toolOutput", escapeControlChars(line)),
+                theme.fg(renderContext.isError ? "error" : "muted", escapeControlChars(line)),
               )
           : [];
         const limit = expanded ? lines.length : 8;

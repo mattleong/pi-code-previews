@@ -10,7 +10,7 @@ import {
   renderSyntaxHighlightedDiff,
   summarizeDiff,
 } from "../diff.ts";
-import { describeDiffShape, diffSummarySeparator, type DiffSummary } from "../diff-summary.ts";
+import { diffSummarySeparator, type DiffSummary } from "../diff-summary.ts";
 import { countLabel, previewFooter, showingFooter, themedKeyHint } from "../format.ts";
 import { resolvePreviewLanguage } from "../language.ts";
 import { renderDisplayPath } from "../paths.ts";
@@ -301,8 +301,7 @@ function updateEditHeader(
 }
 
 function formatEditSummary(summary: DiffSummary, limit: number, theme: Theme): string {
-  let text = theme.fg("muted", describeDiffShape(summary));
-  text += diffSummarySeparator(theme) + theme.fg("muted", countLabel(summary.hunks, "hunk"));
+  let text = theme.fg("muted", countLabel(summary.hunks, "hunk"));
   text +=
     diffSummarySeparator(theme) +
     `${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}`;
