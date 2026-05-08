@@ -49,7 +49,7 @@ test("non-border shell appends tool timing to result footer", () => {
     () => textComponent("result"),
   );
 
-  assert.match(stripAnsi(renderComponent(result)), /result\n╰─ 1\.2s/);
+  assert.match(stripAnsi(renderComponent(result)), /result\n╰─ Took 1\.2s/);
 });
 
 test("non-border shell does not show running tool timing on the call", () => {
@@ -89,7 +89,7 @@ test("border shell shows tool timing in top-right border", () => {
   );
 
   const rows = stripAnsi(renderComponent(component, 40)).split("\n");
-  assert.match(rows.at(0) ?? "", /1\.2s ╮$/);
+  assert.match(rows.at(0) ?? "", /Took 1\.2s ╮$/);
   assert.doesNotMatch(rows.at(-1) ?? "", /1\.2s/);
 });
 
@@ -135,7 +135,7 @@ test("tool timing excludes call and result render work", () => {
     },
   );
 
-  assert.match(stripAnsi(renderComponent(result)), /╰─ 1\.0s/);
+  assert.match(stripAnsi(renderComponent(result)), /╰─ Took 1\.0s/);
 });
 
 test("tool timing invalidates every 100ms while partial and stops when complete", () => {

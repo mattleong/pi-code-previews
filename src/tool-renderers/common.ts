@@ -248,7 +248,8 @@ function updateToolCallTiming<TState, TArgs>(
   if (options.formatLabel === false) return undefined;
   const running = context.isPartial === true;
   const endTime = running ? Date.now() : (state.codePreviewTimingEndedAt ?? Date.now());
-  return { label: formatToolCallDuration(endTime - startedAt) };
+  const label = running ? "Elapsed" : "Took";
+  return { label: `${label} ${formatToolCallDuration(endTime - startedAt)}` };
 }
 
 function timingState<TState, TArgs>(

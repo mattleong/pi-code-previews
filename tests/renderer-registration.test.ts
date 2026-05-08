@@ -218,7 +218,7 @@ test("border mode puts hidden output expand hints in the bottom-right border and
     const rendered = stripAnsi(renderComponent(call, 72));
     const rows = rendered.split("\n");
     assert.doesNotMatch(rendered, /│ .*expand/);
-    assert.match(rows.at(0) ?? "", /╭─+ 3\.0s ╮$/);
+    assert.match(rows.at(0) ?? "", /╭─+ Took 3\.0s ╮$/);
     assert.match(rows.at(-1) ?? "", /╰─+ .*expand ╯$/);
     assert.doesNotMatch(rows.at(-1) ?? "", /3\.0s/);
     assert.doesNotMatch(rendered, /output hidden/);

@@ -112,7 +112,7 @@ test("registered edit timing measures execution start to result completion", () 
       },
     );
 
-    assert.match(stripAnsi(renderComponent(result)), /╰─ 2\.1s/);
+    assert.match(stripAnsi(renderComponent(result)), /╰─ Took 2\.1s/);
   } finally {
     vi.restoreAllMocks();
     setCodePreviewSettings(previousSettings);
