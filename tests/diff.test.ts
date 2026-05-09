@@ -189,6 +189,18 @@ test("word emphasis narrows similar single-token edits", () => {
   });
 });
 
+test("word emphasis keeps unicode refinements on text boundaries", () => {
+  setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "all" });
+  assert.deepEqual(changedRanges("a\u0301Value", "a\u0302Value"), {
+    removed: [[0, 2]],
+    added: [[0, 2]],
+  });
+  assert.deepEqual(changedRanges("𐐀a", "𐐁a"), {
+    removed: [[0, 2]],
+    added: [[0, 2]],
+  });
+});
+
 test("smart word emphasis keeps meaningful operator-only changes", () => {
   setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "smart" });
   assert.deepEqual(changedRanges("if (count < limit)", "if (count <= limit)"), {
@@ -226,6 +238,29 @@ test("word emphasis skips low-confidence positional pairs inside larger blocks",
   assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;148;62;70m/);
   assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mnext/);
   assert.doesNotMatch(rendered[3] ?? "", /\x1b\[48;2;64;132;82m/);
+});
+
+test("word emphasis skips ambiguous positional fallback above pairing threshold", () => {
+  const count = 33;
+  const diff = [
+    ...Array.from(
+      { length: count },
+      (_, index) =>
+        `- ${index + 1} items.map((item) => item.shared${index % 4}).filter(Boolean) // old ${index % 3}`,
+    ),
+    ...Array.from({ length: count }, (_, index) => {
+      const reversed = count - 1 - index;
+      return `+ ${index + 1} items.map((item) => item.shared${reversed % 4}).filter(Boolean) // new ${reversed % 3}`;
+    }),
+  ].join("\n");
+
+  const telemetry = wordEmphasisTelemetry(diff, count * 2);
+  assert.equal(telemetry.emphasizedPairs, 0);
+  assert.equal(telemetry.skippedPotentialPairs, count);
+  assert.doesNotMatch(
+    renderSyntaxHighlightedDiff(diff, undefined, testTheme(), count * 2),
+    /\x1b\[48;2;(?:148;62;70|64;132;82)m/,
+  );
 });
 
 test("smart word emphasis suppresses low-signal wrapper syntax", () => {

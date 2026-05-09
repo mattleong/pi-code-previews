@@ -575,6 +575,7 @@ const MIN_HIGH_CONFIDENCE_CROSSING_PAIR_SCORE = 0.72;
 const HIGH_CONFIDENCE_CROSSING_PAIR_MARGIN = 0.12;
 const HIGH_CONFIDENCE_CROSSING_PAIR_RATIO = 0.85;
 const MAX_CHANGED_LINE_PAIR_CELLS = 1024;
+const MAX_POSITIONAL_FALLBACK_AMBIGUITY_CELLS = 10_000;
 const MAX_LINE_TOKEN_SIMILARITY_CELLS = 16_384;
 
 function matchChangedLinesByPosition(
@@ -583,20 +584,103 @@ function matchChangedLinesByPosition(
 ): ChangedLinePair[] {
   const pairs: ChangedLinePair[] = [];
   const tokenWeight = similarityTokenWeight(removed, added);
-  for (let index = 0; index < Math.min(removed.length, added.length); index++) {
-    const score = tokenSimilarity(
-      changedLineSimilarityFeatureValues(removed[index]!),
-      changedLineSimilarityFeatureValues(added[index]!),
+  const featureDocumentCounts = similarityFeatureDocumentCounts(removed, added);
+  const canCheckAmbiguity =
+    removed.length * added.length <= MAX_POSITIONAL_FALLBACK_AMBIGUITY_CELLS;
+  const scoreCache = new Map<string, number>();
+  const scoreAt = (removedPosition: number, addedPosition: number): number => {
+    const key = `${removedPosition}:${addedPosition}`;
+    const cached = scoreCache.get(key);
+    if (cached !== undefined) return cached;
+    const score = fallbackLineSimilarity(
+      removed[removedPosition]!,
+      added[addedPosition]!,
       tokenWeight,
     );
-    if (score >= MIN_POSITIONAL_FALLBACK_PAIR_SCORE)
+    scoreCache.set(key, score);
+    return score;
+  };
+
+  for (let index = 0; index < Math.min(removed.length, added.length); index++) {
+    const score = scoreAt(index, index);
+    if (score < MIN_POSITIONAL_FALLBACK_PAIR_SCORE) continue;
+    if (hasUniqueSharedSimilarityFeature(removed[index]!, added[index]!, featureDocumentCounts)) {
       pairs.push({
         removedIndex: removed[index]!.index,
         addedIndex: added[index]!.index,
         confidence: linePairConfidence(score, 0),
       });
+      continue;
+    }
+    if (!canCheckAmbiguity) continue;
+
+    const competingScore = competingChangedLineScoreByPosition(
+      removed.length,
+      added.length,
+      index,
+      index,
+      scoreAt,
+    );
+    if (isAmbiguousChangedLinePairScore(score, competingScore)) continue;
+    pairs.push({
+      removedIndex: removed[index]!.index,
+      addedIndex: added[index]!.index,
+      confidence: linePairConfidence(score, competingScore),
+    });
   }
   return pairs;
+}
+
+function competingChangedLineScoreByPosition(
+  removedLength: number,
+  addedLength: number,
+  removedPosition: number,
+  addedPosition: number,
+  scoreAt: (removedPosition: number, addedPosition: number) => number,
+): number {
+  let competingScore = 0;
+  for (
+    let candidateAddedPosition = 0;
+    candidateAddedPosition < addedLength;
+    candidateAddedPosition++
+  ) {
+    if (candidateAddedPosition === addedPosition) continue;
+    competingScore = Math.max(competingScore, scoreAt(removedPosition, candidateAddedPosition));
+  }
+  for (
+    let candidateRemovedPosition = 0;
+    candidateRemovedPosition < removedLength;
+    candidateRemovedPosition++
+  ) {
+    if (candidateRemovedPosition === removedPosition) continue;
+    competingScore = Math.max(competingScore, scoreAt(candidateRemovedPosition, addedPosition));
+  }
+  return competingScore;
+}
+
+function similarityFeatureDocumentCounts(
+  removed: Array<IndexedChangedLine<RemovedDiffLine>>,
+  added: Array<IndexedChangedLine<AddedDiffLine>>,
+): Map<string, number> {
+  const documentCounts = new Map<string, number>();
+  for (const line of [...removed, ...added]) {
+    for (const feature of new Set(changedLineSimilarityFeatureValues(line)))
+      documentCounts.set(feature, (documentCounts.get(feature) ?? 0) + 1);
+  }
+  return documentCounts;
+}
+
+function hasUniqueSharedSimilarityFeature(
+  removed: IndexedChangedLine<RemovedDiffLine>,
+  added: IndexedChangedLine<AddedDiffLine>,
+  documentCounts: Map<string, number>,
+): boolean {
+  const addedFeatures = new Set(changedLineSimilarityFeatureValues(added));
+  for (const feature of new Set(changedLineSimilarityFeatureValues(removed))) {
+    if (!addedFeatures.has(feature)) continue;
+    if (documentCounts.get(feature) === 2 && tokenWeight(feature) >= 1) return true;
+  }
+  return false;
 }
 
 type SimilarityTokenWeight = (token: string) => number;
@@ -859,6 +943,18 @@ function positionPairs(
     pairs.push([removed[removedPosition]!.index, added[addedPosition]!.index]);
   }
   return pairs;
+}
+
+function fallbackLineSimilarity(
+  removed: IndexedChangedLine<RemovedDiffLine>,
+  added: IndexedChangedLine<AddedDiffLine>,
+  weight: SimilarityTokenWeight,
+): number {
+  return unorderedTokenSimilarity(
+    changedLineSimilarityFeatureValues(removed),
+    changedLineSimilarityFeatureValues(added),
+    weight,
+  );
 }
 
 function tokenSimilarity(

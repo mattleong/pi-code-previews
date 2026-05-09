@@ -144,7 +144,7 @@ export function wordEmphasisTokenWeight(value: string): number {
 function splitIdentifierToken(value: string, start: number): WordEmphasisToken[] {
   const parts: WordEmphasisToken[] = [];
   const partPattern =
-    /[$_]+|\p{Lu}+(?=\p{Lu}\p{Ll}|\p{N}|$)|\p{Lu}?\p{Ll}+|\p{N}+|\p{Lu}+|\p{L}+/gu;
+    /[$_]+|(?:\p{Lu}\p{Mark}*)+(?=(?:\p{Lu}\p{Mark}*)(?:\p{Ll}\p{Mark}*)|\p{N}|$)|(?:\p{Lu}\p{Mark}*)?(?:\p{Ll}\p{Mark}*)+|\p{N}+|(?:\p{Lu}\p{Mark}*)+|(?:\p{L}\p{Mark}*)+/gu;
   for (const match of value.matchAll(partPattern)) {
     const part = match[0] ?? "";
     const offset = match.index ?? 0;
@@ -657,7 +657,8 @@ function refinedIdentifierTokenRanges(
     removed,
     added,
   });
-  return refinedRangesForChangedTokens(beforeParts, afterParts, removed, added);
+  const ranges = refinedRangesForChangedTokens(beforeParts, afterParts, removed, added);
+  return hasWordChangeRanges(ranges) ? ranges : undefined;
 }
 
 function refinedTokenTextRanges(
@@ -691,7 +692,12 @@ function shouldRefineTokenText(
   const sharedEdgeLength = prefix + suffix;
   if (sharedEdgeLength === 0) return false;
   if (isIdentifierToken(before) && isIdentifierToken(after)) {
-    if (sharedEdgeLength < 2) return false;
+    if (
+      sharedEdgeLength < 2 &&
+      !needsBoundarySafeOffsets(before) &&
+      !needsBoundarySafeOffsets(after)
+    )
+      return false;
     if (prefix === 0 && suffix > 0) {
       const beforeChangedLength = before.length - suffix;
       const afterChangedLength = after.length - suffix;
@@ -709,13 +715,53 @@ function shouldRefineTokenText(
 }
 
 function commonPrefixLength(before: string, after: string): number {
+  if (!needsBoundarySafeOffsets(before) && !needsBoundarySafeOffsets(after))
+    return commonPrefixCodeUnitLength(before, after);
+
+  const beforeSegments = textBoundarySegments(before);
+  const afterSegments = textBoundarySegments(after);
+  let index = 0;
+  let prefix = 0;
+  while (
+    index < beforeSegments.length &&
+    index < afterSegments.length &&
+    beforeSegments[index]!.value === afterSegments[index]!.value
+  ) {
+    prefix = beforeSegments[index]!.end;
+    index++;
+  }
+  return prefix;
+}
+
+function commonSuffixLength(before: string, after: string, prefixLength: number): number {
+  if (!needsBoundarySafeOffsets(before) && !needsBoundarySafeOffsets(after))
+    return commonSuffixCodeUnitLength(before, after, prefixLength);
+
+  const beforeSegments = textBoundarySegments(before);
+  const afterSegments = textBoundarySegments(after);
+  let beforeIndex = beforeSegments.length - 1;
+  let afterIndex = afterSegments.length - 1;
+  let suffix = 0;
+  while (beforeIndex >= 0 && afterIndex >= 0) {
+    const beforeSegment = beforeSegments[beforeIndex]!;
+    const afterSegment = afterSegments[afterIndex]!;
+    if (beforeSegment.start < prefixLength || afterSegment.start < prefixLength) break;
+    if (beforeSegment.value !== afterSegment.value) break;
+    suffix += beforeSegment.value.length;
+    beforeIndex--;
+    afterIndex--;
+  }
+  return suffix;
+}
+
+function commonPrefixCodeUnitLength(before: string, after: string): number {
   const end = Math.min(before.length, after.length);
   let index = 0;
   while (index < end && before[index] === after[index]) index++;
   return index;
 }
 
-function commonSuffixLength(before: string, after: string, prefixLength: number): number {
+function commonSuffixCodeUnitLength(before: string, after: string, prefixLength: number): number {
   const maxLength = Math.min(before.length, after.length) - prefixLength;
   let length = 0;
   while (
@@ -724,6 +770,35 @@ function commonSuffixLength(before: string, after: string, prefixLength: number)
   )
     length++;
   return length;
+}
+
+type TextBoundarySegment = { value: string; start: number; end: number };
+
+const MARK_TEXT_PATTERN = /\p{Mark}/u;
+const MARK_CODE_POINT_PATTERN = /^\p{Mark}$/u;
+const SURROGATE_CODE_UNIT_PATTERN = /[\uD800-\uDFFF]/;
+
+function needsBoundarySafeOffsets(text: string): boolean {
+  return MARK_TEXT_PATTERN.test(text) || SURROGATE_CODE_UNIT_PATTERN.test(text);
+}
+
+function textBoundarySegments(text: string): TextBoundarySegment[] {
+  const segments: TextBoundarySegment[] = [];
+  for (let index = 0; index < text.length; ) {
+    const start = index;
+    const codePoint = text.codePointAt(index)!;
+    const value = String.fromCodePoint(codePoint);
+    index += value.length;
+
+    if (MARK_CODE_POINT_PATTERN.test(value) && segments.length > 0) {
+      const previous = segments.at(-1)!;
+      previous.value += value;
+      previous.end = index;
+    } else {
+      segments.push({ value, start, end: index });
+    }
+  }
+  return segments;
 }
 
 function isNarrowerThanWholeTokens(
