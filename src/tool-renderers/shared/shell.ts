@@ -450,8 +450,8 @@ class BorderedToolCall implements Component {
     const open = position === "top" ? "╭" : "╰";
     const close = position === "top" ? "╮" : "╯";
     const labelWidth = visibleWidth(label);
-    if (labelWidth === 0) return border(`${open}${"─".repeat(innerWidth)}${close}`);
-    if (labelWidth > innerWidth) return border(`${open}${"─".repeat(innerWidth)}${close}`);
+    if (labelWidth === 0 || labelWidth > innerWidth)
+      return border(`${open}${"─".repeat(innerWidth)}${close}`);
     return `${border(open)}${border("─".repeat(innerWidth - labelWidth))}${label}${border(close)}`;
   }
 

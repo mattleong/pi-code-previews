@@ -234,13 +234,6 @@ function renderWriteDiffPreview(
   theme: Theme,
   invalidate?: () => void,
 ): FullWidthDiffText {
-  if (shouldSkipWriteDiffBytes(before, content)) {
-    return new FullWidthDiffText(
-      theme.fg("success", "✓ Write applied") +
-        theme.fg("muted", " · diff skipped for large content"),
-      theme,
-    );
-  }
   const diff = createSimpleDiff(before, content);
   const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
   const summary = summarizeDiff(diff);

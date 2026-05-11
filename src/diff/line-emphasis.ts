@@ -5,11 +5,7 @@ import {
   normalizedChangedContent,
 } from "./line-matching";
 import { isAddedDiffLine, isRemovedDiffLine, type ParsedDiffLine } from "./parse";
-import {
-  changedRangesForTokensWithConfidence,
-  type ConfidentWordChangeRanges,
-  type WordChangeConfidence,
-} from "./word/emphasis";
+import { changedRangesForTokensWithConfidence, shouldEmphasizeChangedPair } from "./word/emphasis";
 
 export function changedLineEmphasis(
   block: ParsedDiffLine[],
@@ -53,16 +49,6 @@ export function emphasizeChangedSpans(
     line.slice(0, codeStart) +
     injectVisibleRangeEmphasis(line.slice(codeStart), ranges, wordEmphasis(kind))
   );
-}
-
-function shouldEmphasizeChangedPair(
-  ranges: ConfidentWordChangeRanges,
-  lineConfidence: WordChangeConfidence,
-): boolean {
-  if (ranges.removed.length === 0 && ranges.added.length === 0) return false;
-  if (lineConfidence === "low") return false;
-  if (ranges.confidence === "low" && lineConfidence !== "high") return false;
-  return true;
 }
 
 function findCodeStart(line: string): number {

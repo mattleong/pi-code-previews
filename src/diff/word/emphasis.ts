@@ -17,6 +17,16 @@ export type WordEmphasisToken = {
   end: number;
 };
 
+export function shouldEmphasizeChangedPair(
+  ranges: ConfidentWordChangeRanges,
+  lineConfidence: WordChangeConfidence,
+): boolean {
+  if (ranges.removed.length === 0 && ranges.added.length === 0) return false;
+  if (lineConfidence === "low") return false;
+  if (ranges.confidence === "low" && lineConfidence !== "high") return false;
+  return true;
+}
+
 export function wordEmphasisTokens(text: string): WordEmphasisToken[] {
   return tokenizeForWordEmphasis(text);
 }

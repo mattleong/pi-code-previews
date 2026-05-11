@@ -1,6 +1,6 @@
 import { bundledThemes } from "shiki";
-import { getObjectValue } from "../tool-data";
 import { parsePositiveInteger, positiveEnvInteger } from "../config/env";
+import { getObjectValue } from "../shared/objects";
 import {
   ALL_CODE_PREVIEW_TOOLS,
   isCodePreviewToolName,

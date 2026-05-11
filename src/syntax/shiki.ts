@@ -158,15 +158,12 @@ export function getShikiStatus(): {
 }
 
 function cacheRendered(key: string, value: string[]): void {
-  const previousSize = renderCacheSizes.get(key) ?? 0;
-  if (previousSize > 0) renderCacheChars -= previousSize;
   const size = renderedCharSize(value);
   renderCache.set(key, value);
   renderCacheSizes.set(key, size);
   renderCacheChars += size;
   while (renderCache.size > CACHE_LIMIT || renderCacheChars > CACHE_CHAR_LIMIT) {
-    const first = renderCache.keys().next().value;
-    if (typeof first !== "string") break;
+    const first = renderCache.keys().next().value as string;
     deleteCachedRender(first);
   }
 }
@@ -270,10 +267,7 @@ function isLowContrastFg(params: string): boolean {
   return luminance < 72;
 }
 
-function ansiFromToken(
-  token: { content: string; color?: string; fontStyle?: number },
-  forceUnderline = false,
-): string {
+function ansiFromToken(token: { content: string; color?: string; fontStyle?: number }): string {
   let open = token.color ? ansiFg(token.color) : "";
   let close = token.color ? "\x1b[39m" : "";
   // TextMate fontStyle bit flags: italic=1, bold=2, underline=4.
@@ -286,7 +280,7 @@ function ansiFromToken(
     open += "\x1b[3m";
     close = "\x1b[23m" + close;
   }
-  if (fontStyle & 4 || forceUnderline) {
+  if (fontStyle & 4) {
     open += "\x1b[4m";
     close = "\x1b[24m" + close;
   }

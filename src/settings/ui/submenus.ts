@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { bundledThemes } from "shiki";
 import { formatToolsSettingValue } from "../index";
+import { SETTINGS_GROUP_ID_PREFIX } from "./registry";
 import {
   ALL_CODE_PREVIEW_TOOLS,
   parseCodePreviewTools,
@@ -20,8 +21,6 @@ import {
   getCodePreviewToolStatuses,
   type CodePreviewToolStatus,
 } from "../../tools/status";
-
-const SETTINGS_GROUP_ID_PREFIX = "group:";
 
 type SettingChangeHandler = (id: string, value: string) => void;
 

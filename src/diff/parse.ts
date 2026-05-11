@@ -17,8 +17,7 @@ function normalizedDiffLineNumber(line: ParsedDiffLine | null): string {
 export function parseDiffLine(line: string): ParsedDiffLine | null {
   const match = line.match(/^([+\- ])(\s*\d*)\s(.*)$/);
   if (!match) return null;
-  const kind = match[1];
-  if (kind !== "+" && kind !== "-" && kind !== " ") return null;
+  const kind = match[1] as ParsedDiffLine["kind"];
   return { kind, lineNumber: match[2] ?? "", content: match[3] ?? "" };
 }
 
