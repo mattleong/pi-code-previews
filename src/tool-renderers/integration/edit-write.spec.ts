@@ -238,6 +238,33 @@ test("registered write renderer hides code previews until expanded", () => {
   }
 });
 
+test("registered write renderer distinguishes blank-only content from empty content", () => {
+  process.env.CODE_PREVIEW_TOOLS = "write";
+  const write = findRenderer(registerRenderers(), "write");
+  assert.ok(write.renderCall);
+
+  const rendered = stripAnsi(
+    renderComponent(
+      write.renderCall({ path: "blank.txt", content: "\n\n" }, testTheme(), {
+        argsComplete: true,
+        cwd: "/tmp/project",
+        executionStarted: false,
+        expanded: true,
+        invalidate: () => undefined,
+        isError: false,
+        isPartial: true,
+        lastComponent: undefined,
+        showImages: true,
+        state: {},
+        toolCallId: "tool-1",
+      }),
+    ),
+  );
+
+  assert.doesNotMatch(rendered, /Empty content/);
+  assert.match(rendered, /1 line/);
+});
+
 test("registered edit renderer hides diff previews until expanded", () => {
   process.env.CODE_PREVIEW_TOOLS = "edit";
   const previousSettings = cloneCodePreviewSettingsForTest();

@@ -2,43 +2,15 @@ import type { CodePreviewEditableSettingId } from "../index";
 
 export type SettingsUiItemId = CodePreviewEditableSettingId | "settingsFile";
 
-export type SettingValueOptions = readonly [string, ...string[]];
+export type CodePreviewSettingValueOptions = readonly [string, ...string[]];
 
 export interface SettingItemDefinition {
   label: string;
   description: string;
-  values?: SettingValueOptions;
+  values?: CodePreviewSettingValueOptions;
 }
 
 export const SETTINGS_GROUP_ID_PREFIX = "group:";
-
-export const FLAT_SETTING_IDS = [
-  "shikiTheme",
-  "diffIntensity",
-  "wordEmphasis",
-  "tools",
-  "toolCallBackground",
-  "toolCallTiming",
-  "readContentPreview",
-  "readCollapsedLines",
-  "writeContentPreview",
-  "writeCollapsedLines",
-  "editDiffPreview",
-  "editCollapsedLines",
-  "grepResultPreview",
-  "grepCollapsedLines",
-  "findResultPreview",
-  "lsResultPreview",
-  "pathListCollapsedLines",
-  "readLineNumbers",
-  "pathIcons",
-  "bashResultPreview",
-  "bashWarnings",
-  "syntaxHighlighting",
-  "secretWarnings",
-  "settingsFile",
-  "resetToDefaults",
-] as const satisfies readonly SettingsUiItemId[];
 
 export const APPEARANCE_SETTING_IDS = [
   "shikiTheme",
@@ -88,7 +60,7 @@ export const ADVANCED_SETTING_IDS = [
   "resetToDefaults",
 ] as const satisfies readonly SettingsUiItemId[];
 
-export const SETTING_ITEM_DEFINITIONS = {
+const CODE_PREVIEW_SETTING_ITEM_DEFINITIONS = {
   shikiTheme: {
     label: "Syntax theme",
     description: "Theme used for Shiki syntax highlighting in code previews.",
@@ -104,11 +76,6 @@ export const SETTING_ITEM_DEFINITIONS = {
       "Highlight changed words inside edit diffs. All mode is the default; smart suppresses low-signal punctuation and wrapper syntax.",
     values: ["all", "smart", "off"],
   },
-  tools: {
-    label: "Preview tools",
-    description:
-      "Open granular tool preview toggles. Changes take effect after /reload. Tools already owned by another extension are skipped automatically.",
-  },
   toolCallBackground: {
     label: "Tool call background",
     description:
@@ -118,19 +85,19 @@ export const SETTING_ITEM_DEFINITIONS = {
   toolCallTiming: {
     label: "Tool call timing",
     description:
-      "Show each tool's elapsed duration in the result footer, or in the bottom-right border when border mode is enabled.",
-    values: ["on", "off"],
-  },
-  readContentPreview: {
-    label: "Read content preview",
-    description:
-      "Show file contents in read results. Turn off to hide collapsed output while still allowing expanded output.",
+      "Show each tool's elapsed duration in the result footer, or in the top-right border when border mode is enabled.",
     values: ["on", "off"],
   },
   readCollapsedLines: {
     label: "Read preview lines",
     description: "Maximum read result lines shown before collapsing.",
     values: ["10", "20", "40", "80"],
+  },
+  readContentPreview: {
+    label: "Read content preview",
+    description:
+      "Show file contents in read results. Turn off to hide collapsed output while still allowing expanded output.",
+    values: ["on", "off"],
   },
   writeContentPreview: {
     label: "Write code preview",
@@ -155,16 +122,16 @@ export const SETTING_ITEM_DEFINITIONS = {
       "Maximum edit diff lines shown before collapsing. `all` matches pi's built-in edit diff behavior.",
     values: ["all", "60", "100", "160", "240"],
   },
+  grepCollapsedLines: {
+    label: "Grep preview lines",
+    description: "Maximum grep result lines shown before collapsing.",
+    values: ["10", "15", "25", "40", "80"],
+  },
   grepResultPreview: {
     label: "Grep result preview",
     description:
       "Show grep matches in tool results. Turn off to hide collapsed output while still allowing expanded output.",
     values: ["on", "off"],
-  },
-  grepCollapsedLines: {
-    label: "Grep preview lines",
-    description: "Maximum grep result lines shown before collapsing.",
-    values: ["10", "15", "25", "40", "80"],
   },
   findResultPreview: {
     label: "Find result preview",
@@ -187,11 +154,6 @@ export const SETTING_ITEM_DEFINITIONS = {
     label: "Read line numbers",
     description: "Show line numbers in read previews.",
     values: ["on", "off"],
-  },
-  pathIcons: {
-    label: "Find/ls path icons",
-    description: "Choose icons for find and ls path-list previews. Nerd mode requires a Nerd Font.",
-    values: ["unicode", "nerd", "off"],
   },
   bashResultPreview: {
     label: "Bash result preview",
@@ -216,6 +178,23 @@ export const SETTING_ITEM_DEFINITIONS = {
       "Show preview-only warnings when read, write, or bash output looks like it may contain secrets.",
     values: ["on", "off"],
   },
+  pathIcons: {
+    label: "Find/ls path icons",
+    description: "Choose icons for find and ls path-list previews. Nerd mode requires a Nerd Font.",
+    values: ["unicode", "nerd", "off"],
+  },
+  tools: {
+    label: "Preview tools",
+    description:
+      "Open granular tool preview toggles. Changes take effect after /reload. Tools already owned by another extension are skipped automatically.",
+  },
+} as const satisfies Record<
+  Exclude<CodePreviewEditableSettingId, "resetToDefaults">,
+  SettingItemDefinition
+>;
+
+export const SETTING_ITEM_DEFINITIONS = {
+  ...CODE_PREVIEW_SETTING_ITEM_DEFINITIONS,
   settingsFile: {
     label: "Settings file",
     description: "Settings are stored globally in this file.",

@@ -9,13 +9,8 @@ export function countContentLines(content: string): number {
 
 export function countPreviewTextLines(text: string): number {
   let total = 0;
-  let pendingEmpty = 0;
-  forEachRawTextLine(text, (line) => {
-    if (line === "") pendingEmpty++;
-    else {
-      total += pendingEmpty + 1;
-      pendingEmpty = 0;
-    }
+  forEachPreviewTextLine(text, () => {
+    total++;
   });
   return total;
 }
@@ -37,4 +32,5 @@ export function forEachPreviewTextLine(
     }
     callback(line, index++);
   });
+  if (index === 0 && pendingEmpty > 0 && text.length > 0) callback("", index);
 }

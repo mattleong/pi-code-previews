@@ -13,6 +13,6 @@ test("trimSingleTrailingNewline preserves leading and meaningful trailing spaces
 test("line counters preserve file and preview trailing-blank semantics", () => {
   assert.equal(countContentLines("\n\n"), 2);
   assert.equal(countContentLines("one\n"), 1);
-  assert.equal(countPreviewTextLines("\n\n"), 0);
+  assert.equal(countPreviewTextLines("\n\n"), 1);
   assert.equal(countPreviewTextLines("one\n\ntwo"), 3);
 });

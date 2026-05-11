@@ -1,3 +1,4 @@
+import { injectVisibleRanges } from "../shared/terminal-text";
 import {
   changedLineTokens,
   indexedChangedLine,
@@ -47,7 +48,11 @@ export function emphasizeChangedSpans(
   const codeStart = findCodeStart(line);
   return (
     line.slice(0, codeStart) +
-    injectVisibleRangeEmphasis(line.slice(codeStart), ranges, wordEmphasis(kind))
+    injectVisibleRanges(line.slice(codeStart), ranges, {
+      open: wordEmphasis(kind),
+      close: "\x1b[22m\x1b[49m",
+      reopenAfterSgr: (sequence) => sequence === "\x1b[39m" || sequence === "\x1b[22m",
+    })
   );
 }
 
@@ -65,40 +70,4 @@ function findCodeStart(line: string): number {
 
 function wordEmphasis(kind: "add" | "remove"): string {
   return kind === "add" ? "\x1b[48;2;64;132;82m\x1b[1m" : "\x1b[48;2;148;62;70m\x1b[1m";
-}
-
-function injectVisibleRangeEmphasis(
-  ansi: string,
-  ranges: Array<[number, number]>,
-  open: string,
-): string {
-  let visible = 0;
-  let rangeIndex = 0;
-  let out = "";
-  let active = false;
-  for (let i = 0; i < ansi.length; i++) {
-    const range = ranges[rangeIndex];
-    if (ansi[i] === "\x1b") {
-      const end = ansi.indexOf("m", i);
-      if (end >= 0) {
-        const seq = ansi.slice(i, end + 1);
-        out += active && (seq === "\x1b[39m" || seq === "\x1b[22m") ? `${seq}${open}` : seq;
-        i = end;
-        continue;
-      }
-    }
-    if (!active && range && visible === range[0]) {
-      out += open;
-      active = true;
-    }
-    if (active && range && visible === range[1]) {
-      out += "\x1b[22m\x1b[49m";
-      active = false;
-      rangeIndex++;
-    }
-    out += ansi[i];
-    visible++;
-  }
-  if (active) out += "\x1b[22m\x1b[49m";
-  return out;
 }

@@ -6,7 +6,7 @@ import {
   renderSyntaxHighlightedDiff,
 } from "../../diff/index";
 import { previewFooter, showingFooter } from "../../preview/format";
-import { codePreviewSettings } from "../../settings/index";
+import type { CodePreviewSettings } from "../../settings/index";
 import { shouldSkipHighlight } from "../../syntax/shiki";
 
 export function createDiffPreviewText(
@@ -55,10 +55,12 @@ export function renderDiffPreviewBody(
   };
 }
 
-export function diffPreviewLineLimit(totalLines: number, expanded: boolean): number {
-  return expanded || codePreviewSettings.editCollapsedLines === "all"
-    ? totalLines
-    : codePreviewSettings.editCollapsedLines;
+export function diffPreviewLineLimit(
+  totalLines: number,
+  expanded: boolean,
+  collapsedLines: CodePreviewSettings["editCollapsedLines"],
+): number {
+  return expanded || collapsedLines === "all" ? totalLines : collapsedLines;
 }
 
 export function appendDiffPreviewFooters(

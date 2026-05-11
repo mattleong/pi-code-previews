@@ -6,8 +6,8 @@ import {
 } from "./index";
 import { loadSettingsFromDisk } from "./store";
 
-export async function loadCodePreviewSettings(): Promise<CodePreviewSettings> {
-  const savedSettings = await loadSettingsFromDisk();
+export async function loadCodePreviewSettings(projectCwd?: string): Promise<CodePreviewSettings> {
+  const savedSettings = await loadSettingsFromDisk({ projectCwd });
   if (savedSettings) setCodePreviewSettings(savedSettings);
   return cloneCodePreviewSettings(codePreviewSettings);
 }

@@ -98,7 +98,6 @@ test("loadSettingsFromDisk merges settings in precedence order", async () => {
   await mkdir(join(home, ".pi", "agent"), { recursive: true });
   await mkdir(agentDir, { recursive: true });
   await mkdir(join(project, ".pi"), { recursive: true });
-  process.chdir(project);
 
   await writeJson(join(home, ".pi", "settings.json"), {
     codePreview: {
@@ -125,7 +124,7 @@ test("loadSettingsFromDisk merges settings in precedence order", async () => {
     pathListCollapsedLines: 44,
   });
 
-  const loaded = await loadSettingsFromDisk();
+  const loaded = await loadSettingsFromDisk({ projectCwd: project });
   assert.equal(loaded?.readCollapsedLines, 16);
   assert.equal(loaded?.writeCollapsedLines, 21);
   assert.equal(loaded?.writeContentPreview, false);
@@ -135,6 +134,32 @@ test("loadSettingsFromDisk merges settings in precedence order", async () => {
   assert.equal(loaded?.lsResultPreview, false);
   assert.equal(loaded?.bashResultPreview, false);
   assert.equal(loaded?.pathListCollapsedLines, 44);
+});
+
+test("loadSettingsFromDisk uses explicit project cwd instead of process cwd", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-code-previews-project-cwd-"));
+  const home = join(root, "home");
+  const agentDir = join(root, "agent");
+  const targetProject = join(root, "target");
+  const otherProject = join(root, "other");
+  process.env.HOME = home;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  await mkdir(join(home, ".pi", "agent"), { recursive: true });
+  await mkdir(agentDir, { recursive: true });
+  await mkdir(join(targetProject, ".pi"), { recursive: true });
+  await mkdir(join(otherProject, ".pi"), { recursive: true });
+  process.chdir(otherProject);
+
+  await writeJson(join(targetProject, ".pi", "settings.json"), {
+    codePreview: { readCollapsedLines: 24 },
+  });
+  await writeJson(join(otherProject, ".pi", "settings.json"), {
+    codePreview: { readCollapsedLines: 99, writeCollapsedLines: 88 },
+  });
+
+  const loaded = await loadSettingsFromDisk({ projectCwd: targetProject });
+  assert.equal(loaded?.readCollapsedLines, 24);
+  assert.equal(loaded?.writeCollapsedLines, defaultCodePreviewSettings.writeCollapsedLines);
 });
 
 test("loadSettingsFromDisk warns on invalid JSON and continues", async () => {

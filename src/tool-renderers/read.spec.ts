@@ -53,6 +53,26 @@ test("registered read renderer hides successful text content until expanded", ()
   }
 });
 
+test("registered read renderer distinguishes blank-only files from empty files", () => {
+  process.env.CODE_PREVIEW_TOOLS = "read";
+  const read = findRenderer(registerRenderers(), "read");
+  assert.ok(read.renderResult);
+
+  const rendered = stripAnsi(
+    renderComponent(
+      read.renderResult(
+        { content: [{ type: "text", text: "\n\n" }] },
+        { expanded: true, isPartial: false },
+        testTheme(),
+        { args: { path: "blank.txt" }, isError: false, invalidate: () => undefined, state: {} },
+      ),
+    ),
+  );
+
+  assert.doesNotMatch(rendered, /Empty file/);
+  assert.match(rendered, /1 │ /);
+});
+
 test("registered read renderer leaves image rendering to pi", () => {
   process.env.CODE_PREVIEW_TOOLS = "read";
   const read = findRenderer(registerRenderers(), "read");

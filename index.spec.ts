@@ -44,7 +44,10 @@ test("extension entrypoint registers commands and session renderer wiring", asyn
   );
 
   const commands = new Map<string, { handler: (args: string, ctx: unknown) => Promise<void> }>();
-  const handlers = new Map<string, (event: unknown, ctx: { cwd: string }) => void>();
+  const handlers = new Map<
+    string,
+    (event: unknown, ctx: { cwd: string }) => void | Promise<void>
+  >();
   const registeredTools: string[] = [];
   let activeTools = ["read", "bash"];
   await codePreviews({
@@ -54,7 +57,10 @@ test("extension entrypoint registers commands and session renderer wiring", asyn
     ) => {
       commands.set(name, command);
     },
-    on: (event: string, handler: (event: unknown, ctx: { cwd: string }) => void) => {
+    on: (
+      event: string,
+      handler: (event: unknown, ctx: { cwd: string }) => void | Promise<void>,
+    ) => {
       handlers.set(event, handler);
     },
     registerTool: (tool: { name: string }) => {
@@ -68,7 +74,10 @@ test("extension entrypoint registers commands and session renderer wiring", asyn
 
   assert.ok(commands.has("code-preview-health"));
   assert.ok(commands.has("code-preview-settings"));
-  handlers.get("session_start")?.({ type: "session_start", reason: "startup" }, { cwd: root });
+  await handlers.get("session_start")?.(
+    { type: "session_start", reason: "startup" },
+    { cwd: root },
+  );
   assert.deepEqual(registeredTools, ["grep"]);
   assert.deepEqual(activeTools, ["read", "bash", "grep"]);
 });

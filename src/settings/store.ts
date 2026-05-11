@@ -5,7 +5,8 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { isFileNotFound } from "../shared/errors";
 import {
   CODE_PREVIEW_SETTING_KEYS,
-  codePreviewSettings,
+  cloneCodePreviewSettings,
+  defaultCodePreviewSettings,
   normalizeSettings,
   type CodePreviewSettings,
 } from "./index";
@@ -22,14 +23,20 @@ function getLegacySettingsPath(): string {
   return join(getLegacyAgentDir(), "code-previews.json");
 }
 
-export async function loadSettingsFromDisk(): Promise<CodePreviewSettings | undefined> {
+export type LoadSettingsOptions = {
+  projectCwd?: string;
+};
+
+export async function loadSettingsFromDisk(
+  options: LoadSettingsOptions = {},
+): Promise<CodePreviewSettings | undefined> {
   let loaded = false;
-  let effective = codePreviewSettings;
+  let effective = cloneCodePreviewSettings(defaultCodePreviewSettings);
   const settingsPaths = [
     join(homedir(), ".pi", "settings.json"),
     join(getLegacyAgentDir(), "settings.json"),
     join(getAgentDir(), "settings.json"),
-    join(process.cwd(), ".pi", "settings.json"),
+    ...(options.projectCwd ? [join(options.projectCwd, ".pi", "settings.json")] : []),
     getLegacySettingsPath(),
     getSettingsPath(),
   ];

@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getLanguageFromPath } from "@earendil-works/pi-coding-agent";
 import { resolvePreviewLanguage } from "../syntax/language";
 import { renderHighlightedText } from "../syntax/shiki";
-import { escapeControlChars } from "../shared/terminal-text";
+import { escapeControlChars, injectVisibleRanges } from "../shared/terminal-text";
 
 export type ParsedGrepOutputLine = {
   path: string;
@@ -82,12 +82,11 @@ function renderGrepParsedLine(
     renderHighlightedText(code, lang, theme, invalidate)[0] ?? theme.fg("toolOutput", code);
   const matchRanges = parsed.kind === "match" ? grepMatchRanges(code, search) : [];
   if (matchRanges.length > 0)
-    highlighted = injectVisibleRangesBg(
-      highlighted,
-      matchRanges,
-      "\x1b[48;2;90;74;28m",
-      getToolBackground(theme),
-    );
+    highlighted = injectVisibleRanges(highlighted, matchRanges, {
+      open: "\x1b[48;2;90;74;28m",
+      close: getToolBackground(theme) || "\x1b[49m",
+      reopenAfterSgr: (sequence) => sequence === "\x1b[39m",
+    });
   const paddedLineNumber = parsed.lineNumber.padStart(4);
   const lineNumber =
     parsed.kind === "match"
@@ -104,12 +103,11 @@ function grepMatchRanges(
   if (!search.pattern || !search.literal) return [];
   const haystack = search.ignoreCase ? code.toLowerCase() : code;
   const needle = search.ignoreCase ? search.pattern.toLowerCase() : search.pattern;
-  if (!needle) return [];
   const ranges: Array<[number, number]> = [];
   let index = haystack.indexOf(needle);
   while (index >= 0) {
     ranges.push([index, index + needle.length]);
-    index = haystack.indexOf(needle, index + Math.max(1, needle.length));
+    index = haystack.indexOf(needle, index + needle.length);
   }
   return ranges;
 }
@@ -121,44 +119,4 @@ function getToolBackground(theme: Theme): string {
   } catch {
     return "";
   }
-}
-
-function injectVisibleRangesBg(
-  ansi: string,
-  ranges: Array<[number, number]>,
-  bg: string,
-  restoreBg: string,
-): string {
-  let visible = 0;
-  let out = "";
-  let active = false;
-  let rangeIndex = 0;
-  const sorted = ranges.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
-  for (let i = 0; i < ansi.length; i++) {
-    if (ansi[i] === "\x1b") {
-      const end = ansi.indexOf("m", i);
-      if (end >= 0) {
-        const seq = ansi.slice(i, end + 1);
-        out += active && seq === "\x1b[39m" ? `${seq}${bg}` : seq;
-        i = end;
-        continue;
-      }
-    }
-    while (rangeIndex < sorted.length && visible >= sorted[rangeIndex]![1]) {
-      if (active) {
-        out += restoreBg || "\x1b[49m";
-        active = false;
-      }
-      rangeIndex++;
-    }
-    const range = sorted[rangeIndex];
-    if (!active && range && visible >= range[0] && visible < range[1]) {
-      out += bg;
-      active = true;
-    }
-    out += ansi[i];
-    visible++;
-  }
-  if (active) out += restoreBg || "\x1b[49m";
-  return out;
 }

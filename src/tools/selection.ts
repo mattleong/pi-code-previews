@@ -1,12 +1,11 @@
 import { codePreviewSettings } from "../settings/index";
 import { ALL_CODE_PREVIEW_TOOLS, parseCodePreviewTools, type CodePreviewToolName } from "./names";
-import { formatToolsSettingValue, getRequiredCodePreviewTools } from "./policy";
+import { formatToolsSettingValue, getEffectiveCodePreviewToolSet } from "./policy";
 
 export function getEnabledCodePreviewTools(): Set<CodePreviewToolName> {
-  const enabled =
-    parseCodePreviewTools(process.env.CODE_PREVIEW_TOOLS) ?? new Set(codePreviewSettings.tools);
-  for (const tool of getRequiredCodePreviewTools(codePreviewSettings)) enabled.add(tool);
-  return enabled;
+  const configured =
+    parseCodePreviewTools(process.env.CODE_PREVIEW_TOOLS) ?? codePreviewSettings.tools;
+  return getEffectiveCodePreviewToolSet(configured, codePreviewSettings);
 }
 
 export function formatEnabledCodePreviewTools(enabled = getEnabledCodePreviewTools()): string {

@@ -94,6 +94,39 @@ test("border shell shows tool timing in top-right border", () => {
   assert.doesNotMatch(rows.at(-1) ?? "", /1\.2s/);
 });
 
+test("border shell returns result content for separate final-result renderers", () => {
+  const shell = createCodePreviewToolShell("border");
+  const state = {};
+  const theme = testTheme();
+
+  shell.renderCall(
+    baseRenderContext(state, { executionStarted: true, isPartial: true }),
+    theme,
+    () => textComponent("call"),
+  );
+  const result = shell.renderResult(baseRenderContext(state, { isPartial: false }), theme, () =>
+    textComponent("result"),
+  );
+
+  assert.equal(stripAnsi(renderComponent(result)), "result");
+});
+
+test("border shell suppresses duplicate result content when call and result are composed together", () => {
+  const shell = createCodePreviewToolShell("border");
+  const state = {};
+  const theme = testTheme();
+
+  const call = shell.renderCall(baseRenderContext(state, { isPartial: false }), theme, () =>
+    textComponent("call"),
+  );
+  const result = shell.renderResult(baseRenderContext(state, { isPartial: false }), theme, () =>
+    textComponent("result"),
+  );
+
+  assert.match(stripAnsi(renderComponent(call)), /call/);
+  assert.equal(stripAnsi(renderComponent(result)), "");
+});
+
 test("tool timing setting hides timing labels", () => {
   setCodePreviewSettings({ ...codePreviewSettings, toolCallTiming: false });
   const shell = createCodePreviewToolShell("on");

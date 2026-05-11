@@ -14,6 +14,17 @@ afterEach(async () => {
   await initializeShiki(previousCodePreviewSettings.shikiTheme);
 });
 
+test("initializeShiki does not mutate configured settings", async () => {
+  setCodePreviewSettings({
+    ...codePreviewSettings,
+    shikiTheme: "dark-plus",
+    syntaxHighlighting: true,
+  });
+  await initializeShiki("github-light-high-contrast");
+
+  assert.equal(codePreviewSettings.shikiTheme, "dark-plus");
+});
+
 test("light Shiki themes preserve their dark foreground colors", async () => {
   setCodePreviewSettings({
     ...codePreviewSettings,

@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { bundledThemesInfo, createHighlighter } from "shiki";
 import { positiveEnvInteger } from "../config/env";
 import { hashString } from "../cache/hash";
-import { setCodePreviewSettings, codePreviewSettings } from "../settings/index";
+import { codePreviewSettings } from "../settings/index";
 import { escapeControlChars } from "../shared/terminal-text";
 import { normalizePreviewLanguageAlias } from "./language";
 
@@ -62,7 +62,6 @@ export async function initializeShiki(theme: string) {
     loadedShikiLanguages.clear();
     pendingShikiLanguages.clear();
     languageLoadCallbacks.clear();
-    setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: theme });
     for (const lang of PRELOADED_SHIKI_LANGUAGES) loadedShikiLanguages.add(lang);
     notifyHighlighterReady();
   } catch (error) {

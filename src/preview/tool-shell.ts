@@ -101,6 +101,8 @@ function renderCodePreviewCall<TState, TArgs>(
     );
   const timing = updateToolCallTiming(context);
   state.codePreviewBorderCallComponent = callComponent;
+  state.codePreviewBorderLastCallExecutionStarted = context.executionStarted;
+  state.codePreviewBorderLastCallPartial = context.isPartial;
   const shell = reuseShell ? previousShell : new BorderedToolCall(theme, state);
   shell.setBorderColor(borderColorKey(context));
   shell.setExpandLabel(getBorderExpandLabel(state));
@@ -150,7 +152,17 @@ function renderCodePreviewResult<TState, TArgs>(
     state.codePreviewBorderShell = shell;
     state.codePreviewBorderTheme = theme;
   }
-  return new Container();
+  return shouldRenderBorderResultSeparately(state, context.isPartial)
+    ? resultComponent
+    : new Container();
+}
+
+function shouldRenderBorderResultSeparately(state: BorderState, isPartial: boolean): boolean {
+  return (
+    state.codePreviewBorderLastCallPartial === undefined ||
+    (state.codePreviewBorderLastCallPartial !== isPartial &&
+      state.codePreviewBorderLastCallExecutionStarted === true)
+  );
 }
 
 function withLastComponent<TState, TArgs>(
@@ -295,6 +307,8 @@ type BorderState = Record<string, unknown> & {
   codePreviewBorderCurrentSlot?: BorderSlot;
   codePreviewBorderCallExpandLabel?: string;
   codePreviewBorderResultExpandLabel?: string;
+  codePreviewBorderLastCallExecutionStarted?: boolean;
+  codePreviewBorderLastCallPartial?: boolean;
 };
 
 function borderState<TState, TArgs>(context: PreviewRenderContext<TState, TArgs>): BorderState {

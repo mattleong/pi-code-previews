@@ -7,7 +7,6 @@ import {
   APPEARANCE_SETTING_IDS,
   BASH_PREVIEW_SETTING_IDS,
   DIFF_PREVIEW_SETTING_IDS,
-  FLAT_SETTING_IDS,
   READ_PREVIEW_SETTING_IDS,
   SEARCH_LIST_PREVIEW_SETTING_IDS,
   SETTING_ITEM_DEFINITIONS,
@@ -31,10 +30,6 @@ import {
 
 type SettingsProvider = () => CodePreviewSettings;
 type SettingChangeHandler = (id: string, value: string) => void;
-
-export function createSettingsItems(current: CodePreviewSettings): SettingItem[] {
-  return createSettingListItems(current, FLAT_SETTING_IDS);
-}
 
 export function createSettingsCategoryItems(
   current: CodePreviewSettings,

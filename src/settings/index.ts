@@ -1,11 +1,7 @@
 import { bundledThemes } from "shiki";
 import { parsePositiveInteger, positiveEnvInteger } from "../config/env";
 import { getObjectValue } from "../shared/objects";
-import {
-  formatToolsSettingValue,
-  getRequiredCodePreviewTools,
-  orderCodePreviewTools,
-} from "../tools/policy";
+import { formatToolsSettingValue, getEffectiveCodePreviewTools } from "../tools/policy";
 import {
   ALL_CODE_PREVIEW_TOOLS,
   isCodePreviewToolName,
@@ -70,8 +66,164 @@ export const defaultCodePreviewSettings: CodePreviewSettings = {
   tools: [...ALL_CODE_PREVIEW_TOOLS],
 };
 
+type CodePreviewSettingDescriptor<K extends keyof CodePreviewSettings> = {
+  normalize(value: unknown, fallback: CodePreviewSettings[K]): CodePreviewSettings[K];
+  update(next: CodePreviewSettings, current: CodePreviewSettings, value: string): void;
+};
+
+type CodePreviewSettingDescriptors = {
+  [K in keyof CodePreviewSettings]: CodePreviewSettingDescriptor<K>;
+};
+
+export const CODE_PREVIEW_SETTING_DEFINITIONS = {
+  shikiTheme: {
+    normalize: (value, fallback) => coerceSetting(value, fallback, isBundledThemeName),
+    update: (next, _current, value) => {
+      if (isBundledThemeName(value)) next.shikiTheme = value;
+    },
+  },
+  diffIntensity: {
+    normalize: (value, fallback) => coerceSetting(value, fallback, isDiffBackgroundIntensity),
+    update: (next, _current, value) => {
+      if (isDiffBackgroundIntensity(value)) next.diffIntensity = value;
+    },
+  },
+  wordEmphasis: {
+    normalize: (value, fallback) => coerceSetting(value, fallback, isDiffWordEmphasis),
+    update: (next, _current, value) => {
+      if (isDiffWordEmphasis(value)) next.wordEmphasis = value;
+    },
+  },
+  toolCallBackground: {
+    normalize: coerceToolCallBackgroundMode,
+    update: (next, _current, value) => {
+      if (isToolCallBackgroundMode(value)) next.toolCallBackground = value;
+    },
+  },
+  toolCallTiming: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.toolCallTiming = value === "on";
+    },
+  },
+  readCollapsedLines: {
+    normalize: coerceNumber,
+    update: (next, current, value) => {
+      next.readCollapsedLines = coerceStringNumber(value, current.readCollapsedLines);
+    },
+  },
+  readContentPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.readContentPreview = value === "on";
+    },
+  },
+  writeContentPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.writeContentPreview = value === "on";
+    },
+  },
+  writeCollapsedLines: {
+    normalize: coerceNumber,
+    update: (next, current, value) => {
+      next.writeCollapsedLines = coerceStringNumber(value, current.writeCollapsedLines);
+    },
+  },
+  editDiffPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.editDiffPreview = value === "on";
+    },
+  },
+  editCollapsedLines: {
+    normalize: coerceEditPreviewLines,
+    update: (next, current, value) => {
+      next.editCollapsedLines =
+        value === "all"
+          ? "all"
+          : coerceStringNumber(
+              value,
+              typeof current.editCollapsedLines === "number" ? current.editCollapsedLines : 100,
+            );
+    },
+  },
+  grepCollapsedLines: {
+    normalize: coerceNumber,
+    update: (next, current, value) => {
+      next.grepCollapsedLines = coerceStringNumber(value, current.grepCollapsedLines);
+    },
+  },
+  grepResultPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.grepResultPreview = value === "on";
+    },
+  },
+  findResultPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.findResultPreview = value === "on";
+    },
+  },
+  lsResultPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.lsResultPreview = value === "on";
+    },
+  },
+  pathListCollapsedLines: {
+    normalize: coerceNumber,
+    update: (next, current, value) => {
+      next.pathListCollapsedLines = coerceStringNumber(value, current.pathListCollapsedLines);
+    },
+  },
+  readLineNumbers: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.readLineNumbers = value === "on";
+    },
+  },
+  bashResultPreview: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.bashResultPreview = value === "on";
+    },
+  },
+  bashWarnings: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.bashWarnings = value === "on";
+    },
+  },
+  syntaxHighlighting: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.syntaxHighlighting = value === "on";
+    },
+  },
+  secretWarnings: {
+    normalize: coerceBoolean,
+    update: (next, _current, value) => {
+      next.secretWarnings = value === "on";
+    },
+  },
+  pathIcons: {
+    normalize: (value, fallback) => coerceSetting(value, fallback, isPathIconMode),
+    update: (next, _current, value) => {
+      if (isPathIconMode(value)) next.pathIcons = value;
+    },
+  },
+  tools: {
+    normalize: coerceTools,
+    update: (next, current, value) => {
+      next.tools = coerceTools(value, current.tools);
+    },
+  },
+} as const satisfies CodePreviewSettingDescriptors;
+
 export const CODE_PREVIEW_SETTING_KEYS = Object.keys(
-  defaultCodePreviewSettings,
+  CODE_PREVIEW_SETTING_DEFINITIONS,
 ) as readonly (keyof CodePreviewSettings)[];
 
 export type CodePreviewEditableSettingId = keyof CodePreviewSettings | "resetToDefaults";
@@ -103,173 +255,22 @@ export function normalizeSettings(
   data: unknown,
   fallback: CodePreviewSettings = codePreviewSettings,
 ): CodePreviewSettings {
-  return withRequiredToolRenderers({
-    shikiTheme: coerceSetting(
-      getObjectValue(data, "shikiTheme"),
-      fallback.shikiTheme,
-      isBundledThemeName,
-    ),
-    diffIntensity: coerceSetting(
-      getObjectValue(data, "diffIntensity"),
-      fallback.diffIntensity,
-      isDiffBackgroundIntensity,
-    ),
-    wordEmphasis: coerceSetting(
-      getObjectValue(data, "wordEmphasis"),
-      fallback.wordEmphasis,
-      isDiffWordEmphasis,
-    ),
-    toolCallBackground: coerceToolCallBackgroundMode(
-      getObjectValue(data, "toolCallBackground"),
-      fallback.toolCallBackground,
-    ),
-    toolCallTiming: coerceBoolean(getObjectValue(data, "toolCallTiming"), fallback.toolCallTiming),
-    readCollapsedLines: coerceNumber(
-      getObjectValue(data, "readCollapsedLines"),
-      fallback.readCollapsedLines,
-    ),
-    readContentPreview: coerceBoolean(
-      getObjectValue(data, "readContentPreview"),
-      fallback.readContentPreview,
-    ),
-    writeContentPreview: coerceBoolean(
-      getObjectValue(data, "writeContentPreview"),
-      fallback.writeContentPreview,
-    ),
-    writeCollapsedLines: coerceNumber(
-      getObjectValue(data, "writeCollapsedLines"),
-      fallback.writeCollapsedLines,
-    ),
-    editDiffPreview: coerceBoolean(
-      getObjectValue(data, "editDiffPreview"),
-      fallback.editDiffPreview,
-    ),
-    editCollapsedLines: coerceEditPreviewLines(
-      getObjectValue(data, "editCollapsedLines"),
-      fallback.editCollapsedLines,
-    ),
-    grepCollapsedLines: coerceNumber(
-      getObjectValue(data, "grepCollapsedLines"),
-      fallback.grepCollapsedLines,
-    ),
-    grepResultPreview: coerceBoolean(
-      getObjectValue(data, "grepResultPreview"),
-      fallback.grepResultPreview,
-    ),
-    findResultPreview: coerceBoolean(
-      getObjectValue(data, "findResultPreview"),
-      fallback.findResultPreview,
-    ),
-    lsResultPreview: coerceBoolean(
-      getObjectValue(data, "lsResultPreview"),
-      fallback.lsResultPreview,
-    ),
-    pathListCollapsedLines: coerceNumber(
-      getObjectValue(data, "pathListCollapsedLines"),
-      fallback.pathListCollapsedLines,
-    ),
-    readLineNumbers: coerceBoolean(
-      getObjectValue(data, "readLineNumbers"),
-      fallback.readLineNumbers,
-    ),
-    bashResultPreview: coerceBoolean(
-      getObjectValue(data, "bashResultPreview"),
-      fallback.bashResultPreview,
-    ),
-    bashWarnings: coerceBoolean(getObjectValue(data, "bashWarnings"), fallback.bashWarnings),
-    syntaxHighlighting: coerceBoolean(
-      getObjectValue(data, "syntaxHighlighting"),
-      fallback.syntaxHighlighting,
-    ),
-    secretWarnings: coerceBoolean(getObjectValue(data, "secretWarnings"), fallback.secretWarnings),
-    pathIcons: coerceSetting(getObjectValue(data, "pathIcons"), fallback.pathIcons, isPathIconMode),
-    tools: coerceTools(getObjectValue(data, "tools"), fallback.tools),
-  });
+  const next = {} as CodePreviewSettings;
+  for (const key of CODE_PREVIEW_SETTING_KEYS) normalizeSetting(next, data, fallback, key);
+  return withRequiredToolRenderers(next);
 }
 
-type SettingUpdater = (
+function normalizeSetting<K extends keyof CodePreviewSettings>(
   next: CodePreviewSettings,
-  current: CodePreviewSettings,
-  value: string,
-) => void;
-
-const SETTING_UPDATERS = {
-  shikiTheme: (next, _current, value) => {
-    if (isBundledThemeName(value)) next.shikiTheme = value;
-  },
-  diffIntensity: (next, _current, value) => {
-    if (isDiffBackgroundIntensity(value)) next.diffIntensity = value;
-  },
-  wordEmphasis: (next, _current, value) => {
-    if (isDiffWordEmphasis(value)) next.wordEmphasis = value;
-  },
-  toolCallBackground: (next, _current, value) => {
-    if (isToolCallBackgroundMode(value)) next.toolCallBackground = value;
-  },
-  toolCallTiming: (next, _current, value) => {
-    next.toolCallTiming = value === "on";
-  },
-  readCollapsedLines: (next, current, value) => {
-    next.readCollapsedLines = coerceStringNumber(value, current.readCollapsedLines);
-  },
-  readContentPreview: (next, _current, value) => {
-    next.readContentPreview = value === "on";
-  },
-  writeContentPreview: (next, _current, value) => {
-    next.writeContentPreview = value === "on";
-  },
-  writeCollapsedLines: (next, current, value) => {
-    next.writeCollapsedLines = coerceStringNumber(value, current.writeCollapsedLines);
-  },
-  editDiffPreview: (next, _current, value) => {
-    next.editDiffPreview = value === "on";
-  },
-  editCollapsedLines: (next, current, value) => {
-    next.editCollapsedLines =
-      value === "all"
-        ? "all"
-        : coerceStringNumber(
-            value,
-            typeof current.editCollapsedLines === "number" ? current.editCollapsedLines : 100,
-          );
-  },
-  grepCollapsedLines: (next, current, value) => {
-    next.grepCollapsedLines = coerceStringNumber(value, current.grepCollapsedLines);
-  },
-  grepResultPreview: (next, _current, value) => {
-    next.grepResultPreview = value === "on";
-  },
-  findResultPreview: (next, _current, value) => {
-    next.findResultPreview = value === "on";
-  },
-  lsResultPreview: (next, _current, value) => {
-    next.lsResultPreview = value === "on";
-  },
-  pathListCollapsedLines: (next, current, value) => {
-    next.pathListCollapsedLines = coerceStringNumber(value, current.pathListCollapsedLines);
-  },
-  readLineNumbers: (next, _current, value) => {
-    next.readLineNumbers = value === "on";
-  },
-  bashResultPreview: (next, _current, value) => {
-    next.bashResultPreview = value === "on";
-  },
-  bashWarnings: (next, _current, value) => {
-    next.bashWarnings = value === "on";
-  },
-  syntaxHighlighting: (next, _current, value) => {
-    next.syntaxHighlighting = value === "on";
-  },
-  secretWarnings: (next, _current, value) => {
-    next.secretWarnings = value === "on";
-  },
-  pathIcons: (next, _current, value) => {
-    if (isPathIconMode(value)) next.pathIcons = value;
-  },
-  tools: (next, current, value) => {
-    next.tools = coerceTools(value, current.tools);
-  },
-} satisfies Record<keyof CodePreviewSettings, SettingUpdater>;
+  data: unknown,
+  fallback: CodePreviewSettings,
+  key: K,
+): void {
+  const definition = CODE_PREVIEW_SETTING_DEFINITIONS[
+    key
+  ] as unknown as CodePreviewSettingDescriptor<K>;
+  next[key] = definition.normalize(getObjectValue(data, key), fallback[key]);
+}
 
 export function updateSetting(
   current: CodePreviewSettings,
@@ -280,15 +281,17 @@ export function updateSetting(
     return cloneCodePreviewSettings(defaultCodePreviewSettings);
 
   const next = cloneCodePreviewSettings(current);
-  const updater = getSettingUpdater(id);
-  if (updater) updater(next, current, value);
+  const definition = getSettingDefinition(id);
+  if (definition) definition.update(next, current, value);
   else if (id.startsWith("tool:")) next.tools = updateToolToggle(current.tools, id, value);
   return withRequiredToolRenderers(next);
 }
 
-function getSettingUpdater(id: string): SettingUpdater | undefined {
-  return Object.hasOwn(SETTING_UPDATERS, id)
-    ? SETTING_UPDATERS[id as keyof CodePreviewSettings]
+function getSettingDefinition(
+  id: string,
+): CodePreviewSettingDescriptor<keyof CodePreviewSettings> | undefined {
+  return Object.hasOwn(CODE_PREVIEW_SETTING_DEFINITIONS, id)
+    ? CODE_PREVIEW_SETTING_DEFINITIONS[id as keyof CodePreviewSettings]
     : undefined;
 }
 
@@ -387,11 +390,9 @@ function coerceTools(value: unknown, fallback: CodePreviewToolName[]): CodePrevi
 }
 
 function withRequiredToolRenderers(settings: CodePreviewSettings): CodePreviewSettings {
-  const tools = new Set(settings.tools);
-  for (const tool of getRequiredCodePreviewTools(settings)) tools.add(tool);
   return {
     ...settings,
-    tools: orderCodePreviewTools(tools),
+    tools: getEffectiveCodePreviewTools(settings.tools, settings),
   };
 }
 

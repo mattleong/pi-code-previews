@@ -34,6 +34,22 @@ export function getRequiredCodePreviewTools(
   return tools;
 }
 
+export function getEffectiveCodePreviewToolSet(
+  configuredTools: Iterable<CodePreviewToolName>,
+  settings: RequiredToolSettings,
+): Set<CodePreviewToolName> {
+  const enabled = new Set(configuredTools);
+  for (const tool of getRequiredCodePreviewTools(settings)) enabled.add(tool);
+  return enabled;
+}
+
+export function getEffectiveCodePreviewTools(
+  configuredTools: Iterable<CodePreviewToolName>,
+  settings: RequiredToolSettings,
+): CodePreviewToolName[] {
+  return orderCodePreviewTools(getEffectiveCodePreviewToolSet(configuredTools, settings));
+}
+
 export function orderCodePreviewTools(tools: Iterable<CodePreviewToolName>): CodePreviewToolName[] {
   const enabled = new Set(tools);
   return ALL_CODE_PREVIEW_TOOLS.filter((tool) => enabled.has(tool));

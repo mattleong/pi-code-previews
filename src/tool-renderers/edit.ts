@@ -123,7 +123,11 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
         const hidePreview = !expanded && !codePreviewSettings.editDiffPreview;
         const limit = hidePreview
           ? summary.totalLines
-          : diffPreviewLineLimit(summary.totalLines, expanded);
+          : diffPreviewLineLimit(
+              summary.totalLines,
+              expanded,
+              codePreviewSettings.editCollapsedLines,
+            );
         renderContext.state.editSummaryText = formatEditSummary(summary, limit, theme);
         updateEditHeader(renderContext, cwd, theme);
         if (hidePreview) return renderHiddenPreviewExpandHint(renderContext.state, theme);

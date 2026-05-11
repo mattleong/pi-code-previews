@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { createSettingsCategoryItems, createSettingsItems, isSettingsGroupItemId } from "./index";
-import { FLAT_SETTING_IDS, SETTING_ITEM_DEFINITIONS, type SettingItemDefinition } from "./registry";
+import { createSettingsCategoryItems, isSettingsGroupItemId } from "./index";
+import { SETTING_ITEM_DEFINITIONS, type SettingItemDefinition } from "./registry";
 import {
   CODE_PREVIEW_SETTING_KEYS,
   codePreviewSettings,
@@ -144,10 +144,10 @@ test("individual tool toggles update configured previews", () => {
   assert.deepEqual(withGrep.tools, defaultCodePreviewSettings.tools);
 });
 
-test("settings registry defines every flat setting item", () => {
-  assert.deepEqual(Object.keys(SETTING_ITEM_DEFINITIONS).sort(), [...FLAT_SETTING_IDS].sort());
-  for (const id of FLAT_SETTING_IDS) {
-    const definition = SETTING_ITEM_DEFINITIONS[id] as SettingItemDefinition;
+test("settings registry defines every setting item", () => {
+  for (const [id, definition] of Object.entries(SETTING_ITEM_DEFINITIONS) as Array<
+    [string, SettingItemDefinition]
+  >) {
     assert.ok(definition.label.trim(), `${id} has a label`);
     assert.ok(definition.description.trim(), `${id} has a description`);
     if (definition.values) assert.ok(definition.values.length > 0, `${id} has value options`);
@@ -155,9 +155,10 @@ test("settings registry defines every flat setting item", () => {
 });
 
 test("settings UI item values are handled by updateSetting", () => {
-  const uiIds = new Set(createSettingsItems(defaultCodePreviewSettings).map((item) => item.id));
   assert.deepEqual(
-    [...uiIds].filter((id) => id !== "settingsFile").sort(),
+    Object.keys(SETTING_ITEM_DEFINITIONS)
+      .filter((id) => id !== "settingsFile")
+      .sort(),
     [...CODE_PREVIEW_SETTING_KEYS, "resetToDefaults"].sort(),
   );
 
@@ -277,7 +278,12 @@ test("settings panel categories keep the top level compact", () => {
 });
 
 test("empty tool selections stay explicit in the settings UI", () => {
-  const items = createSettingsItems({ ...defaultCodePreviewSettings, tools: [] });
+  const current = { ...defaultCodePreviewSettings, tools: [] };
+  const items = createSettingsCategoryItems(
+    current,
+    () => current,
+    () => undefined,
+  );
   assert.equal(items.find((item) => item.id === "tools")?.currentValue, "none");
   assert.deepEqual(updateSetting(defaultCodePreviewSettings, "tools", "none").tools, []);
 });

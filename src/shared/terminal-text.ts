@@ -18,6 +18,49 @@ export function visibleLength(text: string): number {
   return visibleWidth(text);
 }
 
+export function injectVisibleRanges(
+  ansi: string,
+  ranges: Array<[number, number]>,
+  options: {
+    open: string;
+    close: string;
+    reopenAfterSgr?: (sequence: string) => boolean;
+  },
+): string {
+  let visible = 0;
+  let out = "";
+  let active = false;
+  let rangeIndex = 0;
+  const sorted = ranges.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < ansi.length; i++) {
+    const sgr = extractSgr(ansi, i);
+    if (sgr) {
+      out +=
+        active && options.reopenAfterSgr?.(sgr.sequence)
+          ? `${sgr.sequence}${options.open}`
+          : sgr.sequence;
+      i += sgr.sequence.length - 1;
+      continue;
+    }
+    while (rangeIndex < sorted.length && visible >= sorted[rangeIndex]![1]) {
+      if (active) {
+        out += options.close;
+        active = false;
+      }
+      rangeIndex++;
+    }
+    const range = sorted[rangeIndex];
+    if (!active && range && visible >= range[0] && visible < range[1]) {
+      out += options.open;
+      active = true;
+    }
+    out += ansi[i];
+    visible++;
+  }
+  if (active) out += options.close;
+  return out;
+}
+
 export function wrapAnsiToWidth(
   text: string,
   width: number,

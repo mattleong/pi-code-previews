@@ -17,8 +17,10 @@ import { escapeControlChars } from "../shared/terminal-text";
 import {
   getWriteDiffSkipReason,
   readExistingFileForPreview,
+  resolvePreviewPath,
   shouldSkipWriteDiffBytes,
 } from "../write/diff";
+import { runSerializedWritePreview } from "../write/preview-queue";
 import { getObjectValue } from "../shared/objects";
 import { createDiffPreviewText, diffPreviewLineLimit } from "./shared/diff-preview";
 import { cachedPreview, previewCacheKey } from "./shared/cache";
@@ -37,10 +39,16 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const path = getPathArg(params);
       const content = typeof params.content === "string" ? params.content : "";
-      const before = path ? await readExistingFileForPreview(path, cwd, content) : undefined;
-      const result = await originalWrite.execute(toolCallId, params, signal, onUpdate, ctx);
-      const details = result.details && typeof result.details === "object" ? result.details : {};
-      return { ...result, details: { ...details, codePreviewBeforeWrite: before } };
+      return runSerializedWritePreview(
+        path ? resolvePreviewPath(path, cwd) : undefined,
+        async () => {
+          const before = path ? await readExistingFileForPreview(path, cwd, content) : undefined;
+          const result = await originalWrite.execute(toolCallId, params, signal, onUpdate, ctx);
+          const details =
+            result.details && typeof result.details === "object" ? result.details : {};
+          return { ...result, details: { ...details, codePreviewBeforeWrite: before } };
+        },
+      );
     },
 
     renderCall(args, theme, context) {
@@ -241,7 +249,11 @@ function renderWriteDiffPreview(
   const diff = createSimpleDiff(before, content);
   const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
   const summary = summarizeDiff(diff);
-  const limit = diffPreviewLineLimit(summary.totalLines, expanded);
+  const limit = diffPreviewLineLimit(
+    summary.totalLines,
+    expanded,
+    codePreviewSettings.editCollapsedLines,
+  );
   const header = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeDiffShape(summary))}${diffSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
   return createDiffPreviewText(diff, lang, theme, limit, {
     totalLines: summary.totalLines,
