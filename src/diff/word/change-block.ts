@@ -5,7 +5,7 @@ import {
   normalizedChangedContent,
   type ChangedLinePair,
   type IndexedChangedLine,
-} from "../line-matching";
+} from "./line-matching";
 import {
   isAddedDiffLine,
   isRemovedDiffLine,

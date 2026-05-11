@@ -2,9 +2,13 @@ import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createEditToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
 import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { getEditDiff, getEditPreviewOperations, getPathArg, getTextContent } from "../tool-data";
-import { FullWidthDiffText } from "../diff/index";
-import { createSimpleDiff } from "../diff/structured";
-import { diffSummarySeparator, summarizeDiff, type DiffSummary } from "../diff/summary";
+import {
+  createSimpleDiff,
+  diffSummarySeparator,
+  FullWidthDiffText,
+  summarizeDiff,
+  type DiffSummary,
+} from "../diff";
 import { countLabel } from "../shared/format";
 import { showingFooter } from "../preview/format";
 import { resolvePreviewLanguage } from "../syntax/language";

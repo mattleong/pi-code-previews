@@ -1,9 +1,16 @@
 import type { CodePreviewToolName } from "../tools/names";
 
-export type DiffBackgroundIntensity = "off" | "subtle" | "medium";
-export type DiffWordEmphasis = "off" | "smart" | "all";
-export type ToolCallBackgroundMode = "on" | "off" | "border";
-export type PathIconMode = "off" | "unicode" | "nerd";
+export const DIFF_BACKGROUND_INTENSITIES = ["off", "subtle", "medium"] as const;
+export type DiffBackgroundIntensity = (typeof DIFF_BACKGROUND_INTENSITIES)[number];
+
+export const DIFF_WORD_EMPHASES = ["all", "smart", "off"] as const;
+export type DiffWordEmphasis = (typeof DIFF_WORD_EMPHASES)[number];
+
+export const TOOL_CALL_BACKGROUND_MODES = ["on", "border", "off"] as const;
+export type ToolCallBackgroundMode = (typeof TOOL_CALL_BACKGROUND_MODES)[number];
+
+export const PATH_ICON_MODES = ["unicode", "nerd", "off"] as const;
+export type PathIconMode = (typeof PATH_ICON_MODES)[number];
 
 export interface CodePreviewSettings {
   shikiTheme: string;

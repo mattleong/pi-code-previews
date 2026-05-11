@@ -1,7 +1,7 @@
-import { injectVisibleRanges } from "../shared/terminal-text";
-import { analyzeChangedLineBlock } from "./word/change-block";
-import type { ParsedDiffLine } from "./parse";
-import { shouldEmphasizeChangedPair } from "./word/emphasis";
+import { injectVisibleRanges } from "../../shared/terminal-text";
+import type { ParsedDiffLine } from "../parse";
+import { analyzeChangedLineBlock } from "./change-block";
+import { shouldEmphasizeChangedPair } from "./emphasis";
 
 export function changedLineEmphasis(
   block: ParsedDiffLine[],

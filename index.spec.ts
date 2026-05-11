@@ -86,9 +86,8 @@ test("health command renders current settings", async () => {
   const root = await mkdtemp(join(tmpdir(), "pi-code-previews-health-"));
   process.env.PI_CODING_AGENT_DIR = root;
   process.env.HOME = join(root, "home");
-  setCodePreviewSettings({ ...defaultCodePreviewSettings, syntaxHighlighting: false });
-
   const commands = await loadCommandsOnly();
+  setCodePreviewSettings({ ...defaultCodePreviewSettings, syntaxHighlighting: false });
   let rendered = "";
   await commands.get("code-preview-health")?.handler("", {
     ui: {
@@ -110,9 +109,9 @@ test("settings command updates, saves, and notifies", async () => {
   process.env.HOME = join(root, "home");
   await mkdir(root, { recursive: true });
   initTheme();
-  setCodePreviewSettings({ ...defaultCodePreviewSettings, syntaxHighlighting: false });
 
   const commands = await loadCommandsOnly();
+  setCodePreviewSettings({ ...defaultCodePreviewSettings, syntaxHighlighting: false });
   const notifications: string[] = [];
   await commands.get("code-preview-settings")?.handler("", {
     ui: {

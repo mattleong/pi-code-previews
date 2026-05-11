@@ -5,7 +5,7 @@ import { escapeControlChars } from "../shared/terminal-text";
 import { splitLinesLimited } from "../shared/text-lines";
 import { collectChangedDiffBlock } from "./changed-blocks";
 import { FullWidthDiffText } from "./full-width-text";
-import { changedLineEmphasis, emphasizeChangedSpans } from "./line-emphasis";
+import { changedLineEmphasis, emphasizeChangedSpans } from "./word/line-emphasis";
 import { DIFF_ADD_MARKER, DIFF_REMOVE_MARKER } from "./markers";
 import {
   diffLineNumberWidth,

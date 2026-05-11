@@ -189,8 +189,6 @@ function createSettingItem(current: CodePreviewSettings, id: SettingsUiItemId): 
   };
   if (id === "shikiTheme")
     item.submenu = (currentValue, done) => new ThemeSelectSubmenu(currentValue, done);
-  else if (id === "tools")
-    item.submenu = (currentValue, done) => new ToolPreviewSettingsSubmenu(currentValue, done);
   return item;
 }
 

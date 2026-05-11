@@ -1,4 +1,10 @@
-import type { CodePreviewEditableSettingId } from "../index";
+import {
+  DIFF_BACKGROUND_INTENSITIES,
+  DIFF_WORD_EMPHASES,
+  PATH_ICON_MODES,
+  TOOL_CALL_BACKGROUND_MODES,
+  type CodePreviewEditableSettingId,
+} from "../types";
 
 export type SettingsUiItemId = CodePreviewEditableSettingId | "settingsFile";
 
@@ -68,19 +74,19 @@ const CODE_PREVIEW_SETTING_ITEM_DEFINITIONS = {
   diffIntensity: {
     label: "Diff background",
     description: "Background intensity for added and removed edit diff lines.",
-    values: ["off", "subtle", "medium"],
+    values: DIFF_BACKGROUND_INTENSITIES,
   },
   wordEmphasis: {
     label: "Word-level diff emphasis",
     description:
       "Highlight changed words inside edit diffs. All mode is the default; smart suppresses low-signal punctuation and wrapper syntax.",
-    values: ["all", "smart", "off"],
+    values: DIFF_WORD_EMPHASES,
   },
   toolCallBackground: {
     label: "Tool call background",
     description:
       "Choose Pi's default colored background, no frame, or a border-only frame. Changes take effect after /reload.",
-    values: ["on", "border", "off"],
+    values: TOOL_CALL_BACKGROUND_MODES,
   },
   toolCallTiming: {
     label: "Tool call timing",
@@ -181,7 +187,7 @@ const CODE_PREVIEW_SETTING_ITEM_DEFINITIONS = {
   pathIcons: {
     label: "Find/ls path icons",
     description: "Choose icons for find and ls path-list previews. Nerd mode requires a Nerd Font.",
-    values: ["unicode", "nerd", "off"],
+    values: PATH_ICON_MODES,
   },
   tools: {
     label: "Preview tools",

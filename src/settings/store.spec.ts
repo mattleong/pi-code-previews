@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vitest";
-import { defaultCodePreviewSettings } from "./index";
+import { codePreviewSettings, defaultCodePreviewSettings, setCodePreviewSettings } from "./index";
+import { loadCodePreviewSettings } from "./bootstrap";
 import {
   extractCodePreviewSettings,
   getSettingsPath,
@@ -21,6 +22,7 @@ afterEach(() => {
   if (originalHome === undefined) delete process.env.HOME;
   else process.env.HOME = originalHome;
   process.chdir(originalCwd);
+  setCodePreviewSettings(defaultCodePreviewSettings);
 });
 
 test("getSettingsPath uses Pi's agent directory resolution", () => {
@@ -136,6 +138,26 @@ test("loadSettingsFromDisk merges settings in precedence order", async () => {
   assert.equal(loaded?.pathListCollapsedLines, 44);
 });
 
+test("loadSettingsFromDisk uses process cwd when project cwd is omitted", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-code-previews-cwd-"));
+  const home = join(root, "home");
+  const agentDir = join(root, "agent");
+  const project = join(root, "project");
+  process.env.HOME = home;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  await mkdir(join(home, ".pi", "agent"), { recursive: true });
+  await mkdir(agentDir, { recursive: true });
+  await mkdir(join(project, ".pi"), { recursive: true });
+  process.chdir(project);
+
+  await writeJson(join(project, ".pi", "settings.json"), {
+    codePreview: { readCollapsedLines: 23 },
+  });
+
+  const loaded = await loadSettingsFromDisk();
+  assert.equal(loaded?.readCollapsedLines, 23);
+});
+
 test("loadSettingsFromDisk uses explicit project cwd instead of process cwd", async () => {
   const root = await mkdtemp(join(tmpdir(), "pi-code-previews-project-cwd-"));
   const home = join(root, "home");
@@ -160,6 +182,27 @@ test("loadSettingsFromDisk uses explicit project cwd instead of process cwd", as
   const loaded = await loadSettingsFromDisk({ projectCwd: targetProject });
   assert.equal(loaded?.readCollapsedLines, 24);
   assert.equal(loaded?.writeCollapsedLines, defaultCodePreviewSettings.writeCollapsedLines);
+});
+
+test("loadCodePreviewSettings resets to defaults when no settings files exist", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-code-previews-no-settings-"));
+  const home = join(root, "home");
+  const agentDir = join(root, "agent");
+  const project = join(root, "project");
+  process.env.HOME = home;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  await mkdir(join(home, ".pi", "agent"), { recursive: true });
+  await mkdir(agentDir, { recursive: true });
+  await mkdir(project, { recursive: true });
+
+  setCodePreviewSettings({ ...defaultCodePreviewSettings, readCollapsedLines: 77 });
+
+  const loaded = await loadCodePreviewSettings(project);
+  assert.equal(loaded.readCollapsedLines, defaultCodePreviewSettings.readCollapsedLines);
+  assert.equal(
+    codePreviewSettings.readCollapsedLines,
+    defaultCodePreviewSettings.readCollapsedLines,
+  );
 });
 
 test("loadSettingsFromDisk warns on invalid JSON and continues", async () => {

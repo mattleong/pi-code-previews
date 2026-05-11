@@ -4,7 +4,7 @@ import {
   FullWidthDiffText,
   renderPlainDiff,
   renderSyntaxHighlightedDiff,
-} from "../../diff/index";
+} from "../../diff";
 import { previewFooter, showingFooter } from "../../preview/format";
 import type { CodePreviewSettings } from "../../settings/index";
 import { shouldSkipHighlight } from "../../syntax/shiki";

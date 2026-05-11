@@ -5,12 +5,16 @@ import {
   parseCodePreviewTools,
   type CodePreviewToolName,
 } from "../tools/names";
-import type {
-  CodePreviewSettings,
-  DiffBackgroundIntensity,
-  DiffWordEmphasis,
-  PathIconMode,
-  ToolCallBackgroundMode,
+import {
+  DIFF_BACKGROUND_INTENSITIES,
+  DIFF_WORD_EMPHASES,
+  PATH_ICON_MODES,
+  TOOL_CALL_BACKGROUND_MODES,
+  type CodePreviewSettings,
+  type DiffBackgroundIntensity,
+  type DiffWordEmphasis,
+  type PathIconMode,
+  type ToolCallBackgroundMode,
 } from "./types";
 
 export type CodePreviewSettingDescriptor<K extends keyof CodePreviewSettings> = {
@@ -169,19 +173,26 @@ function coerceTools(value: unknown, fallback: CodePreviewToolName[]): CodePrevi
 }
 
 export function isDiffBackgroundIntensity(value: unknown): value is DiffBackgroundIntensity {
-  return value === "off" || value === "subtle" || value === "medium";
+  return isStringOption(DIFF_BACKGROUND_INTENSITIES, value);
 }
 
 export function isDiffWordEmphasis(value: unknown): value is DiffWordEmphasis {
-  return value === "off" || value === "smart" || value === "all";
+  return isStringOption(DIFF_WORD_EMPHASES, value);
 }
 
 export function isToolCallBackgroundMode(value: unknown): value is ToolCallBackgroundMode {
-  return value === "on" || value === "off" || value === "border";
+  return isStringOption(TOOL_CALL_BACKGROUND_MODES, value);
 }
 
 export function isPathIconMode(value: unknown): value is PathIconMode {
-  return value === "off" || value === "unicode" || value === "nerd";
+  return isStringOption(PATH_ICON_MODES, value);
+}
+
+function isStringOption<const T extends readonly string[]>(
+  options: T,
+  value: unknown,
+): value is T[number] {
+  return typeof value === "string" && (options as readonly string[]).includes(value);
 }
 
 export function isBundledThemeName(value: unknown): value is string {

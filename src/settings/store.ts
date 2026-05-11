@@ -32,11 +32,12 @@ export async function loadSettingsFromDisk(
 ): Promise<CodePreviewSettings | undefined> {
   let loaded = false;
   let effective = cloneCodePreviewSettings(defaultCodePreviewSettings);
+  const projectCwd = options.projectCwd ?? process.cwd();
   const settingsPaths = [
     join(homedir(), ".pi", "settings.json"),
     join(getLegacyAgentDir(), "settings.json"),
     join(getAgentDir(), "settings.json"),
-    ...(options.projectCwd ? [join(options.projectCwd, ".pi", "settings.json")] : []),
+    join(projectCwd, ".pi", "settings.json"),
     getLegacySettingsPath(),
     getSettingsPath(),
   ];
