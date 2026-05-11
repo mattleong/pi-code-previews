@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { test, vi } from "vitest";
 import { codePreviewSettings, setCodePreviewSettings } from "../../settings/index";
 import {
@@ -184,6 +188,50 @@ test("registered write renderer distinguishes blank-only content from empty cont
 
   assert.doesNotMatch(rendered, /Empty content/);
   assert.match(rendered, /1 line/);
+});
+
+test("registered write execute snapshots previous content inside the file mutation queue", async () => {
+  process.env.CODE_PREVIEW_TOOLS = "write";
+  const dir = await mkdtemp(join(tmpdir(), "pi-code-previews-"));
+  try {
+    const file = join(dir, "target.txt");
+    await writeFile(file, "old", "utf8");
+    const write = findRenderer(registerRenderers(dir), "write");
+    assert.ok(write.execute);
+
+    let release!: () => void;
+    let acquired!: () => void;
+    const releasePromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const acquiredPromise = new Promise<void>((resolve) => {
+      acquired = resolve;
+    });
+    const queuedMutation = withFileMutationQueue(file, async () => {
+      acquired();
+      await releasePromise;
+      await writeFile(file, "queued", "utf8");
+    });
+    await acquiredPromise;
+
+    const executePromise = write.execute(
+      "tool-1",
+      { path: "target.txt", content: "final" },
+      undefined,
+      undefined,
+      undefined,
+    );
+    await delay(10);
+    release();
+    const [result] = await Promise.all([executePromise, queuedMutation]);
+    const details = (result as { details?: Record<string, unknown> }).details;
+    const before = details?.codePreviewBeforeWrite as { content?: string } | undefined;
+
+    assert.equal(before?.content, "queued");
+    assert.equal(await readFile(file, "utf8"), "final");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("registered edit renderer hides diff previews until expanded", () => {

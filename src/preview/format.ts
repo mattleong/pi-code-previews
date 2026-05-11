@@ -15,34 +15,9 @@ export function selectPreviewLines<T>(
   lines: T[],
   limit: number,
 ): { entries: Array<PreviewLineEntry<T>>; shown: number; hidden: number } {
-  const plan = previewWindowPlan(lines.length, limit);
-  if (plan.kind === "all") {
-    return {
-      entries: lines.map((line, index) => ({ kind: "line", line, index })),
-      shown: plan.shown,
-      hidden: plan.hidden,
-    };
-  }
-  if (plan.kind === "head") {
-    return {
-      entries: lines.slice(0, plan.shown).map((line, index) => ({ kind: "line", line, index })),
-      shown: plan.shown,
-      hidden: plan.hidden,
-    };
-  }
-  return {
-    entries: [
-      ...lines.slice(0, plan.head).map((line, index) => ({ kind: "line" as const, line, index })),
-      { kind: "hidden", hidden: plan.hidden },
-      ...lines.slice(lines.length - plan.tail).map((line, offset) => ({
-        kind: "line" as const,
-        line,
-        index: lines.length - plan.tail + offset,
-      })),
-    ],
-    shown: plan.shown,
-    hidden: plan.hidden,
-  };
+  return collectPreviewEntries(lines.length, limit, (push) => {
+    lines.forEach((line, index) => push(line, index));
+  });
 }
 
 function previewWindowPlan(total: number, limit: number): PreviewWindowPlan {
@@ -53,29 +28,21 @@ function previewWindowPlan(total: number, limit: number): PreviewWindowPlan {
   return { kind: "split", head, tail, shown: head + tail, hidden: total - head - tail };
 }
 
-export function selectPreviewTextLines(
-  text: string,
+function collectPreviewEntries<T>(
+  total: number,
   limit: number,
-): { entries: Array<PreviewLineEntry<string>>; shown: number; hidden: number; total: number } {
-  const total = countPreviewTextLines(text);
-  if (total === 0) return { entries: [], shown: 0, hidden: 0, total: 0 };
+  visit: (push: (line: T, index: number) => void) => void,
+): { entries: Array<PreviewLineEntry<T>>; shown: number; hidden: number } {
   const plan = previewWindowPlan(total, limit);
-  if (plan.kind === "all") {
-    const entries: Array<PreviewLineEntry<string>> = [];
-    forEachPreviewTextLine(text, (line, index) => entries.push({ kind: "line", line, index }));
-    return { entries, shown: plan.shown, hidden: plan.hidden, total };
-  }
-  if (plan.kind === "head") {
-    const entries: Array<PreviewLineEntry<string>> = [];
-    forEachPreviewTextLine(text, (line, index) => {
-      if (index < limit) entries.push({ kind: "line", line, index });
-    });
-    return { entries, shown: plan.shown, hidden: plan.hidden, total };
-  }
-  const tailStart = total - plan.tail;
-  const entries: Array<PreviewLineEntry<string>> = [];
+  const entries: Array<PreviewLineEntry<T>> = [];
   let markerAdded = false;
-  forEachPreviewTextLine(text, (line, index) => {
+  const tailStart = plan.kind === "split" ? total - plan.tail : total;
+  visit((line, index) => {
+    if (plan.kind === "all" || (plan.kind === "head" && index < plan.shown)) {
+      entries.push({ kind: "line", line, index });
+      return;
+    }
+    if (plan.kind !== "split") return;
     if (index < plan.head) {
       entries.push({ kind: "line", line, index });
       return;
@@ -88,7 +55,18 @@ export function selectPreviewTextLines(
       entries.push({ kind: "line", line, index });
     }
   });
-  return { entries, shown: plan.shown, hidden: plan.hidden, total };
+  return { entries, shown: plan.shown, hidden: plan.hidden };
+}
+
+export function selectPreviewTextLines(
+  text: string,
+  limit: number,
+): { entries: Array<PreviewLineEntry<string>>; shown: number; hidden: number; total: number } {
+  const total = countPreviewTextLines(text);
+  return {
+    ...collectPreviewEntries(total, limit, (push) => forEachPreviewTextLine(text, push)),
+    total,
+  };
 }
 
 export function hiddenLinesMarker(theme: Theme, hidden: number): string {

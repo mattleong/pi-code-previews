@@ -21,7 +21,7 @@ import {
   diffPreviewLineLimit,
   renderDiffPreviewBody,
 } from "./shared/diff-preview";
-import { cachedAsyncPreview, previewArgsKey, previewCacheKey } from "./shared/cache";
+import { cachedAsyncPreview, diffPreviewCacheKey, previewArgsKey } from "./shared/cache";
 import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "../preview/tool-shell";
 
 export function registerEdit(pi: ExtensionAPI, cwd: string) {
@@ -65,7 +65,7 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
         if (!renderContext.expanded && !codePreviewSettings.editDiffPreview)
           return new HeaderAndBody(text, renderHiddenPreviewExpandHint(renderContext.state, theme));
 
-        const previewKey = previewCacheKey(
+        const previewKey = diffPreviewCacheKey(
           "edit-call",
           operationsSource,
           path,
@@ -145,7 +145,7 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
             theme,
             renderContext.invalidate,
           );
-        const previewKey = previewCacheKey("edit-result", diff, filePath, expanded, theme);
+        const previewKey = diffPreviewCacheKey("edit-result", diff, filePath, expanded, theme);
         return cachedAsyncPreview(
           renderContext.state,
           "editResultPreviewKey",

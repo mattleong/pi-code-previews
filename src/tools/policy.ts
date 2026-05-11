@@ -1,4 +1,5 @@
 import { ALL_CODE_PREVIEW_TOOLS, type CodePreviewToolName } from "./names";
+import { requiresBashResultPolicy } from "./shell-result-policy";
 
 interface RequiredToolSettings {
   readContentPreview: boolean;
@@ -22,13 +23,7 @@ function getRequiredCodePreviewTools(settings: RequiredToolSettings): Set<CodePr
   if (!settings.grepResultPreview) tools.add("grep");
   if (!settings.findResultPreview) tools.add("find");
   if (!settings.lsResultPreview) tools.add("ls");
-  if (
-    !settings.bashResultPreview ||
-    !settings.grepResultPreview ||
-    !settings.findResultPreview ||
-    !settings.lsResultPreview
-  )
-    tools.add("bash");
+  if (requiresBashResultPolicy(settings)) tools.add("bash");
   return tools;
 }
 

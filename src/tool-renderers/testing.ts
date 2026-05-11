@@ -5,6 +5,7 @@ import { registerToolRenderers } from "./registration";
 
 export type RegisteredRenderer = {
   name: string;
+  execute?: (...args: unknown[]) => Promise<unknown>;
   renderCall?: (...args: unknown[]) => Component;
   renderResult?: (...args: unknown[]) => Component;
   renderShell?: "default" | "self";

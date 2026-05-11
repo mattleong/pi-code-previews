@@ -84,7 +84,15 @@ test("diff background reaches box right padding without exceeding child width", 
   box.addChild(new FullWidthDiffText(renderPlainDiff("+1 short", testTheme(), 1), testTheme()));
   const line = box.render(20)[0] ?? "";
   assert.equal(visibleWidth(line), 20);
-  assert.match(line, /\x1b\[48;2;10;42;26m[^\n]* \x1b\[49m$/);
+  assert.match(line, /\x1b\[48;2;10;42;26m[^\n]* \x1b\[49m/);
+});
+
+test("diff background rows reset their own background", () => {
+  const row = new FullWidthDiffText(
+    renderPlainDiff("+1 short", testTheme(), 1),
+    testTheme(),
+  ).render(20)[0];
+  assert.match(row ?? "", /\x1b\[48;2;10;42;26m[^\n]*\x1b\[49m$/);
 });
 
 test("word emphasis pairs the most similar lines inside change blocks", () => {
