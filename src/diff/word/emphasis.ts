@@ -1,4 +1,22 @@
 import { codePreviewSettings } from "../../settings/index";
+import { filterLowSignalWordEmphasis } from "./smart-filter";
+import {
+  isIdentifierSimilarityPart,
+  isIdentifierToken,
+  isMeaningfulOperatorToken,
+  isNumberToken,
+  splitIdentifierToken,
+  wordEmphasisTokenWeight,
+  wordEmphasisTokens,
+  type WordEmphasisToken,
+} from "./tokens";
+
+export {
+  wordEmphasisSimilarityTokenValues,
+  wordEmphasisTokenWeight,
+  wordEmphasisTokens,
+  type WordEmphasisToken,
+} from "./tokens";
 
 export type WordChangeRanges = {
   removed: Array<[number, number]>;
@@ -11,12 +29,6 @@ export type ConfidentWordChangeRanges = WordChangeRanges & {
   confidence: WordChangeConfidence;
 };
 
-export type WordEmphasisToken = {
-  value: string;
-  start: number;
-  end: number;
-};
-
 export function shouldEmphasizeChangedPair(
   ranges: ConfidentWordChangeRanges,
   lineConfidence: WordChangeConfidence,
@@ -25,10 +37,6 @@ export function shouldEmphasizeChangedPair(
   if (lineConfidence === "low") return false;
   if (ranges.confidence === "low" && lineConfidence !== "high") return false;
   return true;
-}
-
-export function wordEmphasisTokens(text: string): WordEmphasisToken[] {
-  return tokenizeForWordEmphasis(text);
 }
 
 export function changedRanges(before: string, after: string): WordChangeRanges {
@@ -91,82 +99,6 @@ function hasWordChangeRanges(ranges: WordChangeRanges): boolean {
 }
 
 const WORD_EMPHASIS_EXACT_LCS_MAX_CELLS = 262_144;
-
-const WORD_TOKEN_PATTERN =
-  /[$_\p{L}][$_\p{L}\p{N}\p{Mark}]*|\p{N}+(?:\.\p{N}+)?|===|!==|=>|==|!=|<=|>=|&&|\|\||[^\s]/gu;
-const IDENTIFIER_TOKEN_PATTERN = /^[$_\p{L}][$_\p{L}\p{N}\p{Mark}]*$/u;
-const NUMBER_TOKEN_PATTERN = /^\p{N}+(?:\.\p{N}+)?$/u;
-const MEANINGFUL_OPERATOR_TOKEN_PATTERN =
-  /^(?:===|!==|=>|==|!=|<=|>=|&&|\|\||[+\-*\/%<>=!?:~&|^]+)$/;
-const DOMAIN_SEPARATOR_TOKEN_PATTERN = /^[-/:@#]$/;
-const STRUCTURAL_PUNCTUATION_TOKEN_PATTERN = /^[{}()[\].,;]$/;
-
-function tokenizeForWordEmphasis(text: string): WordEmphasisToken[] {
-  const tokens: WordEmphasisToken[] = [];
-  for (const match of text.matchAll(WORD_TOKEN_PATTERN)) {
-    const value = match[0] ?? "";
-    const start = match.index ?? 0;
-    tokens.push({ value, start, end: start + value.length });
-  }
-  return tokens;
-}
-
-function wordTokenValues(text: string): string[] {
-  return Array.from(text.matchAll(WORD_TOKEN_PATTERN), (match) => match[0] ?? "");
-}
-
-function isIdentifierToken(value: string): boolean {
-  return IDENTIFIER_TOKEN_PATTERN.test(value);
-}
-
-function isNumberToken(value: string): boolean {
-  return NUMBER_TOKEN_PATTERN.test(value);
-}
-
-function isMeaningfulOperatorToken(value: string): boolean {
-  return MEANINGFUL_OPERATOR_TOKEN_PATTERN.test(value);
-}
-
-export function wordEmphasisTokenWeight(value: string): number {
-  if (isIdentifierToken(value)) return 2;
-  if (isNumberToken(value)) return 1.5;
-  if (DOMAIN_SEPARATOR_TOKEN_PATTERN.test(value)) return 0.25;
-  if (isMeaningfulOperatorToken(value)) return 1;
-  if (STRUCTURAL_PUNCTUATION_TOKEN_PATTERN.test(value)) return 0.05;
-  return 1;
-}
-
-function splitIdentifierToken(value: string, start: number): WordEmphasisToken[] {
-  const parts: WordEmphasisToken[] = [];
-  const partPattern =
-    /[$_]+|(?:\p{Lu}\p{Mark}*)+(?=(?:\p{Lu}\p{Mark}*)(?:\p{Ll}\p{Mark}*)|\p{N}|$)|(?:\p{Lu}\p{Mark}*)?(?:\p{Ll}\p{Mark}*)+|\p{N}+|(?:\p{Lu}\p{Mark}*)+|(?:\p{L}\p{Mark}*)+/gu;
-  for (const match of value.matchAll(partPattern)) {
-    const part = match[0] ?? "";
-    const offset = match.index ?? 0;
-    parts.push({ value: part, start: start + offset, end: start + offset + part.length });
-  }
-  return parts.length > 0 ? parts : [{ value, start, end: start + value.length }];
-}
-
-export function wordEmphasisSimilarityTokenValues(tokens: WordEmphasisToken[]): string[] {
-  const values: string[] = [];
-  for (const token of tokens) {
-    if (!isIdentifierToken(token.value)) {
-      values.push(token.value);
-      continue;
-    }
-    const parts = splitIdentifierToken(token.value, 0)
-      .map((part) => part.value)
-      .filter(isIdentifierSimilarityPart);
-    if (parts.length === 0) values.push(token.value.toLowerCase());
-    else values.push(...parts.map((part) => part.toLowerCase()));
-  }
-  return values;
-}
-
-function isIdentifierSimilarityPart(value: string): boolean {
-  return !/^[$_]+$/.test(value);
-}
 
 function collectChangedTokenIndexes(
   before: WordEmphasisToken[],
@@ -841,75 +773,4 @@ function mergeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
     else merged.push([...range]);
   }
   return merged;
-}
-
-function filterLowSignalWordEmphasis(
-  before: string,
-  after: string,
-  ranges: WordChangeRanges,
-): WordChangeRanges {
-  const hasRemovedSignal = ranges.removed.some((range) => hasSmartRangeSignal(before, range));
-  const hasAddedSignal = ranges.added.some((range) => hasSmartRangeSignal(after, range));
-  return {
-    removed: ranges.removed.filter((range) =>
-      shouldKeepSmartRange(before.slice(range[0], range[1]), hasAddedSignal),
-    ),
-    added: ranges.added.filter((range) =>
-      shouldKeepSmartRange(after.slice(range[0], range[1]), hasRemovedSignal),
-    ),
-  };
-}
-
-function hasSmartRangeSignal(content: string, range: [number, number]): boolean {
-  const tokens = wordTokenValues(content.slice(range[0], range[1]));
-  return tokens.some(isSmartSignalToken);
-}
-
-function shouldKeepSmartRange(text: string, oppositeSideHasSignal: boolean): boolean {
-  const tokens = wordTokenValues(text);
-  const signalTokens = tokens.filter(isSmartSignalToken);
-  if (signalTokens.length === 0) return false;
-  const wordTokens = signalTokens.filter(
-    (token) => isIdentifierToken(token) || isNumberToken(token),
-  );
-  const hasOperatorSignal = signalTokens.some(isMeaningfulOperatorToken);
-  if (
-    !oppositeSideHasSignal &&
-    !hasOperatorSignal &&
-    wordTokens.every((token) => LOW_SIGNAL_SYNTAX_TOKENS.has(token))
-  )
-    return false;
-  if (!oppositeSideHasSignal && !hasOperatorSignal && isWrapperCallNoise(text, wordTokens))
-    return false;
-  return true;
-}
-
-function isSmartSignalToken(token: string): boolean {
-  return isIdentifierToken(token) || isNumberToken(token) || isMeaningfulOperatorToken(token);
-}
-
-const LOW_SIGNAL_SYNTAX_TOKENS = new Set([
-  "as",
-  "async",
-  "await",
-  "const",
-  "else",
-  "export",
-  "from",
-  "function",
-  "if",
-  "import",
-  "let",
-  "return",
-  "var",
-]);
-
-const WRAPPER_CALL_TOKENS = new Set(["filter", "flatMap", "forEach", "map", "reduce"]);
-
-function isWrapperCallNoise(text: string, tokens: string[]): boolean {
-  return (
-    tokens.length === 1 &&
-    WRAPPER_CALL_TOKENS.has(tokens[0]!) &&
-    /^[\s.()[\]{};,]*[$_\p{L}][$_\p{L}\p{N}\p{Mark}]*[\s.()[\]{};,]*$/u.test(text)
-  );
 }

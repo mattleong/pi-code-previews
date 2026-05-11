@@ -106,12 +106,8 @@ export function metadata(theme: Theme, parts: Array<string | undefined>): string
   return present.length ? theme.fg("dim", ` · ${present.join(" · ")}`) : "";
 }
 
-export function themedKeyHint(
-  theme: Theme,
-  keybinding: AppKeybinding,
-  description: string,
-): string {
-  const keyText = formatKeys(getKeybindings().getKeys(keybinding));
+function themedKeyHint(theme: Theme, keybinding: AppKeybinding, description: string): string {
+  const keyText = getKeybindings().getKeys(keybinding).join("/");
   if (!keyText) return theme.fg("muted", description);
   return theme.fg("dim", keyText) + theme.fg("muted", ` ${description}`);
 }
@@ -129,10 +125,6 @@ export function showingFooter(theme: Theme, shown: number, total: number, label:
     theme,
     `Showing ${shown} of ${total} ${label} · ${themedKeyHint(theme, "app.tools.expand", "expand")}`,
   );
-}
-
-function formatKeys(keys: string[]): string {
-  return keys.join("/");
 }
 
 export function previewFooter(theme: Theme, text: string): string {

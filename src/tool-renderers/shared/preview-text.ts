@@ -5,7 +5,6 @@ import {
   selectPreviewTextLines,
   type PreviewLineEntry,
 } from "../../preview/format";
-import { codePreviewSettings } from "../../settings/index";
 import { renderHighlightedText } from "../../syntax/shiki";
 import { escapeControlChars } from "../../shared/terminal-text";
 
@@ -43,8 +42,6 @@ function renderHighlightedPreviewEntries(
   invalidate?: () => void,
   lineNumbers?: { firstLine: number; lineNumberWidth?: number },
 ): { lines: string[]; shown: number; hidden: number } {
-  const lineNumberOptions =
-    lineNumbers && codePreviewSettings.readLineNumbers ? lineNumbers : undefined;
   return renderChunkedPreviewEntries(preview, theme, (chunk) => {
     const normalizedChunk = chunk.map((entry) => entry.line.replace(/\t/g, "   "));
     const highlighted = renderHighlightedText(normalizedChunk.join("\n"), lang, theme, invalidate);
@@ -52,11 +49,10 @@ function renderHighlightedPreviewEntries(
       const rendered =
         highlighted[index] ??
         theme.fg("toolOutput", escapeControlChars(normalizedChunk[index] ?? ""));
-      if (!lineNumberOptions) return rendered;
+      if (!lineNumbers) return rendered;
       const width =
-        lineNumberOptions.lineNumberWidth ??
-        String(lineNumberOptions.firstLine + entry.index).length;
-      const lineNumber = String(lineNumberOptions.firstLine + entry.index).padStart(width, " ");
+        lineNumbers.lineNumberWidth ?? String(lineNumbers.firstLine + entry.index).length;
+      const lineNumber = String(lineNumbers.firstLine + entry.index).padStart(width, " ");
       return `${theme.fg("dim", `${lineNumber} │ `)}${rendered}`;
     });
   });

@@ -20,9 +20,9 @@ import { escapeControlChars } from "../shared/terminal-text";
 import {
   getWriteDiffSkipReason,
   readExistingFileForPreview,
-  resolvePreviewPath,
   shouldSkipWriteDiffBytes,
 } from "../write/diff";
+import { resolvePreviewPath } from "../paths/resolve";
 import { runSerializedWritePreview } from "../write/preview-queue";
 import { getObjectValue } from "../shared/objects";
 import { createDiffPreviewText, diffPreviewLineLimit } from "./shared/diff-preview";

@@ -78,7 +78,9 @@ export function registerRead(pi: ExtensionAPI, cwd: string, options?: ReadToolOp
           lang,
           theme,
           invalidate: renderContext.invalidate,
-          lineNumbers: { firstLine: getReadStartLine(renderContext.args) },
+          lineNumbers: codePreviewSettings.readLineNumbers
+            ? { firstLine: getReadStartLine(renderContext.args) }
+            : undefined,
           emptyLabel: "Empty file",
           skipHighlightLabel: "Syntax highlighting skipped for large file",
         });

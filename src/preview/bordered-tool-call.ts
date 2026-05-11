@@ -46,7 +46,7 @@ export function renderWithBorderSlot<T>(state: BorderState, slot: BorderSlot, re
   }
 }
 
-export function getBorderExpandLabel(state: BorderState): string | undefined {
+function getBorderExpandLabel(state: BorderState): string | undefined {
   return state.codePreviewBorderResultExpandLabel ?? state.codePreviewBorderCallExpandLabel;
 }
 

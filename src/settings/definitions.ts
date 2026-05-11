@@ -9,13 +9,15 @@ import {
   DIFF_BACKGROUND_INTENSITIES,
   DIFF_WORD_EMPHASES,
   PATH_ICON_MODES,
-  TOOL_CALL_BACKGROUND_MODES,
   type CodePreviewSettings,
   type DiffBackgroundIntensity,
   type DiffWordEmphasis,
   type PathIconMode,
   type ToolCallBackgroundMode,
 } from "./types";
+import { isToolCallBackgroundMode, parseToolCallBackgroundMode } from "./tool-call-background";
+
+export { isToolCallBackgroundMode } from "./tool-call-background";
 
 export type CodePreviewSettingDescriptor<K extends keyof CodePreviewSettings> = {
   normalize(value: unknown, fallback: CodePreviewSettings[K]): CodePreviewSettings[K];
@@ -153,14 +155,7 @@ function coerceToolCallBackgroundMode(
   value: unknown,
   fallback: ToolCallBackgroundMode,
 ): ToolCallBackgroundMode {
-  if (typeof value === "boolean") return value ? "on" : "off";
-  if (typeof value === "string") {
-    const normalized = value.toLowerCase();
-    if (isToolCallBackgroundMode(normalized)) return normalized;
-    if (normalized === "1" || normalized === "true" || normalized === "yes") return "on";
-    if (normalized === "0" || normalized === "false" || normalized === "no") return "off";
-  }
-  return fallback;
+  return parseToolCallBackgroundMode(value) ?? fallback;
 }
 
 function coerceTools(value: unknown, fallback: CodePreviewToolName[]): CodePreviewToolName[] {
@@ -178,10 +173,6 @@ export function isDiffBackgroundIntensity(value: unknown): value is DiffBackgrou
 
 export function isDiffWordEmphasis(value: unknown): value is DiffWordEmphasis {
   return isStringOption(DIFF_WORD_EMPHASES, value);
-}
-
-export function isToolCallBackgroundMode(value: unknown): value is ToolCallBackgroundMode {
-  return isStringOption(TOOL_CALL_BACKGROUND_MODES, value);
 }
 
 export function isPathIconMode(value: unknown): value is PathIconMode {

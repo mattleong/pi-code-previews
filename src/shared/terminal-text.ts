@@ -14,10 +14,6 @@ export function stripAnsi(text: string): string {
   return text.replace(ANSI_RE, "");
 }
 
-export function visibleLength(text: string): number {
-  return visibleWidth(text);
-}
-
 export function injectVisibleRanges(
   ansi: string,
   ranges: Array<[number, number]>,

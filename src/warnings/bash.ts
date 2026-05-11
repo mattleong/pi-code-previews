@@ -1,3 +1,5 @@
+import { normalizeShellCommandWhitespace } from "../shell/command";
+
 interface BashWarning {
   label: string;
   pattern: RegExp;
@@ -22,7 +24,7 @@ const BASH_WARNINGS: BashWarning[] = [
 ];
 
 export function getBashWarnings(command: string): string[] {
-  const compact = command.replace(/\\\n/g, " ").replace(/\s+/g, " ").trim();
+  const compact = normalizeShellCommandWhitespace(command);
   return BASH_WARNINGS.filter((warning) => warning.pattern.test(compact)).map(
     (warning) => warning.label,
   );

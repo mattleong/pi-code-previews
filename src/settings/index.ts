@@ -80,7 +80,10 @@ export function updateSetting(
   const next = cloneCodePreviewSettings(current);
   const definition = getSettingDefinition(id);
   if (definition) definition.update(next, current, value);
-  else if (parseToolToggleId(id)) next.tools = updateToolToggle(current.tools, id, value);
+  else {
+    const tool = parseToolToggleId(id);
+    if (tool) next.tools = updateToolToggle(current.tools, tool, value);
+  }
   return withRequiredToolRenderers(next);
 }
 
@@ -93,11 +96,9 @@ function withRequiredToolRenderers(settings: CodePreviewSettings): CodePreviewSe
 
 function updateToolToggle(
   currentTools: CodePreviewToolName[],
-  id: string,
+  tool: CodePreviewToolName,
   value: string,
 ): CodePreviewToolName[] {
-  const tool = parseToolToggleId(id);
-  if (!tool) return currentTools;
   const enabled = new Set(currentTools);
   if (value === "on") enabled.add(tool);
   else if (value === "off") enabled.delete(tool);

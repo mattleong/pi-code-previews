@@ -5,8 +5,8 @@ import {
   isDiffBackgroundIntensity,
   isDiffWordEmphasis,
   isPathIconMode,
-  isToolCallBackgroundMode,
 } from "./definitions";
+import { parseToolCallBackgroundMode } from "./tool-call-background";
 import type {
   CodePreviewSettings,
   DiffBackgroundIntensity,
@@ -75,12 +75,7 @@ function envToolCallBackgroundMode(
   name: string,
   fallback: ToolCallBackgroundMode,
 ): ToolCallBackgroundMode {
-  const value = process.env[name]?.toLowerCase();
-  if (value === undefined) return fallback;
-  if (isToolCallBackgroundMode(value)) return value;
-  if (value === "1" || value === "true" || value === "yes") return "on";
-  if (value === "0" || value === "false" || value === "no") return "off";
-  return fallback;
+  return parseToolCallBackgroundMode(process.env[name]) ?? fallback;
 }
 
 function envPathIconMode(name: string, fallback: PathIconMode): PathIconMode {

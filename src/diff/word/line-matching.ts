@@ -1,10 +1,10 @@
+import type { WordChangeConfidence } from "./emphasis";
 import {
   wordEmphasisSimilarityTokenValues,
   wordEmphasisTokenWeight,
   wordEmphasisTokens,
-  type WordChangeConfidence,
   type WordEmphasisToken,
-} from "./emphasis";
+} from "./tokens";
 import type { AddedDiffLine, RemovedDiffLine } from "../parse";
 import { escapeControlChars } from "../../shared/terminal-text";
 
@@ -143,7 +143,7 @@ const MAX_CHANGED_LINE_PAIR_CELLS = 1024;
 const MAX_POSITIONAL_FALLBACK_AMBIGUITY_CELLS = 10_000;
 const MAX_LINE_TOKEN_SIMILARITY_CELLS = 16_384;
 
-export function matchChangedLinesByPosition(
+function matchChangedLinesByPosition(
   removed: Array<IndexedChangedLine<RemovedDiffLine>>,
   added: Array<IndexedChangedLine<AddedDiffLine>>,
 ): ChangedLinePair[] {

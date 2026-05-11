@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { positiveEnvInteger } from "../config/env";
-import { visibleLength, wrapAnsiToWidth } from "../shared/terminal-text";
+import { wrapAnsiToWidth } from "../shared/terminal-text";
 import { createDiffBackgroundResolver, diffLineBg } from "./background";
 import { DIFF_ADD_MARKER, DIFF_REMOVE_MARKER } from "./markers";
 
@@ -60,5 +60,5 @@ function parseMarkedDiffLine(rawLine: string): MarkedDiffLine {
 function continuationPrefix(line: string): string {
   const pipe = line.indexOf("│ ");
   if (pipe < 0) return "";
-  return " ".repeat(visibleLength(line.slice(0, pipe + 2)));
+  return " ".repeat(visibleWidth(line.slice(0, pipe + 2)));
 }

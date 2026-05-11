@@ -14,9 +14,7 @@ export function formatToolsSettingValue(tools: readonly CodePreviewToolName[]): 
   return tools.length ? tools.join(", ") : "none";
 }
 
-export function getRequiredCodePreviewTools(
-  settings: RequiredToolSettings,
-): Set<CodePreviewToolName> {
+function getRequiredCodePreviewTools(settings: RequiredToolSettings): Set<CodePreviewToolName> {
   const tools = new Set<CodePreviewToolName>();
   if (!settings.readContentPreview) tools.add("read");
   if (!settings.writeContentPreview) tools.add("write");
@@ -50,7 +48,7 @@ export function getEffectiveCodePreviewTools(
   return orderCodePreviewTools(getEffectiveCodePreviewToolSet(configuredTools, settings));
 }
 
-export function orderCodePreviewTools(tools: Iterable<CodePreviewToolName>): CodePreviewToolName[] {
+function orderCodePreviewTools(tools: Iterable<CodePreviewToolName>): CodePreviewToolName[] {
   const enabled = new Set(tools);
   return ALL_CODE_PREVIEW_TOOLS.filter((tool) => enabled.has(tool));
 }
