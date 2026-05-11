@@ -50,6 +50,7 @@ export function changedRangesWithConfidence(
   after: string,
   wordEmphasis: DiffWordEmphasis,
 ): ConfidentWordChangeRanges {
+  if (wordEmphasis === "off") return emptyWordChangeRanges();
   return changedRangesForTokensWithConfidence(
     before,
     after,
@@ -66,6 +67,8 @@ export function changedRangesForTokensWithConfidence(
   afterTokens: WordEmphasisToken[],
   wordEmphasis: DiffWordEmphasis,
 ): ConfidentWordChangeRanges {
+  if (wordEmphasis === "off") return emptyWordChangeRanges();
+
   const removedTokens = new Set<number>();
   const addedTokens = new Set<number>();
   const alignmentConfidence = collectChangedTokenIndexes(
@@ -101,6 +104,10 @@ function stripWordChangeConfidence(ranges: ConfidentWordChangeRanges): WordChang
 
 function hasWordChangeRanges(ranges: WordChangeRanges): boolean {
   return ranges.removed.length > 0 || ranges.added.length > 0;
+}
+
+function emptyWordChangeRanges(): ConfidentWordChangeRanges {
+  return { removed: [], added: [], confidence: "low" };
 }
 
 const WORD_EMPHASIS_EXACT_LCS_MAX_CELLS = 262_144;

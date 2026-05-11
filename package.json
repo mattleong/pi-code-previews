@@ -45,7 +45,7 @@
   "scripts": {
     "build": "tsdown",
     "check": "npm run typecheck && npm run lint && npm run format:check",
-    "validate": "npm run format && npm run typecheck && npm test && npm run lint && npm run build",
+    "validate": "npm run check && npm test && npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint . --deny-warnings",
     "lint:fix": "oxlint . --fix",

@@ -283,15 +283,21 @@ test("smart word emphasis suppresses low-signal wrapper syntax", () => {
 });
 
 test("word emphasis can be disabled", () => {
+  const diff = "-1 const value = oldValue;\n+1 const value = newValue;";
   setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "off" });
-  const rendered = renderSyntaxHighlightedDiff(
-    "-1 const value = oldValue;\n+1 const value = newValue;",
-    undefined,
-    testTheme(),
-    2,
-  );
+  const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2);
   assert.doesNotMatch(rendered, /\x1b\[48;2;148;62;70m/);
   assert.doesNotMatch(rendered, /\x1b\[48;2;64;132;82m/);
+
+  assert.deepEqual(changedRanges("const value = oldValue;", "const value = newValue;", "off"), {
+    removed: [],
+    added: [],
+  });
+  assert.deepEqual(
+    changedRangesWithConfidence("const value = oldValue;", "const value = newValue;", "off"),
+    { removed: [], added: [], confidence: "low" },
+  );
+  assert.equal(wordEmphasisTelemetry(diff, 2, "off").emphasizedPairs, 0);
 });
 
 test("word emphasis ranges stay aligned when indentation changes", () => {

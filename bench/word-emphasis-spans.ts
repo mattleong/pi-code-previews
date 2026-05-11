@@ -22,7 +22,7 @@ console.log(
     {
       mode,
       spans,
-      telemetry: wordEmphasisTelemetry(diff, lineLimit),
+      telemetry: wordEmphasisTelemetry(diff, lineLimit, mode),
     },
     null,
     2,
