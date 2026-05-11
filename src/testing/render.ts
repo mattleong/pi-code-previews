@@ -18,8 +18,43 @@ export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export interface TestToolRenderContext {
+  args: Record<string, unknown>;
+  argsComplete: boolean;
+  cwd: string;
+  executionStarted: boolean;
+  expanded: boolean;
+  invalidate: () => void;
+  isError: boolean;
+  isPartial: boolean;
+  lastComponent: Component | undefined;
+  showImages: boolean;
+  state: Record<string, unknown>;
+  toolCallId: string;
+}
+
 export function cloneCodePreviewSettingsForTest(): CodePreviewSettings {
   return cloneCodePreviewSettings(codePreviewSettings);
+}
+
+export function createToolRenderContext(
+  overrides: Partial<TestToolRenderContext> = {},
+): TestToolRenderContext {
+  return {
+    args: {},
+    argsComplete: true,
+    cwd: "/tmp/project",
+    executionStarted: false,
+    expanded: true,
+    invalidate: () => undefined,
+    isError: false,
+    isPartial: true,
+    lastComponent: undefined,
+    showImages: true,
+    state: {},
+    toolCallId: "tool-1",
+    ...overrides,
+  };
 }
 
 export function testTheme(): Theme {

@@ -12,6 +12,7 @@ import {
   type CodePreviewSettingDescriptor,
 } from "./definitions";
 import { defaultCodePreviewSettings } from "./defaults";
+import { formatOnOff } from "./on-off";
 import type { CodePreviewEditableSettingId, CodePreviewSettings } from "./types";
 
 export { CODE_PREVIEW_SETTING_DEFINITIONS, CODE_PREVIEW_SETTING_KEYS } from "./definitions";
@@ -44,7 +45,7 @@ export function formatSettingValue(
   if (id === "resetToDefaults") return "keep current";
   if (id === "tools") return formatToolsSettingValue(settings.tools);
   const value = settings[id];
-  if (typeof value === "boolean") return value ? "on" : "off";
+  if (typeof value === "boolean") return formatOnOff(value);
   return String(value);
 }
 

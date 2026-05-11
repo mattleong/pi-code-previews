@@ -6,6 +6,7 @@ import {
   type PreviewLineEntry,
 } from "../../preview/format";
 import { renderHighlightedText } from "../../syntax/shiki";
+import { expandPreviewTabs } from "../../shared/preview-tabs";
 import { escapeControlChars } from "../../shared/terminal-text";
 
 export function renderHighlightedPreviewText(
@@ -43,7 +44,7 @@ function renderHighlightedPreviewEntries(
   lineNumbers?: { firstLine: number; lineNumberWidth?: number },
 ): { lines: string[]; shown: number; hidden: number } {
   return renderChunkedPreviewEntries(preview, theme, (chunk) => {
-    const normalizedChunk = chunk.map((entry) => entry.line.replace(/\t/g, "   "));
+    const normalizedChunk = chunk.map((entry) => expandPreviewTabs(entry.line));
     const highlighted = renderHighlightedText(normalizedChunk.join("\n"), lang, theme, invalidate);
     return chunk.map((entry, index) => {
       const rendered =

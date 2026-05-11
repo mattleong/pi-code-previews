@@ -1,8 +1,10 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { getLanguageFromPath } from "@earendil-works/pi-coding-agent";
+import { expandPreviewTabs } from "../shared/preview-tabs";
+import { escapeControlChars, injectVisibleRanges } from "../shared/terminal-text";
+import { isToolOutputNoticeLine } from "../shared/tool-output-notice";
 import { resolvePreviewLanguage } from "../syntax/language";
 import { renderHighlightedText } from "../syntax/shiki";
-import { escapeControlChars, injectVisibleRanges } from "../shared/terminal-text";
 
 export type ParsedGrepOutputLine = {
   path: string;
@@ -25,7 +27,7 @@ export function renderGrepOutputLines(
       rendered.push("");
       continue;
     }
-    if (rawLine.startsWith("[") && rawLine.endsWith("]")) {
+    if (isToolOutputNoticeLine(rawLine)) {
       rendered.push(theme.fg("warning", escapeControlChars(rawLine)));
       continue;
     }
@@ -77,7 +79,7 @@ function renderGrepParsedLine(
   const lang = syntaxHighlight
     ? resolvePreviewLanguage({ path: parsed.path, piLanguage: getLanguageFromPath(parsed.path) })
     : undefined;
-  const code = parsed.code.replace(/\t/g, "   ");
+  const code = expandPreviewTabs(parsed.code);
   let highlighted =
     renderHighlightedText(code, lang, theme, invalidate)[0] ?? theme.fg("toolOutput", code);
   const matchRanges = parsed.kind === "match" ? grepMatchRanges(code, search) : [];

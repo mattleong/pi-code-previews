@@ -5,7 +5,7 @@ import { defaultCodePreviewSettings, setCodePreviewSettings } from "../settings/
 import type { CodePreviewToolName } from "../tools/names";
 import { formatActiveCodePreviewTools, formatSkippedCodePreviewToolLines } from "../tools/status";
 import { findRenderer, preserveCodePreviewToolsEnv, registerRenderers } from "./testing";
-import { renderComponent, stripAnsi, testTheme } from "../testing/render";
+import { createToolRenderContext, renderComponent, stripAnsi, testTheme } from "../testing/render";
 
 preserveCodePreviewToolsEnv();
 
@@ -183,20 +183,12 @@ test("border mode puts hidden output expand hints in the bottom-right border and
 
     const state = {};
     const theme = testTheme();
-    const context = {
+    const context = createToolRenderContext({
       args: { command: "echo hidden" },
-      argsComplete: true,
-      cwd: "/tmp/project",
       executionStarted: true,
       expanded: false,
-      invalidate: () => undefined,
-      isError: false,
-      isPartial: true,
-      lastComponent: undefined,
-      showImages: true,
       state,
-      toolCallId: "tool-1",
-    };
+    });
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     const call = bash.renderCall(context.args, theme, context);
     vi.mocked(Date.now).mockReturnValue(4_000);
@@ -241,20 +233,11 @@ test("border mode wraps tool call and result in a status-colored border-only she
           ? `<${key}>${text}</${key}>`
           : text,
     };
-    const context = {
+    const context = createToolRenderContext({
       args: { command: "echo hi" },
-      argsComplete: true,
-      cwd: "/tmp/project",
-      executionStarted: false,
-      expanded: true,
-      invalidate: () => undefined,
-      isError: false,
       isPartial: false,
-      lastComponent: undefined,
-      showImages: true,
       state,
-      toolCallId: "tool-1",
-    };
+    });
     const pending = renderComponent(
       bash.renderCall(context.args, coloredTheme, { ...context, isPartial: true }),
       30,

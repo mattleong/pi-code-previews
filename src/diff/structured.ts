@@ -105,11 +105,10 @@ function contextLines(
   oldFirstLine: number,
   newFirstLine: number,
 ): StructuredDiffLine[] {
-  return lines.map((line, offset) =>
-    contextLine(line, oldFirstLine + offset, newFirstLine + offset),
-  );
-}
-
-function contextLine(content: string, oldLine: number, newLine: number): StructuredDiffLine {
-  return { kind: "context", oldLine, newLine, content };
+  return lines.map((content, offset) => ({
+    kind: "context",
+    oldLine: oldFirstLine + offset,
+    newLine: newFirstLine + offset,
+    content,
+  }));
 }

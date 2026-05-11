@@ -6,6 +6,7 @@ import {
   type WordEmphasisToken,
 } from "./tokens";
 import type { AddedDiffLine, RemovedDiffLine } from "../parse";
+import { expandPreviewTabs } from "../../shared/preview-tabs";
 import { escapeControlChars } from "../../shared/terminal-text";
 
 export type IndexedChangedLine<T extends AddedDiffLine | RemovedDiffLine> = {
@@ -605,5 +606,5 @@ function tokenWeight(token: string): number {
 }
 
 function normalizeDiffContent(content: string): string {
-  return escapeControlChars(content.replace(/\t/g, "   "));
+  return escapeControlChars(expandPreviewTabs(content));
 }

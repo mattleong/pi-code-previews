@@ -1,8 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { codePreviewSettings } from "../settings/index";
-import { renderWithShiki } from "../syntax/shiki";
+import { expandPreviewTabs } from "../shared/preview-tabs";
 import { escapeControlChars } from "../shared/terminal-text";
 import { splitLinesLimited } from "../shared/text-lines";
+import { renderWithShiki } from "../syntax/shiki";
 import { collectChangedDiffBlock } from "./changed-blocks";
 import { changedLineEmphasis, emphasizeChangedSpans } from "./word/line-emphasis";
 import { DIFF_ADD_MARKER, DIFF_REMOVE_MARKER } from "./markers";
@@ -21,31 +22,13 @@ export function renderSyntaxHighlightedDiff(
   limit: number,
   invalidate?: () => void,
 ): string {
-  return renderSyntaxHighlightedDiffWithWordEmphasis(
-    diff,
-    lang,
-    theme,
-    limit,
-    invalidate,
-    codePreviewSettings.wordEmphasis !== "off",
-  );
-}
-
-function renderSyntaxHighlightedDiffWithWordEmphasis(
-  diff: string,
-  lang: string | undefined,
-  theme: Theme,
-  limit: number,
-  invalidate: (() => void) | undefined,
-  emphasizeChangedPairs: boolean,
-): string {
   return renderDiff(diff, {
     lang,
     theme,
     limit,
     invalidate,
     syntaxHighlight: true,
-    emphasizeChangedPairs,
+    emphasizeChangedPairs: codePreviewSettings.wordEmphasis !== "off",
   });
 }
 
@@ -118,7 +101,7 @@ function renderDiffParsedLine(
   invalidate?: () => void,
 ): string {
   const highlighted = highlightSingleLine(
-    parsed.content.replace(/\t/g, "   "),
+    expandPreviewTabs(parsed.content),
     lang,
     theme,
     invalidate,

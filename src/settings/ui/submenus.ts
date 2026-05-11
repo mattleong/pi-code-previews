@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { bundledThemes } from "shiki";
 import { SETTINGS_GROUP_ID_PREFIX } from "./registry";
+import { ON_OFF_VALUES, formatOnOff } from "../on-off";
 import {
   ALL_CODE_PREVIEW_TOOLS,
   parseCodePreviewTools,
@@ -131,8 +132,8 @@ function createToolToggleItems(
       id: toolToggleId(tool),
       label: `${tool} preview`,
       description: `${tool} preview registration (${statusText}). Tools already owned by another extension are disabled automatically.`,
-      currentValue: enabledTools.has(tool) ? "on" : "off",
-      values: ["on", "off"],
+      currentValue: formatOnOff(enabledTools.has(tool)),
+      values: [...ON_OFF_VALUES],
     };
   });
 }

@@ -1,5 +1,18 @@
 import { codePreviewSettings } from "../../settings/index";
+import {
+  mergeRanges,
+  mergeRangesByStart,
+  pushTokenRange,
+  rangesForTokenGroup,
+  type TextRange,
+  type TokenGroup,
+} from "./ranges";
 import { filterLowSignalWordEmphasis } from "./smart-filter";
+import {
+  commonPrefixLength,
+  commonSuffixLength,
+  needsBoundarySafeOffsets,
+} from "./text-boundaries";
 import type { ConfidentWordChangeRanges, WordChangeConfidence, WordChangeRanges } from "./types";
 import {
   isIdentifierSimilarityPart,
@@ -316,8 +329,6 @@ function markTokenRange(changed: Set<number>, start: number, end: number): void 
   for (let index = start; index < end; index++) changed.add(index);
 }
 
-type TokenGroup = { start: number; end: number };
-
 const MAX_SOFT_TOKEN_ALIGNMENT_CELLS = 4096;
 const MIN_SOFT_TOKEN_SUBSTITUTION_SIMILARITY = 0.45;
 
@@ -329,8 +340,8 @@ function refinedRangesForChangedTokens(
 ): WordChangeRanges {
   const removedGroups = changedTokenGroups(beforeTokens, removedTokens);
   const addedGroups = changedTokenGroups(afterTokens, addedTokens);
-  const removed: Array<[number, number]> = [];
-  const added: Array<[number, number]> = [];
+  const removed: TextRange[] = [];
+  const added: TextRange[] = [];
   const groupCount = Math.max(removedGroups.length, addedGroups.length);
 
   for (let index = 0; index < groupCount; index++) {
@@ -436,8 +447,8 @@ function refinedSoftTokenGroupRanges(
 
   const pairedBefore = new Set<number>();
   const pairedAfter = new Set<number>();
-  const removed: Array<[number, number]> = [];
-  const added: Array<[number, number]> = [];
+  const removed: TextRange[] = [];
+  const added: TextRange[] = [];
 
   for (const [beforeIndex, afterIndex] of pairs) {
     pairedBefore.add(beforeIndex);
@@ -586,11 +597,11 @@ function refinedTokenTextRanges(
   const beforeEnd = beforeToken.value.length - suffix;
   const afterStart = prefix;
   const afterEnd = afterToken.value.length - suffix;
-  const removed: Array<[number, number]> =
+  const removed: TextRange[] =
     beforeStart < beforeEnd
       ? [[beforeToken.start + beforeStart, beforeToken.start + beforeEnd]]
       : [];
-  const added: Array<[number, number]> =
+  const added: TextRange[] =
     afterStart < afterEnd ? [[afterToken.start + afterStart, afterToken.start + afterEnd]] : [];
   return removed.length > 0 || added.length > 0 ? { removed, added } : undefined;
 }
@@ -626,93 +637,6 @@ function shouldRefineTokenText(
   return false;
 }
 
-function commonPrefixLength(before: string, after: string): number {
-  if (!needsBoundarySafeOffsets(before) && !needsBoundarySafeOffsets(after))
-    return commonPrefixCodeUnitLength(before, after);
-
-  const beforeSegments = textBoundarySegments(before);
-  const afterSegments = textBoundarySegments(after);
-  let index = 0;
-  let prefix = 0;
-  while (
-    index < beforeSegments.length &&
-    index < afterSegments.length &&
-    beforeSegments[index]!.value === afterSegments[index]!.value
-  ) {
-    prefix = beforeSegments[index]!.end;
-    index++;
-  }
-  return prefix;
-}
-
-function commonSuffixLength(before: string, after: string, prefixLength: number): number {
-  if (!needsBoundarySafeOffsets(before) && !needsBoundarySafeOffsets(after))
-    return commonSuffixCodeUnitLength(before, after, prefixLength);
-
-  const beforeSegments = textBoundarySegments(before);
-  const afterSegments = textBoundarySegments(after);
-  let beforeIndex = beforeSegments.length - 1;
-  let afterIndex = afterSegments.length - 1;
-  let suffix = 0;
-  while (beforeIndex >= 0 && afterIndex >= 0) {
-    const beforeSegment = beforeSegments[beforeIndex]!;
-    const afterSegment = afterSegments[afterIndex]!;
-    if (beforeSegment.start < prefixLength || afterSegment.start < prefixLength) break;
-    if (beforeSegment.value !== afterSegment.value) break;
-    suffix += beforeSegment.value.length;
-    beforeIndex--;
-    afterIndex--;
-  }
-  return suffix;
-}
-
-function commonPrefixCodeUnitLength(before: string, after: string): number {
-  const end = Math.min(before.length, after.length);
-  let index = 0;
-  while (index < end && before[index] === after[index]) index++;
-  return index;
-}
-
-function commonSuffixCodeUnitLength(before: string, after: string, prefixLength: number): number {
-  const maxLength = Math.min(before.length, after.length) - prefixLength;
-  let length = 0;
-  while (
-    length < maxLength &&
-    before[before.length - 1 - length] === after[after.length - 1 - length]
-  )
-    length++;
-  return length;
-}
-
-type TextBoundarySegment = { value: string; start: number; end: number };
-
-const MARK_TEXT_PATTERN = /\p{Mark}/u;
-const MARK_CODE_POINT_PATTERN = /^\p{Mark}$/u;
-const SURROGATE_CODE_UNIT_PATTERN = /[\uD800-\uDFFF]/;
-
-function needsBoundarySafeOffsets(text: string): boolean {
-  return MARK_TEXT_PATTERN.test(text) || SURROGATE_CODE_UNIT_PATTERN.test(text);
-}
-
-function textBoundarySegments(text: string): TextBoundarySegment[] {
-  const segments: TextBoundarySegment[] = [];
-  for (let index = 0; index < text.length; ) {
-    const start = index;
-    const codePoint = text.codePointAt(index)!;
-    const value = String.fromCodePoint(codePoint);
-    index += value.length;
-
-    if (MARK_CODE_POINT_PATTERN.test(value) && segments.length > 0) {
-      const previous = segments.at(-1)!;
-      previous.value += value;
-      previous.end = index;
-    } else {
-      segments.push({ value, start, end: index });
-    }
-  }
-  return segments;
-}
-
 function isNarrowerThanWholeTokens(
   ranges: WordChangeRanges,
   beforeToken: WordEmphasisToken,
@@ -724,38 +648,4 @@ function isNarrowerThanWholeTokens(
     ranges.removed.length === 0 ||
     ranges.added.length === 0
   );
-}
-
-function rangesForTokenGroup(
-  tokens: WordEmphasisToken[],
-  group: TokenGroup,
-): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
-  for (let index = group.start; index < group.end; index++)
-    appendTokenRange(ranges, tokens[index]!);
-  return ranges;
-}
-
-function pushTokenRange(ranges: Array<[number, number]>, token: WordEmphasisToken): void {
-  ranges.push([token.start, token.end]);
-}
-
-function appendTokenRange(ranges: Array<[number, number]>, token: WordEmphasisToken): void {
-  const previous = ranges.at(-1);
-  if (previous && token.start - previous[1] <= 1) previous[1] = token.end;
-  else ranges.push([token.start, token.end]);
-}
-
-function mergeRangesByStart(ranges: Array<[number, number]>): Array<[number, number]> {
-  return mergeRanges([...ranges].sort((a, b) => a[0] - b[0]));
-}
-
-function mergeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
-  const merged: Array<[number, number]> = [];
-  for (const range of ranges) {
-    const previous = merged.at(-1);
-    if (previous && range[0] - previous[1] <= 1) previous[1] = range[1];
-    else merged.push([...range]);
-  }
-  return merged;
 }

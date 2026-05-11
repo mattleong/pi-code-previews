@@ -3,7 +3,7 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { test, vi } from "vitest";
 import { withCodePreviewShell } from "../../index";
-import { renderComponent, stripAnsi, testTheme } from "../testing/render";
+import { createToolRenderContext, renderComponent, stripAnsi, testTheme } from "../testing/render";
 
 test("withCodePreviewShell preserves execution and wraps existing renderers", async () => {
   const execute = vi.fn(async () => ({
@@ -33,7 +33,7 @@ test("withCodePreviewShell preserves execution and wraps existing renderers", as
   assert.equal(execute.mock.calls.length, 1);
 
   const state = {};
-  const context = renderContext(state);
+  const context = createToolRenderContext({ state });
   const theme = testTheme();
   const call = wrapped.renderCall?.({ value: "hello" }, theme, context);
   assert.ok(call);
@@ -65,7 +65,7 @@ test("withCodePreviewShell supplies fallback renderers for cooperating tools", (
   const wrapped = withCodePreviewShell(tool, { mode: "off" });
   assert.equal(wrapped.renderShell, "self");
 
-  const context = renderContext({});
+  const context = createToolRenderContext();
   const call = wrapped.renderCall?.({}, testTheme(), context);
   const result = wrapped.renderResult?.(
     { content: [{ type: "text", text: "done" }], details: {} },
@@ -103,22 +103,5 @@ function textComponent(text: string): Component {
   return {
     render: () => [text],
     invalidate: () => undefined,
-  };
-}
-
-function renderContext(state: Record<string, unknown>) {
-  return {
-    args: {},
-    argsComplete: true,
-    cwd: "/tmp/project",
-    executionStarted: false,
-    expanded: true,
-    invalidate: () => undefined,
-    isError: false,
-    isPartial: true,
-    lastComponent: undefined,
-    showImages: true,
-    state,
-    toolCallId: "tool-1",
   };
 }

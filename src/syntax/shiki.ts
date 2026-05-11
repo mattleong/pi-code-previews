@@ -3,6 +3,7 @@ import { bundledThemesInfo, createHighlighter } from "shiki";
 import { positiveEnvInteger } from "../config/env";
 import { hashString } from "../cache/hash";
 import { codePreviewSettings } from "../settings/index";
+import { expandPreviewTabs } from "../shared/preview-tabs";
 import { escapeControlChars } from "../shared/terminal-text";
 import { normalizePreviewLanguageAlias } from "./language";
 
@@ -56,10 +57,7 @@ export async function initializeShiki(theme: string) {
     bumpShikiStatusVersion();
     previousHighlighter?.dispose();
 
-    clearRenderCache();
-    loadedShikiLanguages.clear();
-    pendingShikiLanguages.clear();
-    languageLoadCallbacks.clear();
+    resetShikiLanguageState();
     for (const lang of PRELOADED_SHIKI_LANGUAGES) loadedShikiLanguages.add(lang);
     notifyHighlighterReady();
   } catch (error) {
@@ -73,10 +71,7 @@ export async function initializeShiki(theme: string) {
     shikiHighlighter = undefined;
     shikiHighlighterGeneration++;
     bumpShikiStatusVersion();
-    clearRenderCache();
-    loadedShikiLanguages.clear();
-    pendingShikiLanguages.clear();
-    languageLoadCallbacks.clear();
+    resetShikiLanguageState();
     highlighterReadyCallbacks.clear();
   }
 }
@@ -87,7 +82,7 @@ export function renderHighlightedText(
   theme: Theme,
   invalidate?: () => void,
 ): string[] {
-  const normalized = text.replace(/\t/g, "   ");
+  const normalized = expandPreviewTabs(text);
   const plain = () =>
     normalized.split("\n").map((line) => theme.fg("toolOutput", escapeControlChars(line)));
   if (!codePreviewSettings.syntaxHighlighting || !lang) return plain();
@@ -172,6 +167,13 @@ function deleteCachedRender(key: string): void {
 function clearRenderCache(): void {
   renderCache.clear();
   renderCacheChars = 0;
+}
+
+function resetShikiLanguageState(): void {
+  clearRenderCache();
+  loadedShikiLanguages.clear();
+  pendingShikiLanguages.clear();
+  languageLoadCallbacks.clear();
 }
 
 function bumpShikiStatusVersion(): void {

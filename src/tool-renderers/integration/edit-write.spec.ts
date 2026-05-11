@@ -3,6 +3,7 @@ import { test, vi } from "vitest";
 import { codePreviewSettings, setCodePreviewSettings } from "../../settings/index";
 import {
   cloneCodePreviewSettingsForTest,
+  createToolRenderContext,
   delay,
   renderComponent,
   stripAnsi,
@@ -21,14 +22,7 @@ test("registered edit call previews proposed edits before execution", () => {
     edits: [{ oldText: "const value = 1;", newText: "const value = 2;" }],
   };
   const state = {};
-  const pendingComponent = edit.renderCall(args, testTheme(), {
-    argsComplete: true,
-    expanded: true,
-    executionStarted: false,
-    lastComponent: undefined,
-    state,
-    invalidate: () => undefined,
-  });
+  const pendingComponent = edit.renderCall(args, testTheme(), createToolRenderContext({ state }));
   const rendered = stripAnsi(renderComponent(pendingComponent));
   assert.match(rendered, /edit src\/a\.ts/);
   assert.match(rendered, /proposed edit/);
@@ -37,14 +31,15 @@ test("registered edit call previews proposed edits before execution", () => {
 
   const started = stripAnsi(
     renderComponent(
-      edit.renderCall(args, testTheme(), {
-        argsComplete: true,
-        expanded: true,
-        executionStarted: true,
-        lastComponent: pendingComponent,
-        state,
-        invalidate: () => undefined,
-      }),
+      edit.renderCall(
+        args,
+        testTheme(),
+        createToolRenderContext({
+          executionStarted: true,
+          lastComponent: pendingComponent,
+          state,
+        }),
+      ),
     ),
   );
   assert.match(started, /edit src\/a\.ts/);
@@ -70,19 +65,7 @@ test("registered edit timing measures execution start to result completion", () 
     };
     const state = {};
     vi.spyOn(Date, "now").mockReturnValue(1_000);
-    edit.renderCall(args, testTheme(), {
-      argsComplete: true,
-      cwd: "/tmp/project",
-      executionStarted: true,
-      expanded: true,
-      invalidate: () => undefined,
-      isError: false,
-      isPartial: true,
-      lastComponent: undefined,
-      showImages: true,
-      state,
-      toolCallId: "tool-1",
-    });
+    edit.renderCall(args, testTheme(), createToolRenderContext({ executionStarted: true, state }));
 
     vi.mocked(Date.now).mockReturnValue(3_120);
     const result = edit.renderResult(
@@ -92,20 +75,7 @@ test("registered edit timing measures execution start to result completion", () 
       },
       { expanded: true, isPartial: false },
       testTheme(),
-      {
-        args,
-        argsComplete: true,
-        cwd: "/tmp/project",
-        executionStarted: true,
-        expanded: true,
-        invalidate: () => undefined,
-        isError: false,
-        isPartial: false,
-        lastComponent: undefined,
-        showImages: true,
-        state,
-        toolCallId: "tool-1",
-      },
+      createToolRenderContext({ args, executionStarted: true, isPartial: false, state }),
     );
 
     assert.match(stripAnsi(renderComponent(result)), /╰─ Took 2\.1s/);
@@ -127,19 +97,7 @@ test("registered write renderer hides code previews until expanded", () => {
     const args = { path: "src/a.ts", content: "const after = 2;\n" };
     const collapsedCall = stripAnsi(
       renderComponent(
-        write.renderCall(args, testTheme(), {
-          argsComplete: true,
-          cwd: "/tmp/project",
-          executionStarted: false,
-          expanded: false,
-          invalidate: () => undefined,
-          isError: false,
-          isPartial: true,
-          lastComponent: undefined,
-          showImages: true,
-          state: {},
-          toolCallId: "tool-1",
-        }),
+        write.renderCall(args, testTheme(), createToolRenderContext({ expanded: false })),
       ),
     );
     assert.match(collapsedCall, /write src\/a\.ts/);
@@ -148,21 +106,7 @@ test("registered write renderer hides code previews until expanded", () => {
     assert.doesNotMatch(collapsedCall, /const after = 2/);
 
     const expandedCall = stripAnsi(
-      renderComponent(
-        write.renderCall(args, testTheme(), {
-          argsComplete: true,
-          cwd: "/tmp/project",
-          executionStarted: false,
-          expanded: true,
-          invalidate: () => undefined,
-          isError: false,
-          isPartial: true,
-          lastComponent: undefined,
-          showImages: true,
-          state: {},
-          toolCallId: "tool-1",
-        }),
-      ),
+      renderComponent(write.renderCall(args, testTheme(), createToolRenderContext())),
     );
     assert.match(expandedCall, /const after = 2/);
 
@@ -177,12 +121,7 @@ test("registered write renderer hides code previews until expanded", () => {
           },
           { expanded: false, isPartial: false },
           testTheme(),
-          {
-            args,
-            isError: false,
-            invalidate: () => undefined,
-            state: {},
-          },
+          createToolRenderContext({ args }),
         ),
       ),
     );
@@ -200,12 +139,7 @@ test("registered write renderer hides code previews until expanded", () => {
           },
           { expanded: false, isPartial: false },
           testTheme(),
-          {
-            args,
-            isError: false,
-            invalidate: () => undefined,
-            state: {},
-          },
+          createToolRenderContext({ args }),
         ),
       ),
     );
@@ -223,12 +157,7 @@ test("registered write renderer hides code previews until expanded", () => {
           },
           { expanded: true, isPartial: false },
           testTheme(),
-          {
-            args,
-            isError: false,
-            invalidate: () => undefined,
-            state: {},
-          },
+          createToolRenderContext({ args }),
         ),
       ),
     );
@@ -245,19 +174,11 @@ test("registered write renderer distinguishes blank-only content from empty cont
 
   const rendered = stripAnsi(
     renderComponent(
-      write.renderCall({ path: "blank.txt", content: "\n\n" }, testTheme(), {
-        argsComplete: true,
-        cwd: "/tmp/project",
-        executionStarted: false,
-        expanded: true,
-        invalidate: () => undefined,
-        isError: false,
-        isPartial: true,
-        lastComponent: undefined,
-        showImages: true,
-        state: {},
-        toolCallId: "tool-1",
-      }),
+      write.renderCall(
+        { path: "blank.txt", content: "\n\n" },
+        testTheme(),
+        createToolRenderContext(),
+      ),
     ),
   );
 
@@ -280,14 +201,7 @@ test("registered edit renderer hides diff previews until expanded", () => {
     };
     const collapsedCall = stripAnsi(
       renderComponent(
-        edit.renderCall(args, testTheme(), {
-          argsComplete: true,
-          expanded: false,
-          executionStarted: false,
-          lastComponent: undefined,
-          state: {},
-          invalidate: () => undefined,
-        }),
+        edit.renderCall(args, testTheme(), createToolRenderContext({ expanded: false })),
       ),
     );
     assert.match(collapsedCall, /edit src\/a\.ts/);
@@ -295,16 +209,7 @@ test("registered edit renderer hides diff previews until expanded", () => {
     assert.doesNotMatch(collapsedCall, /const value = 2/);
 
     const expandedCall = stripAnsi(
-      renderComponent(
-        edit.renderCall(args, testTheme(), {
-          argsComplete: true,
-          expanded: true,
-          executionStarted: false,
-          lastComponent: undefined,
-          state: {},
-          invalidate: () => undefined,
-        }),
-      ),
+      renderComponent(edit.renderCall(args, testTheme(), createToolRenderContext())),
     );
     assert.match(expandedCall, /proposed edit/);
     assert.match(expandedCall, /const value = 2/);
@@ -315,12 +220,12 @@ test("registered edit renderer hides diff previews until expanded", () => {
     };
     const collapsedResult = stripAnsi(
       renderComponent(
-        edit.renderResult(result, { expanded: false, isPartial: false }, testTheme(), {
-          args: { path: "src/a.ts" },
-          isError: false,
-          invalidate: () => undefined,
-          state: {},
-        }),
+        edit.renderResult(
+          result,
+          { expanded: false, isPartial: false },
+          testTheme(),
+          createToolRenderContext({ args: { path: "src/a.ts" } }),
+        ),
       ),
     );
     assert.match(collapsedResult, /expand/);
@@ -328,12 +233,12 @@ test("registered edit renderer hides diff previews until expanded", () => {
 
     const expandedResult = stripAnsi(
       renderComponent(
-        edit.renderResult(result, { expanded: true, isPartial: false }, testTheme(), {
-          args: { path: "src/a.ts" },
-          isError: false,
-          invalidate: () => undefined,
-          state: {},
-        }),
+        edit.renderResult(
+          result,
+          { expanded: true, isPartial: false },
+          testTheme(),
+          createToolRenderContext({ args: { path: "src/a.ts" } }),
+        ),
       ),
     );
     assert.match(expandedResult, /const value = 2/);
@@ -349,32 +254,12 @@ test("registered write call reuses cached previews", () => {
   const args = { path: "src/a.ts", content: "const value = 1;\n" };
   const state = {};
   const theme = testTheme();
-  const first = write.renderCall(args, theme, {
-    argsComplete: true,
-    cwd: "/tmp/project",
-    executionStarted: false,
-    expanded: false,
-    invalidate: () => undefined,
-    isError: false,
-    isPartial: true,
-    lastComponent: undefined,
-    showImages: true,
-    state,
-    toolCallId: "tool-1",
-  });
-  const second = write.renderCall(args, theme, {
-    argsComplete: true,
-    cwd: "/tmp/project",
-    executionStarted: false,
-    expanded: false,
-    invalidate: () => undefined,
-    isError: false,
-    isPartial: true,
-    lastComponent: first,
-    showImages: true,
-    state,
-    toolCallId: "tool-1",
-  });
+  const first = write.renderCall(args, theme, createToolRenderContext({ expanded: false, state }));
+  const second = write.renderCall(
+    args,
+    theme,
+    createToolRenderContext({ expanded: false, lastComponent: first, state }),
+  );
 
   assert.equal(second, first);
 });
@@ -386,14 +271,11 @@ test("registered edit result header omits insertion and deletion shape counts", 
   assert.ok(edit.renderResult);
 
   const state = {};
-  const header = edit.renderCall({ path: "src/a.ts" }, testTheme(), {
-    argsComplete: true,
-    expanded: true,
-    executionStarted: true,
-    lastComponent: undefined,
-    state,
-    invalidate: () => undefined,
-  });
+  const header = edit.renderCall(
+    { path: "src/a.ts" },
+    testTheme(),
+    createToolRenderContext({ executionStarted: true, state }),
+  );
 
   edit.renderResult(
     {
@@ -402,12 +284,7 @@ test("registered edit result header omits insertion and deletion shape counts", 
     },
     { expanded: true, isPartial: false },
     testTheme(),
-    {
-      args: { path: "src/a.ts" },
-      isError: false,
-      invalidate: () => undefined,
-      state,
-    },
+    createToolRenderContext({ args: { path: "src/a.ts" }, state }),
   );
 
   const rendered = stripAnsi(renderComponent(header));
@@ -432,12 +309,11 @@ test("registered result renderers reuse async previews after they settle", async
     { content: [{ type: "text", text: "ok" }], details: { diff: `-1 ${before}\n+1 ${after}` } },
     { expanded: true, isPartial: false },
     testTheme(),
-    {
+    createToolRenderContext({
       args: { path: "src/a.ts" },
-      isError: false,
       invalidate: () => editInvalidations++,
       state: editState,
-    },
+    }),
   ] as const;
   const firstEditPreview = edit.renderResult(...editArgs);
   assert.match(stripAnsi(renderComponent(firstEditPreview)), /Rendering edit diff/);
@@ -456,12 +332,11 @@ test("registered result renderers reuse async previews after they settle", async
     },
     { expanded: true, isPartial: false },
     testTheme(),
-    {
+    createToolRenderContext({
       args: { path: "src/a.ts", content: after },
-      isError: false,
       invalidate: () => writeInvalidations++,
       state: writeState,
-    },
+    }),
   ] as const;
   const firstWritePreview = write.renderResult(...writeArgs);
   assert.match(stripAnsi(renderComponent(firstWritePreview)), /Rendering write diff/);

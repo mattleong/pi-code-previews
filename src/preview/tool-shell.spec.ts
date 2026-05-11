@@ -5,6 +5,7 @@ import { createCodePreviewToolShell } from "./tool-shell";
 import { codePreviewSettings, setCodePreviewSettings } from "../settings/index";
 import {
   cloneCodePreviewSettingsForTest,
+  createToolRenderContext,
   renderComponent,
   stripAnsi,
   testTheme,
@@ -267,20 +268,7 @@ test("border shell caches framed rows between renders", () => {
     invalidate: () => undefined,
   };
   const component = shell.renderCall(
-    {
-      args: {},
-      argsComplete: true,
-      cwd: "/tmp/project",
-      executionStarted: false,
-      expanded: true,
-      invalidate: () => undefined,
-      isError: false,
-      isPartial: false,
-      lastComponent: undefined,
-      showImages: true,
-      state: {},
-      toolCallId: "tool-1",
-    },
+    createToolRenderContext({ isPartial: false }),
     testTheme(),
     () => child,
   );
@@ -301,38 +289,9 @@ function textComponent(text: string): Component {
   };
 }
 
-interface TestRenderContext {
-  args: Record<string, unknown>;
-  argsComplete: boolean;
-  cwd: string;
-  executionStarted: boolean;
-  expanded: boolean;
-  invalidate: () => void;
-  isError: boolean;
-  isPartial: boolean;
-  lastComponent: Component | undefined;
-  showImages: boolean;
-  state: Record<string, unknown>;
-  toolCallId: string;
-}
-
 function baseRenderContext(
   state: Record<string, unknown>,
-  overrides: Partial<TestRenderContext> = {},
-): TestRenderContext {
-  return {
-    args: {},
-    argsComplete: true,
-    cwd: "/tmp/project",
-    executionStarted: false,
-    expanded: true,
-    invalidate: () => undefined,
-    isError: false,
-    isPartial: true,
-    lastComponent: undefined,
-    showImages: true,
-    state,
-    toolCallId: "tool-1",
-    ...overrides,
-  };
+  overrides: Parameters<typeof createToolRenderContext>[0] = {},
+) {
+  return createToolRenderContext({ state, ...overrides });
 }

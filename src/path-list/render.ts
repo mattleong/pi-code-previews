@@ -2,6 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { pathIcon } from "../paths/icons";
 import { renderDisplayPath } from "../paths/display";
 import { escapeControlChars } from "../shared/terminal-text";
+import { isToolOutputNoticeLine } from "../shared/tool-output-notice";
 import type { PathIconMode } from "../settings/types";
 
 export interface PathListRenderOptions {
@@ -16,7 +17,7 @@ export function renderPathListLines(
 ): string[] {
   const { iconMode } = options;
   const lines = output.split("\n");
-  const pathLines = lines.filter((line) => line && !(line.startsWith("[") && line.endsWith("]")));
+  const pathLines = lines.filter((line) => line && !isToolOutputNoticeLine(line));
   const shouldTree = pathLines.some((line) => line.includes("/"));
   if (!shouldTree) return lines.map((line) => renderPathListLine(line, cwd, theme, iconMode));
 
@@ -27,7 +28,7 @@ export function renderPathListLines(
       rendered.push("");
       continue;
     }
-    if (line.startsWith("[") && line.endsWith("]")) {
+    if (isToolOutputNoticeLine(line)) {
       rendered.push(theme.fg("warning", escapeControlChars(line)));
       continue;
     }
@@ -87,8 +88,7 @@ function renderPathListLine(
   iconMode: PathIconMode,
 ): string {
   if (!line) return "";
-  if (line.startsWith("[") && line.endsWith("]"))
-    return theme.fg("warning", escapeControlChars(line));
+  if (isToolOutputNoticeLine(line)) return theme.fg("warning", escapeControlChars(line));
   const prefix = line.match(/^\s*/)?.[0] ?? "";
   const body = line.slice(prefix.length);
   const icon = pathIcon(body, body.endsWith("/"), iconMode);

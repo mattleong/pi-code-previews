@@ -97,6 +97,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
               cwd,
               renderContext.expanded,
               theme,
+              lang,
               renderContext.invalidate,
             ),
         );
@@ -197,13 +198,9 @@ function renderWriteCallPreview(
   cwd: string,
   expanded: boolean,
   theme: Theme,
+  lang: string | undefined,
   invalidate?: () => void,
 ): Text {
-  const lang = resolvePreviewLanguage({
-    path,
-    content,
-    piLanguage: getLanguageFromPath(path),
-  });
   const preview = renderContentPreview({
     content,
     limit: expanded ? 0 : codePreviewSettings.writeCollapsedLines,

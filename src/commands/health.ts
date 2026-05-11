@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { codePreviewSettings } from "../settings/index";
+import { formatOnOff } from "../settings/on-off";
 import { getSettingsPath } from "../settings/store";
 import { getShikiStatus } from "../syntax/shiki";
 import { formatEnabledCodePreviewTools } from "../tools/selection";
@@ -22,16 +23,16 @@ export function registerHealthCommand(pi: ExtensionAPI): void {
         "Code preview health",
         `Shiki initialized: ${yesNo(status.initialized)}`,
         `Shiki theme: ${codePreviewSettings.shikiTheme}`,
-        `Syntax highlighting: ${onOff(codePreviewSettings.syntaxHighlighting)}`,
+        `Syntax highlighting: ${formatOnOff(codePreviewSettings.syntaxHighlighting)}`,
         `Tool call background: ${codePreviewSettings.toolCallBackground}`,
-        `Tool call timing: ${onOff(codePreviewSettings.toolCallTiming)}`,
-        `Read content preview: ${onOff(codePreviewSettings.readContentPreview)}`,
-        `Write content preview: ${onOff(codePreviewSettings.writeContentPreview)}`,
-        `Edit diff preview: ${onOff(codePreviewSettings.editDiffPreview)}`,
-        `Grep result preview: ${onOff(codePreviewSettings.grepResultPreview)}`,
-        `Find result preview: ${onOff(codePreviewSettings.findResultPreview)}`,
-        `Ls result preview: ${onOff(codePreviewSettings.lsResultPreview)}`,
-        `Bash result preview: ${onOff(codePreviewSettings.bashResultPreview)}`,
+        `Tool call timing: ${formatOnOff(codePreviewSettings.toolCallTiming)}`,
+        `Read content preview: ${formatOnOff(codePreviewSettings.readContentPreview)}`,
+        `Write content preview: ${formatOnOff(codePreviewSettings.writeContentPreview)}`,
+        `Edit diff preview: ${formatOnOff(codePreviewSettings.editDiffPreview)}`,
+        `Grep result preview: ${formatOnOff(codePreviewSettings.grepResultPreview)}`,
+        `Find result preview: ${formatOnOff(codePreviewSettings.findResultPreview)}`,
+        `Ls result preview: ${formatOnOff(codePreviewSettings.lsResultPreview)}`,
+        `Bash result preview: ${formatOnOff(codePreviewSettings.bashResultPreview)}`,
         `Word-level diff emphasis: ${codePreviewSettings.wordEmphasis}`,
         `Configured tools: ${formatEnabledCodePreviewTools()}`,
         `Active previews: ${formatActiveCodePreviewTools()}`,
@@ -57,10 +58,6 @@ export function registerHealthCommand(pi: ExtensionAPI): void {
       );
     },
   });
-}
-
-function onOff(value: boolean): "on" | "off" {
-  return value ? "on" : "off";
 }
 
 function yesNo(value: boolean): "yes" | "no" {

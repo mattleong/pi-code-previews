@@ -1,32 +1,33 @@
 import type { CodePreviewSettings } from "../index";
+import { formatOnOff } from "../on-off";
 import { ALL_CODE_PREVIEW_TOOLS } from "../../tools/names";
 
 export function summarizeAppearance(settings: CodePreviewSettings): string {
-  return `${settings.shikiTheme} · syntax ${onOff(settings.syntaxHighlighting)} · timing ${onOff(settings.toolCallTiming)}`;
+  return `${settings.shikiTheme} · syntax ${formatOnOff(settings.syntaxHighlighting)} · timing ${formatOnOff(settings.toolCallTiming)}`;
 }
 
 export function summarizeDiffPreviews(settings: CodePreviewSettings): string {
-  return `${onOff(settings.editDiffPreview)} · ${settings.diffIntensity} bg · words ${settings.wordEmphasis}`;
+  return `${formatOnOff(settings.editDiffPreview)} · ${settings.diffIntensity} bg · words ${settings.wordEmphasis}`;
 }
 
 export function summarizeOutputPreviews(settings: CodePreviewSettings): string {
-  return `read ${onOff(settings.readContentPreview)} · write ${onOff(settings.writeContentPreview)} · edit ${onOff(settings.editDiffPreview)} · bash ${onOff(settings.bashResultPreview)}`;
+  return `read ${formatOnOff(settings.readContentPreview)} · write ${formatOnOff(settings.writeContentPreview)} · edit ${formatOnOff(settings.editDiffPreview)} · bash ${formatOnOff(settings.bashResultPreview)}`;
 }
 
 export function summarizeReadPreviews(settings: CodePreviewSettings): string {
-  return `${onOff(settings.readContentPreview)} · ${settings.readCollapsedLines} lines`;
+  return `${formatOnOff(settings.readContentPreview)} · ${settings.readCollapsedLines} lines`;
 }
 
 export function summarizeWritePreviews(settings: CodePreviewSettings): string {
-  return `${onOff(settings.writeContentPreview)} · ${settings.writeCollapsedLines} lines`;
+  return `${formatOnOff(settings.writeContentPreview)} · ${settings.writeCollapsedLines} lines`;
 }
 
 export function summarizeSearchListPreviews(settings: CodePreviewSettings): string {
-  return `grep ${onOff(settings.grepResultPreview)} · paths ${settings.pathListCollapsedLines} lines`;
+  return `grep ${formatOnOff(settings.grepResultPreview)} · paths ${settings.pathListCollapsedLines} lines`;
 }
 
 export function summarizeBashPreviews(settings: CodePreviewSettings): string {
-  return onOff(settings.bashResultPreview);
+  return formatOnOff(settings.bashResultPreview);
 }
 
 export function summarizeTools(settings: CodePreviewSettings): string {
@@ -36,9 +37,5 @@ export function summarizeTools(settings: CodePreviewSettings): string {
 }
 
 export function summarizeWarnings(settings: CodePreviewSettings): string {
-  return `bash ${onOff(settings.bashWarnings)} · secrets ${onOff(settings.secretWarnings)}`;
-}
-
-function onOff(value: boolean): "on" | "off" {
-  return value ? "on" : "off";
+  return `bash ${formatOnOff(settings.bashWarnings)} · secrets ${formatOnOff(settings.secretWarnings)}`;
 }
