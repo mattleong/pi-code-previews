@@ -66,13 +66,13 @@ The output includes the emphasized spans per rendered diff line and telemetry su
 Word-emphasis accuracy is guarded by a golden corpus in:
 
 ```text
-tests/fixtures/word-emphasis-golden.ts
+src/diff/word/fixtures/emphasis-golden.ts
 ```
 
 The test runner renders each diff and compares the extracted emphasized spans:
 
 ```text
-tests/word-emphasis-golden.test.ts
+src/diff/word/emphasis-golden.spec.ts
 ```
 
 When real diffs reveal a miss, add the smallest representative case to the corpus. Prefer real examples over synthetic threshold tuning.

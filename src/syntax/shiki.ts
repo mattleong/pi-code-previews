@@ -4,6 +4,7 @@ import { positiveEnvInteger } from "../config/env";
 import { hashString } from "../cache/hash";
 import { setCodePreviewSettings, codePreviewSettings } from "../settings/index";
 import { escapeControlChars } from "../preview/terminal-text";
+import { normalizePreviewLanguageAlias } from "./language";
 
 export { escapeControlChars } from "../preview/terminal-text";
 
@@ -235,20 +236,7 @@ function requestLanguageLoad(shikiLang: string, invalidate: (() => void) | undef
 }
 
 export function normalizeShikiLanguage(lang: string): string {
-  const normalized = lang.toLowerCase();
-  if (normalized === "sh" || normalized === "shell" || normalized === "zsh") return "bash";
-  if (
-    normalized === "shell-session" ||
-    normalized === "shellsession" ||
-    normalized === "terminal" ||
-    normalized === "console"
-  )
-    return "shellscript";
-  if (normalized === "ts") return "typescript";
-  if (normalized === "js") return "javascript";
-  if (normalized === "md") return "markdown";
-  if (normalized === "yml") return "yaml";
-  return normalized;
+  return normalizePreviewLanguageAlias(lang);
 }
 
 function normalizeShikiContrast(ansi: string): string {

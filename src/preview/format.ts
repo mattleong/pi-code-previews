@@ -1,44 +1,56 @@
 import type { AppKeybinding, Theme } from "@earendil-works/pi-coding-agent";
 import { getKeybindings } from "@earendil-works/pi-tui";
+import { forEachRawTextLine } from "../shared/text-lines";
 
 export type PreviewLineEntry<T> =
   | { kind: "line"; line: T; index: number }
   | { kind: "hidden"; hidden: number };
 
+type PreviewWindowPlan =
+  | { kind: "all"; shown: number; hidden: number }
+  | { kind: "head"; shown: number; hidden: number }
+  | { kind: "split"; head: number; tail: number; shown: number; hidden: number };
+
 export function selectPreviewLines<T>(
   lines: T[],
   limit: number,
 ): { entries: Array<PreviewLineEntry<T>>; shown: number; hidden: number } {
-  if (lines.length <= limit || limit <= 0) {
+  const plan = previewWindowPlan(lines.length, limit);
+  if (plan.kind === "all") {
     return {
       entries: lines.map((line, index) => ({ kind: "line", line, index })),
-      shown: lines.length,
-      hidden: 0,
+      shown: plan.shown,
+      hidden: plan.hidden,
     };
   }
-  if (limit < 8) {
+  if (plan.kind === "head") {
     return {
-      entries: lines.slice(0, limit).map((line, index) => ({ kind: "line", line, index })),
-      shown: limit,
-      hidden: lines.length - limit,
+      entries: lines.slice(0, plan.shown).map((line, index) => ({ kind: "line", line, index })),
+      shown: plan.shown,
+      hidden: plan.hidden,
     };
   }
-  const head = Math.ceil(limit * 0.65);
-  const tail = Math.max(1, limit - head - 1);
-  const hidden = lines.length - head - tail;
   return {
     entries: [
-      ...lines.slice(0, head).map((line, index) => ({ kind: "line" as const, line, index })),
-      { kind: "hidden", hidden },
-      ...lines.slice(lines.length - tail).map((line, offset) => ({
+      ...lines.slice(0, plan.head).map((line, index) => ({ kind: "line" as const, line, index })),
+      { kind: "hidden", hidden: plan.hidden },
+      ...lines.slice(lines.length - plan.tail).map((line, offset) => ({
         kind: "line" as const,
         line,
-        index: lines.length - tail + offset,
+        index: lines.length - plan.tail + offset,
       })),
     ],
-    shown: head + tail,
-    hidden,
+    shown: plan.shown,
+    hidden: plan.hidden,
   };
+}
+
+function previewWindowPlan(total: number, limit: number): PreviewWindowPlan {
+  if (total <= limit || limit <= 0) return { kind: "all", shown: total, hidden: 0 };
+  if (limit < 8) return { kind: "head", shown: limit, hidden: total - limit };
+  const head = Math.ceil(limit * 0.65);
+  const tail = Math.max(1, limit - head - 1);
+  return { kind: "split", head, tail, shown: head + tail, hidden: total - head - tail };
 }
 
 export function previewLines(
@@ -62,38 +74,36 @@ export function selectPreviewTextLines(
 ): { entries: Array<PreviewLineEntry<string>>; shown: number; hidden: number; total: number } {
   const total = countTrimmedTextLines(text);
   if (total === 0) return { entries: [], shown: 0, hidden: 0, total: 0 };
-  if (total <= limit || limit <= 0) {
+  const plan = previewWindowPlan(total, limit);
+  if (plan.kind === "all") {
     const entries: Array<PreviewLineEntry<string>> = [];
     forEachTrimmedTextLine(text, (line, index) => entries.push({ kind: "line", line, index }));
-    return { entries, shown: total, hidden: 0, total };
+    return { entries, shown: plan.shown, hidden: plan.hidden, total };
   }
-  if (limit < 8) {
+  if (plan.kind === "head") {
     const entries: Array<PreviewLineEntry<string>> = [];
     forEachTrimmedTextLine(text, (line, index) => {
       if (index < limit) entries.push({ kind: "line", line, index });
     });
-    return { entries, shown: limit, hidden: total - limit, total };
+    return { entries, shown: plan.shown, hidden: plan.hidden, total };
   }
-  const head = Math.ceil(limit * 0.65);
-  const tail = Math.max(1, limit - head - 1);
-  const tailStart = total - tail;
-  const hidden = total - head - tail;
+  const tailStart = total - plan.tail;
   const entries: Array<PreviewLineEntry<string>> = [];
   let markerAdded = false;
   forEachTrimmedTextLine(text, (line, index) => {
-    if (index < head) {
+    if (index < plan.head) {
       entries.push({ kind: "line", line, index });
       return;
     }
     if (index >= tailStart) {
       if (!markerAdded) {
-        entries.push({ kind: "hidden", hidden });
+        entries.push({ kind: "hidden", hidden: plan.hidden });
         markerAdded = true;
       }
       entries.push({ kind: "line", line, index });
     }
   });
-  return { entries, shown: head + tail, hidden, total };
+  return { entries, shown: plan.shown, hidden: plan.hidden, total };
 }
 
 export function hiddenLinesMarker(theme: Theme, hidden: number): string {
@@ -147,8 +157,6 @@ export function showingFooter(theme: Theme, shown: number, total: number, label:
 }
 
 function formatKeys(keys: string[]): string {
-  if (keys.length === 0) return "";
-  if (keys.length === 1) return keys[0]!;
   return keys.join("/");
 }
 
@@ -182,19 +190,6 @@ function forEachTrimmedTextLine(
     }
     callback(line, index++);
   });
-}
-
-function forEachRawTextLine(text: string, callback: (line: string) => void): void {
-  let start = 0;
-  while (start <= text.length) {
-    const newline = text.indexOf("\n", start);
-    if (newline < 0) {
-      callback(text.slice(start));
-      break;
-    }
-    callback(text.slice(start, newline));
-    start = newline + 1;
-  }
 }
 
 export function previewFooter(theme: Theme, text: string): string {

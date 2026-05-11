@@ -2,15 +2,16 @@ import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createEditToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
 import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "../preview/async";
-import { getEditDiff, getObjectValue, getPathArg, getTextContent } from "../tool-data";
+import { getEditDiff, getPathArg, getTextContent } from "../tool-data";
 import { FullWidthDiffText } from "../diff/index";
+import { createSimpleDiff } from "../diff/structured";
 import { diffSummarySeparator, summarizeDiff, type DiffSummary } from "../diff/summary";
 import { countLabel, showingFooter } from "../preview/format";
 import { resolvePreviewLanguage } from "../syntax/language";
 import { renderDisplayPath } from "../paths/display";
 import { codePreviewSettings } from "../settings/index";
 import { escapeControlChars } from "../preview/terminal-text";
-import { createSimpleDiff } from "../write/diff";
+import { getObjectValue } from "../shared/objects";
 import {
   appendDiffPreviewFooters,
   createDiffPreviewText,
@@ -31,6 +32,7 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
 
     renderCall(args, theme, context) {
       return previewShell.renderCall(context, theme, (renderContext) => {
+        if (!renderContext) throw new TypeError("Code preview render context is required.");
         const path = getPathArg(args);
         const operations = getEditPreviewOperations(args);
         const operationsSource = editOperationsSource(operations);

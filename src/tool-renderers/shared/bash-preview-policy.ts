@@ -1,4 +1,4 @@
-import { getObjectValue } from "../../tool-data";
+import { getObjectValue } from "../../shared/objects";
 import { codePreviewSettings } from "../../settings/index";
 
 export function shouldHideBashResult(args: unknown): boolean {

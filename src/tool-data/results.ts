@@ -1,4 +1,4 @@
-import { getObjectValue } from "./objects";
+import { getObjectValue } from "../shared/objects";
 
 export function isTruncated(details: unknown): boolean {
   const truncation = getObjectValue(details, "truncation");

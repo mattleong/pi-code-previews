@@ -18,34 +18,53 @@ const EXACT_BASENAMES = new Map<string, string>([
   ["yarn.lock", "yaml"],
 ]);
 
+const LANGUAGE_ALIASES = new Map<string, string>([
+  ["sh", "bash"],
+  ["shell", "bash"],
+  ["zsh", "bash"],
+  ["shell-session", "shellscript"],
+  ["shellsession", "shellscript"],
+  ["terminal", "shellscript"],
+  ["console", "shellscript"],
+  ["ts", "typescript"],
+  ["js", "javascript"],
+  ["md", "markdown"],
+  ["yml", "yaml"],
+]);
+
+export function normalizePreviewLanguageAlias(language: string): string {
+  const normalized = language.toLowerCase();
+  return LANGUAGE_ALIASES.get(normalized) ?? normalized;
+}
+
 const EXTENSION_ALIASES = new Map<string, string>([
   [".env", "dotenv"],
-  [".sh", "bash"],
-  [".bash", "bash"],
-  [".zsh", "bash"],
-  [".ts", "typescript"],
-  [".tsx", "tsx"],
-  [".js", "javascript"],
-  [".jsx", "jsx"],
-  [".mjs", "javascript"],
-  [".cjs", "javascript"],
-  [".md", "markdown"],
-  [".yml", "yaml"],
-  [".yaml", "yaml"],
-  [".json", "json"],
-  [".toml", "toml"],
+  [".sh", normalizePreviewLanguageAlias("sh")],
+  [".bash", normalizePreviewLanguageAlias("bash")],
+  [".zsh", normalizePreviewLanguageAlias("zsh")],
+  [".ts", normalizePreviewLanguageAlias("ts")],
+  [".tsx", normalizePreviewLanguageAlias("tsx")],
+  [".js", normalizePreviewLanguageAlias("js")],
+  [".jsx", normalizePreviewLanguageAlias("jsx")],
+  [".mjs", normalizePreviewLanguageAlias("js")],
+  [".cjs", normalizePreviewLanguageAlias("js")],
+  [".md", normalizePreviewLanguageAlias("md")],
+  [".yml", normalizePreviewLanguageAlias("yml")],
+  [".yaml", normalizePreviewLanguageAlias("yaml")],
+  [".json", normalizePreviewLanguageAlias("json")],
+  [".toml", normalizePreviewLanguageAlias("toml")],
 ]);
 
 const SHEBANG_ALIASES = new Map<string, string>([
-  ["bash", "bash"],
-  ["sh", "bash"],
-  ["zsh", "bash"],
-  ["python", "python"],
-  ["python3", "python"],
-  ["node", "javascript"],
-  ["deno", "typescript"],
-  ["ruby", "ruby"],
-  ["php", "php"],
+  ["bash", normalizePreviewLanguageAlias("bash")],
+  ["sh", normalizePreviewLanguageAlias("sh")],
+  ["zsh", normalizePreviewLanguageAlias("zsh")],
+  ["python", normalizePreviewLanguageAlias("python")],
+  ["python3", normalizePreviewLanguageAlias("python")],
+  ["node", normalizePreviewLanguageAlias("js")],
+  ["deno", normalizePreviewLanguageAlias("ts")],
+  ["ruby", normalizePreviewLanguageAlias("ruby")],
+  ["php", normalizePreviewLanguageAlias("php")],
 ]);
 
 const CONTENT_LANGUAGE_DETECTION_CHARS = positiveEnvInteger(

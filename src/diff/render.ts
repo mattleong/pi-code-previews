@@ -2,6 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { codePreviewSettings } from "../settings/index";
 import { renderWithShiki } from "../syntax/shiki";
 import { escapeControlChars } from "../preview/terminal-text";
+import { splitLinesLimited } from "../shared/text-lines";
 import { FullWidthDiffText } from "./full-width-text";
 import { changedLineEmphasis, emphasizeChangedSpans } from "./line-emphasis";
 import { DIFF_ADD_MARKER, DIFF_REMOVE_MARKER } from "./markers";
@@ -122,23 +123,6 @@ function renderDiff(diff: string, options: DiffRenderOptions): string {
   }
 
   return out.join("\n");
-}
-
-function splitLinesLimited(text: string, limit: number): string[] {
-  const max = Math.max(0, Math.floor(limit));
-  if (Number.isNaN(max) || max <= 0) return [];
-  const lines: string[] = [];
-  let start = 0;
-  while (start <= text.length && lines.length < max) {
-    const newline = text.indexOf("\n", start);
-    if (newline < 0) {
-      lines.push(text.slice(start));
-      break;
-    }
-    lines.push(text.slice(start, newline));
-    start = newline + 1;
-  }
-  return lines;
 }
 
 function renderSeparator(line: string, theme: Theme): string {

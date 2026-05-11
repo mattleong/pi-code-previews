@@ -79,7 +79,7 @@ export function setCodePreviewSettings(next: CodePreviewSettings) {
   Object.assign(codePreviewSettings, cloneCodePreviewSettings(next));
 }
 
-function cloneCodePreviewSettings(settings: CodePreviewSettings): CodePreviewSettings {
+export function cloneCodePreviewSettings(settings: CodePreviewSettings): CodePreviewSettings {
   return { ...settings, tools: [...settings.tools] };
 }
 

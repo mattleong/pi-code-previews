@@ -1,5 +1,5 @@
 import { summarizeDiff } from "../src/diff/index";
-import { createSimpleDiff, createStructuredDiff } from "../src/write/diff";
+import { createSimpleDiff, createStructuredDiff } from "../src/diff/structured";
 import {
   formatDuration,
   isEnabled,

@@ -2,8 +2,9 @@ import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createWriteToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "../preview/async";
-import { getObjectValue, getPathArg, getTextContent } from "../tool-data";
+import { getPathArg, getTextContent } from "../tool-data";
 import { FullWidthDiffText } from "../diff/index";
+import { createSimpleDiff } from "../diff/structured";
 import { describeDiffShape, diffSummarySeparator, summarizeDiff } from "../diff/summary";
 import { countLabel, formatBytes, metadata, previewFooter, showingFooter } from "../preview/format";
 import { resolvePreviewLanguage } from "../syntax/language";
@@ -12,11 +13,11 @@ import { codePreviewSettings } from "../settings/index";
 import { getShikiStatus, normalizeShikiLanguage, shouldSkipHighlight } from "../syntax/shiki";
 import { escapeControlChars } from "../preview/terminal-text";
 import {
-  createSimpleDiff,
   getWriteDiffSkipReason,
   readExistingFileForPreview,
   shouldSkipWriteDiffBytes,
 } from "../write/diff";
+import { getObjectValue } from "../shared/objects";
 import { createDiffPreviewText } from "./shared/diff-preview";
 import { cachedPreview, previewCacheKey } from "./shared/cache";
 import { countFileLines, renderHighlightedPreviewText } from "./shared/preview-text";
@@ -42,6 +43,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
 
     renderCall(args, theme, context) {
       return previewShell.renderCall(context, theme, (renderContext) => {
+        if (!renderContext) throw new TypeError("Code preview render context is required.");
         const path = getPathArg(args);
         const content = typeof args.content === "string" ? args.content : "";
         const lang = resolvePreviewLanguage({

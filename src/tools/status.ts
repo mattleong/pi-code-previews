@@ -50,7 +50,7 @@ export function formatSkippedCodePreviewToolLines(
   return ALL_CODE_PREVIEW_TOOLS.flatMap((tool) => {
     const status = statuses.get(tool);
     if (status?.state !== "skipped-conflict") return [];
-    return `  ${tool} — owned by ${formatToolOwner(status.owner)}`;
+    return [`  ${tool} — owned by ${formatToolOwner(status.owner)}`];
   });
 }
 

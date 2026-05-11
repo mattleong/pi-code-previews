@@ -42,36 +42,24 @@ export function createSettingsCategoryItems(
   onSettingChange: SettingChangeHandler,
 ): SettingItem[] {
   return [
-    {
-      id: groupId("appearance"),
+    createSettingsGroupItem({
+      name: "appearance",
       label: "Appearance",
       description: "Theme, syntax color, tool frames, timing, line numbers, and path icons.",
       currentValue: summarizeAppearance(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Appearance",
-          description: "Theme, syntax color, tool frames, timing, line numbers, and path icons.",
-          items: () => createSettingListItems(getCurrent(), APPEARANCE_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeAppearance(getCurrent()),
-        }),
-    },
-    {
-      id: groupId("outputPreviews"),
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), APPEARANCE_SETTING_IDS),
+      summary: () => summarizeAppearance(getCurrent()),
+    }),
+    createSettingsGroupItem({
+      name: "outputPreviews",
       label: "Output previews",
       description: "Collapsed output/code visibility and preview lengths by tool family.",
       currentValue: summarizeOutputPreviews(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Output previews",
-          description: "Collapsed output/code visibility and preview lengths by tool family.",
-          items: () => createOutputPreviewItems(getCurrent(), getCurrent, onSettingChange),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeOutputPreviews(getCurrent()),
-        }),
-    },
+      onSettingChange,
+      items: () => createOutputPreviewItems(getCurrent(), getCurrent, onSettingChange),
+      summary: () => summarizeOutputPreviews(getCurrent()),
+    }),
     {
       id: "tools",
       label: "Enabled tools",
@@ -81,37 +69,53 @@ export function createSettingsCategoryItems(
       submenu: (_currentValue, done) =>
         new ToolPreviewSettingsSubmenu(formatSettingValue(getCurrent(), "tools"), done),
     },
-    {
-      id: groupId("warningsSafety"),
+    createSettingsGroupItem({
+      name: "warningsSafety",
       label: "Warnings & safety",
       description: "Preview-only safety warnings for shell commands and secret-looking values.",
       currentValue: summarizeWarnings(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Warnings & safety",
-          description: "Preview-only safety warnings for shell commands and secret-looking values.",
-          items: () => createSettingListItems(getCurrent(), WARNING_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeWarnings(getCurrent()),
-        }),
-    },
-    {
-      id: groupId("advanced"),
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), WARNING_SETTING_IDS),
+      summary: () => summarizeWarnings(getCurrent()),
+    }),
+    createSettingsGroupItem({
+      name: "advanced",
       label: "Advanced",
       description: "Settings file location and restore defaults.",
       currentValue: "file & defaults",
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Advanced",
-          description: "Settings file location and restore defaults.",
-          items: () => createSettingListItems(getCurrent(), ADVANCED_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => "file & defaults",
-        }),
-    },
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), ADVANCED_SETTING_IDS),
+      summary: () => "file & defaults",
+    }),
   ];
+}
+
+type SettingsGroupItemOptions = {
+  name: string;
+  label: string;
+  description: string;
+  currentValue: string;
+  onSettingChange: SettingChangeHandler;
+  items: () => SettingItem[];
+  summary: () => string;
+};
+
+function createSettingsGroupItem(options: SettingsGroupItemOptions): SettingItem {
+  return {
+    id: groupId(options.name),
+    label: options.label,
+    description: options.description,
+    currentValue: options.currentValue,
+    submenu: (_currentValue, done) =>
+      new SettingsGroupSubmenu({
+        title: options.label,
+        description: options.description,
+        items: options.items,
+        onChange: options.onSettingChange,
+        done,
+        summary: options.summary,
+      }),
+  };
 }
 
 export function isSettingsGroupItemId(id: string): boolean {
@@ -124,81 +128,51 @@ function createOutputPreviewItems(
   onSettingChange: SettingChangeHandler,
 ): SettingItem[] {
   return [
-    {
-      id: groupId("readPreviews"),
+    createSettingsGroupItem({
+      name: "readPreviews",
       label: "Read previews",
       description: "File content visibility and collapsed read size.",
       currentValue: summarizeReadPreviews(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Read previews",
-          description: "File content visibility and collapsed read size.",
-          items: () => createSettingListItems(getCurrent(), READ_PREVIEW_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeReadPreviews(getCurrent()),
-        }),
-    },
-    {
-      id: groupId("writePreviews"),
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), READ_PREVIEW_SETTING_IDS),
+      summary: () => summarizeReadPreviews(getCurrent()),
+    }),
+    createSettingsGroupItem({
+      name: "writePreviews",
       label: "Write previews",
       description: "Write content/diff visibility and collapsed write content size.",
       currentValue: summarizeWritePreviews(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Write previews",
-          description: "Write content/diff visibility and collapsed write content size.",
-          items: () => createSettingListItems(getCurrent(), WRITE_PREVIEW_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeWritePreviews(getCurrent()),
-        }),
-    },
-    {
-      id: groupId("diffPreviews"),
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), WRITE_PREVIEW_SETTING_IDS),
+      summary: () => summarizeWritePreviews(getCurrent()),
+    }),
+    createSettingsGroupItem({
+      name: "diffPreviews",
       label: "Edit diff previews",
       description: "Edit diff visibility, backgrounds, word emphasis, and collapsed size.",
       currentValue: summarizeDiffPreviews(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Edit diff previews",
-          description: "Edit diff visibility, backgrounds, word emphasis, and collapsed size.",
-          items: () => createSettingListItems(getCurrent(), DIFF_PREVIEW_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeDiffPreviews(getCurrent()),
-        }),
-    },
-    {
-      id: groupId("searchListPreviews"),
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), DIFF_PREVIEW_SETTING_IDS),
+      summary: () => summarizeDiffPreviews(getCurrent()),
+    }),
+    createSettingsGroupItem({
+      name: "searchListPreviews",
       label: "Search/list previews",
       description: "Grep, find, and ls result visibility plus collapsed sizes.",
       currentValue: summarizeSearchListPreviews(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Search/list previews",
-          description: "Grep, find, and ls result visibility plus collapsed sizes.",
-          items: () => createSettingListItems(getCurrent(), SEARCH_LIST_PREVIEW_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeSearchListPreviews(getCurrent()),
-        }),
-    },
-    {
-      id: groupId("bashPreviews"),
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), SEARCH_LIST_PREVIEW_SETTING_IDS),
+      summary: () => summarizeSearchListPreviews(getCurrent()),
+    }),
+    createSettingsGroupItem({
+      name: "bashPreviews",
       label: "Bash previews",
       description: "Successful bash output visibility.",
       currentValue: summarizeBashPreviews(current),
-      submenu: (_currentValue, done) =>
-        new SettingsGroupSubmenu({
-          title: "Bash previews",
-          description: "Successful bash output visibility.",
-          items: () => createSettingListItems(getCurrent(), BASH_PREVIEW_SETTING_IDS),
-          onChange: onSettingChange,
-          done,
-          summary: () => summarizeBashPreviews(getCurrent()),
-        }),
-    },
+      onSettingChange,
+      items: () => createSettingListItems(getCurrent(), BASH_PREVIEW_SETTING_IDS),
+      summary: () => summarizeBashPreviews(getCurrent()),
+    }),
   ];
 }
 

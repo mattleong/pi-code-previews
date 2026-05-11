@@ -2,7 +2,8 @@ import type { BashToolOptions, ExtensionAPI } from "@earendil-works/pi-coding-ag
 import { createBashToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { getBashWarnings } from "../warnings/bash";
-import { getObjectValue, getTextContent, isTruncated } from "../tool-data";
+import { getTextContent, isTruncated } from "../tool-data";
+import { getObjectValue } from "../shared/objects";
 import {
   countLabel,
   previewFooter,
@@ -27,6 +28,7 @@ export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOp
 
     renderCall(args, theme, context) {
       return previewShell.renderCall(context, theme, (renderContext) => {
+        if (!renderContext) throw new TypeError("Code preview render context is required.");
         const command = typeof args.command === "string" ? args.command : "";
         const timeout =
           typeof args.timeout === "number" ? theme.fg("muted", ` (timeout ${args.timeout}s)`) : "";

@@ -1,3 +1,4 @@
+import { splitLinesLimited } from "../../shared/text-lines";
 import {
   changedLineTokens,
   indexedChangedLine,
@@ -101,21 +102,4 @@ function addChangeBlockTelemetry(block: ParsedDiffLine[], telemetry: WordEmphasi
     if (shouldEmphasizeChangedPair(ranges, pair.confidence)) telemetry.emphasizedPairs++;
     else telemetry.skippedPairs++;
   }
-}
-
-function splitLinesLimited(text: string, limit: number): string[] {
-  const max = Math.max(0, Math.floor(limit));
-  if (Number.isNaN(max) || max <= 0) return [];
-  const lines: string[] = [];
-  let start = 0;
-  while (start <= text.length && lines.length < max) {
-    const newline = text.indexOf("\n", start);
-    if (newline < 0) {
-      lines.push(text.slice(start));
-      break;
-    }
-    lines.push(text.slice(start, newline));
-    start = newline + 1;
-  }
-  return lines;
 }

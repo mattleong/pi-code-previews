@@ -1,6 +1,10 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { codePreviewSettings, type CodePreviewSettings } from "../settings/index";
+import {
+  cloneCodePreviewSettings,
+  codePreviewSettings,
+  type CodePreviewSettings,
+} from "../settings/index";
 
 export function renderComponent(component: Component, width = 100): string {
   return component.render(width).join("\n");
@@ -15,7 +19,7 @@ export function delay(ms: number): Promise<void> {
 }
 
 export function cloneCodePreviewSettingsForTest(): CodePreviewSettings {
-  return { ...codePreviewSettings, tools: [...codePreviewSettings.tools] };
+  return cloneCodePreviewSettings(codePreviewSettings);
 }
 
 export function testTheme(): Theme {

@@ -112,8 +112,10 @@ Optional defaults can be set before pi starts:
 
 ```bash
 CODE_PREVIEW_THEME=github-dark
+CODE_PREVIEW_DIFF_INTENSITY=subtle # subtle, medium, or off
 CODE_PREVIEW_READ_LINES=20
 CODE_PREVIEW_READ_CONTENT=false # true/false, on/off, yes/no, or 1/0
+CODE_PREVIEW_READ_LINE_NUMBERS=true # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_WRITE_CONTENT=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_WRITE_LINES=20
 CODE_PREVIEW_EDIT_DIFF=false # true/false, on/off, yes/no, or 1/0
@@ -126,7 +128,10 @@ CODE_PREVIEW_GREP_RESULTS=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_FIND_RESULTS=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_LS_RESULTS=false # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_BASH_RESULTS=false # true/false, on/off, yes/no, or 1/0
+CODE_PREVIEW_BASH_WARNINGS=true # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_PATH_LIST_LINES=40
+CODE_PREVIEW_SYNTAX=true # true/false, on/off, yes/no, or 1/0
+CODE_PREVIEW_SECRET_WARNINGS=true # true/false, on/off, yes/no, or 1/0
 CODE_PREVIEW_PATH_ICONS=unicode # unicode, nerd, or off
 CODE_PREVIEW_TOOLS=write,edit,grep # comma/space list, all, or none
 ```
@@ -137,7 +142,7 @@ When content/result/diff previews are disabled, collapsed successful output or c
 
 `CODE_PREVIEW_TOOL_CALL_BACKGROUND=off` removes Pi's default colored tool box background for code-preview-owned tools. `CODE_PREVIEW_TOOL_CALL_BACKGROUND=border` replaces the background with a border-only frame. This setting changes the tool render shell, so it takes effect after `/reload`.
 
-`CODE_PREVIEW_TOOL_CALL_TIMING=false` hides tool durations. When enabled, durations appear in the result footer unless `toolCallBackground` is `border`; in border mode they appear in the bottom-right border corner.
+`CODE_PREVIEW_TOOL_CALL_TIMING=false` hides tool durations. When enabled, durations appear in the result footer unless `toolCallBackground` is `border`; in border mode they appear in the top-right border corner.
 
 ## Extension author integration
 

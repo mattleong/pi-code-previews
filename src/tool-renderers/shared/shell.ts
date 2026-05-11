@@ -27,9 +27,9 @@ interface PreviewRenderContext<TState, TArgs> {
 export interface CodePreviewToolShell {
   renderShell: "default" | "self";
   renderCall<TState, TArgs>(
-    context: PreviewRenderContext<TState, TArgs>,
+    context: PreviewRenderContext<TState, TArgs> | undefined,
     theme: Theme,
-    render: (context: PreviewRenderContext<TState, TArgs>) => Component,
+    render: (context: PreviewRenderContext<TState, TArgs> | undefined) => Component,
   ): Component;
   renderResult<TState, TArgs>(
     context: PreviewRenderContext<TState, TArgs>,
@@ -56,17 +56,18 @@ export function codePreviewRenderShell(
 
 function renderCodePreviewCall<TState, TArgs>(
   mode: ToolCallBackgroundMode,
-  context: PreviewRenderContext<TState, TArgs>,
+  context: PreviewRenderContext<TState, TArgs> | undefined,
   theme: Theme,
-  render: (context: PreviewRenderContext<TState, TArgs>) => Component,
+  render: (context: PreviewRenderContext<TState, TArgs> | undefined) => Component,
 ): Component {
+  if (!context) return render(context);
   if (mode !== "border") {
-    if (!context) return render(context as PreviewRenderContext<TState, TArgs>);
     const state = timingState(context);
     if (
-      context?.isPartial === true &&
+      context.isPartial === true &&
+      state &&
       isToolCallTimingOnlyRender(state) &&
-      state?.codePreviewTimingCallComponent
+      state.codePreviewTimingCallComponent
     ) {
       updateToolCallTiming(context, { animate: false, formatLabel: false });
       return state.codePreviewTimingCallComponent;
@@ -88,7 +89,7 @@ function renderCodePreviewCall<TState, TArgs>(
     return wrapped;
   }
   const state = borderState(context);
-  const timingOnly = context?.isPartial === true && isToolCallTimingOnlyRender(state);
+  const timingOnly = context.isPartial === true && isToolCallTimingOnlyRender(state);
   const previousShell = state.codePreviewBorderShell;
   const reuseShell =
     previousShell instanceof BorderedToolCall && state.codePreviewBorderTheme === theme;
@@ -123,7 +124,7 @@ function renderCodePreviewResult<TState, TArgs>(
     return renderTimedResultFooter(context, theme, render, timing?.label);
   }
   const state = borderState(context);
-  const timingOnly = context?.isPartial === true && isToolCallTimingOnlyRender(state);
+  const timingOnly = context.isPartial === true && isToolCallTimingOnlyRender(state);
   const reusedResult = timingOnly ? state.codePreviewBorderResultComponent : undefined;
   const resultComponent =
     reusedResult ??

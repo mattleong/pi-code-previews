@@ -1,4 +1,4 @@
-import { getObjectValue } from "./objects";
+import { getObjectValue } from "../shared/objects";
 
 export function getPathArg(args: unknown): string {
   const path = getObjectValue(args, "path") ?? getObjectValue(args, "file_path");

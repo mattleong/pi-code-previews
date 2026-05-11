@@ -1,5 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { countLabel } from "../preview/format";
+import { forEachRawTextLine } from "../shared/text-lines";
 
 export type DiffSummary = {
   additions: number;
@@ -50,7 +51,7 @@ export function summarizeDiff(diff: string): DiffSummary {
     groupRemovals = 0;
   }
 
-  forEachSplitLine(diff, (line) => {
+  forEachRawTextLine(diff, (line) => {
     totalLines++;
     const isAddition = line.startsWith("+") && !line.startsWith("+++");
     const isRemoval = line.startsWith("-") && !line.startsWith("---");
@@ -76,17 +77,4 @@ export function summarizeDiff(diff: string): DiffSummary {
     totalLines,
     hunks,
   };
-}
-
-function forEachSplitLine(text: string, callback: (line: string) => void): void {
-  let start = 0;
-  while (start <= text.length) {
-    const newline = text.indexOf("\n", start);
-    if (newline < 0) {
-      callback(text.slice(start));
-      break;
-    }
-    callback(text.slice(start, newline));
-    start = newline + 1;
-  }
 }

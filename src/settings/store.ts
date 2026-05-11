@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { isFileNotFound } from "../shared/errors";
 import {
   CODE_PREVIEW_SETTING_KEYS,
   codePreviewSettings,
@@ -69,8 +70,4 @@ export function extractCodePreviewSettings(data: unknown): Record<string, unknow
 
 function hasDirectCodePreviewSettings(object: Record<string, unknown>): boolean {
   return CODE_PREVIEW_SETTING_KEYS.some((key) => key in object);
-}
-
-function isFileNotFound(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
