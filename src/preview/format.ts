@@ -1,6 +1,6 @@
 import type { AppKeybinding, Theme } from "@earendil-works/pi-coding-agent";
 import { getKeybindings } from "@earendil-works/pi-tui";
-import { forEachRawTextLine } from "../shared/text-lines";
+import { countPreviewTextLines, forEachPreviewTextLine } from "./line-counts";
 
 export type PreviewLineEntry<T> =
   | { kind: "line"; line: T; index: number }
@@ -72,17 +72,17 @@ export function selectPreviewTextLines(
   text: string,
   limit: number,
 ): { entries: Array<PreviewLineEntry<string>>; shown: number; hidden: number; total: number } {
-  const total = countTrimmedTextLines(text);
+  const total = countPreviewTextLines(text);
   if (total === 0) return { entries: [], shown: 0, hidden: 0, total: 0 };
   const plan = previewWindowPlan(total, limit);
   if (plan.kind === "all") {
     const entries: Array<PreviewLineEntry<string>> = [];
-    forEachTrimmedTextLine(text, (line, index) => entries.push({ kind: "line", line, index }));
+    forEachPreviewTextLine(text, (line, index) => entries.push({ kind: "line", line, index }));
     return { entries, shown: plan.shown, hidden: plan.hidden, total };
   }
   if (plan.kind === "head") {
     const entries: Array<PreviewLineEntry<string>> = [];
-    forEachTrimmedTextLine(text, (line, index) => {
+    forEachPreviewTextLine(text, (line, index) => {
       if (index < limit) entries.push({ kind: "line", line, index });
     });
     return { entries, shown: plan.shown, hidden: plan.hidden, total };
@@ -90,7 +90,7 @@ export function selectPreviewTextLines(
   const tailStart = total - plan.tail;
   const entries: Array<PreviewLineEntry<string>> = [];
   let markerAdded = false;
-  forEachTrimmedTextLine(text, (line, index) => {
+  forEachPreviewTextLine(text, (line, index) => {
     if (index < plan.head) {
       entries.push({ kind: "line", line, index });
       return;
@@ -158,38 +158,6 @@ export function showingFooter(theme: Theme, shown: number, total: number, label:
 
 function formatKeys(keys: string[]): string {
   return keys.join("/");
-}
-
-function countTrimmedTextLines(text: string): number {
-  let total = 0;
-  let pendingEmpty = 0;
-  forEachRawTextLine(text, (line) => {
-    if (line === "") pendingEmpty++;
-    else {
-      total += pendingEmpty + 1;
-      pendingEmpty = 0;
-    }
-  });
-  return total;
-}
-
-function forEachTrimmedTextLine(
-  text: string,
-  callback: (line: string, index: number) => void,
-): void {
-  let index = 0;
-  let pendingEmpty = 0;
-  forEachRawTextLine(text, (line) => {
-    if (line === "") {
-      pendingEmpty++;
-      return;
-    }
-    while (pendingEmpty > 0) {
-      callback("", index++);
-      pendingEmpty--;
-    }
-    callback(line, index++);
-  });
 }
 
 export function previewFooter(theme: Theme, text: string): string {

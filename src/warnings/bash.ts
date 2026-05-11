@@ -1,4 +1,4 @@
-export interface BashWarning {
+interface BashWarning {
   label: string;
   pattern: RegExp;
 }

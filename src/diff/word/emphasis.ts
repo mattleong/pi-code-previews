@@ -31,10 +31,6 @@ export function wordEmphasisTokens(text: string): WordEmphasisToken[] {
   return tokenizeForWordEmphasis(text);
 }
 
-export function wordEmphasisTokenValues(text: string): string[] {
-  return wordEmphasisTokens(text).map((token) => token.value);
-}
-
 export function changedRanges(before: string, after: string): WordChangeRanges {
   return stripWordChangeConfidence(changedRangesWithConfidence(before, after));
 }
@@ -48,17 +44,6 @@ export function changedRangesWithConfidence(
     after,
     wordEmphasisTokens(before),
     wordEmphasisTokens(after),
-  );
-}
-
-export function changedRangesForTokens(
-  before: string,
-  after: string,
-  beforeTokens: WordEmphasisToken[],
-  afterTokens: WordEmphasisToken[],
-): WordChangeRanges {
-  return stripWordChangeConfidence(
-    changedRangesForTokensWithConfidence(before, after, beforeTokens, afterTokens),
   );
 }
 

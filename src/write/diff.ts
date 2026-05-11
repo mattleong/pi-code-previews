@@ -58,7 +58,7 @@ export function getWriteDiffSkipReason(before: unknown, nextContent: string): st
   return formatSkipReason(reason, byteLength, maxBytes);
 }
 
-export function shouldSkipWriteDiffText(text: string): boolean {
+function shouldSkipWriteDiffText(text: string): boolean {
   return Buffer.byteLength(text, "utf8") > MAX_WRITE_DIFF_BYTES;
 }
 

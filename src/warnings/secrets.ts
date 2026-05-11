@@ -1,4 +1,4 @@
-export interface SecretWarning {
+interface SecretWarning {
   label: string;
   pattern: RegExp;
 }

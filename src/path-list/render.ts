@@ -1,14 +1,24 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { pathIcon } from "../paths/icons";
-import { codePreviewSettings } from "../settings/index";
+import { codePreviewSettings, type PathIconMode } from "../settings/index";
 import { renderDisplayPath } from "../paths/display";
 import { escapeControlChars } from "../preview/terminal-text";
 
-export function renderPathListLines(output: string, cwd: string, theme: Theme): string[] {
+export interface PathListRenderOptions {
+  iconMode?: PathIconMode;
+}
+
+export function renderPathListLines(
+  output: string,
+  cwd: string,
+  theme: Theme,
+  options: PathListRenderOptions = {},
+): string[] {
+  const iconMode = options.iconMode ?? codePreviewSettings.pathIcons;
   const lines = output.split("\n");
   const pathLines = lines.filter((line) => line && !(line.startsWith("[") && line.endsWith("]")));
   const shouldTree = pathLines.some((line) => line.includes("/"));
-  if (!shouldTree) return lines.map((line) => renderPathListLine(line, cwd, theme));
+  if (!shouldTree) return lines.map((line) => renderPathListLine(line, cwd, theme, iconMode));
 
   const rendered: string[] = [];
   const seenDirs = new Set<string>();
@@ -21,7 +31,7 @@ export function renderPathListLines(output: string, cwd: string, theme: Theme): 
       rendered.push(theme.fg("warning", escapeControlChars(line)));
       continue;
     }
-    renderTreePath(line, theme, seenDirs, rendered);
+    renderTreePath(line, theme, iconMode, seenDirs, rendered);
   }
   return rendered;
 }
@@ -29,6 +39,7 @@ export function renderPathListLines(output: string, cwd: string, theme: Theme): 
 function renderTreePath(
   path: string,
   theme: Theme,
+  iconMode: PathIconMode,
   seenDirs: Set<string>,
   rendered: string[],
 ): void {
@@ -44,17 +55,23 @@ function renderTreePath(
     if (!isLeaf || isDir) {
       if (!seenDirs.has(key)) {
         seenDirs.add(key);
-        rendered.push(renderTreeEntry(part, true, indent, theme));
+        rendered.push(renderTreeEntry(part, true, indent, theme, iconMode));
       }
     } else {
-      rendered.push(renderTreeEntry(part, false, indent, theme));
+      rendered.push(renderTreeEntry(part, false, indent, theme, iconMode));
     }
     prefix = key;
   }
 }
 
-function renderTreeEntry(part: string, isDirectory: boolean, indent: string, theme: Theme): string {
-  const icon = pathIcon(part, isDirectory, codePreviewSettings.pathIcons);
+function renderTreeEntry(
+  part: string,
+  isDirectory: boolean,
+  indent: string,
+  theme: Theme,
+  iconMode: PathIconMode,
+): string {
+  const icon = pathIcon(part, isDirectory, iconMode);
   const iconText = icon ? `${indent}${icon}` : indent;
   const gap = icon ? " " : "";
   const label = isDirectory
@@ -63,13 +80,18 @@ function renderTreeEntry(part: string, isDirectory: boolean, indent: string, the
   return `${theme.fg("dim", iconText)}${gap}${label}`;
 }
 
-function renderPathListLine(line: string, cwd: string, theme: Theme): string {
+function renderPathListLine(
+  line: string,
+  cwd: string,
+  theme: Theme,
+  iconMode: PathIconMode,
+): string {
   if (!line) return "";
   if (line.startsWith("[") && line.endsWith("]"))
     return theme.fg("warning", escapeControlChars(line));
   const prefix = line.match(/^\s*/)?.[0] ?? "";
   const body = line.slice(prefix.length);
-  const icon = pathIcon(body, body.endsWith("/"), codePreviewSettings.pathIcons);
+  const icon = pathIcon(body, body.endsWith("/"), iconMode);
   const iconText = icon ? prefix + icon : prefix;
   const gap = icon ? " " : "";
   return `${theme.fg("dim", iconText)}${gap}${renderDisplayPath(body, cwd, theme, body)}`;

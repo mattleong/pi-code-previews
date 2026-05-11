@@ -8,16 +8,21 @@ export function formatDisplayPath(path: string, cwd: string): string {
 
   if (isAbsolute(path)) {
     const fromCwd = relative(cwd, path);
-    if (fromCwd && !fromCwd.startsWith("..") && !isAbsolute(fromCwd)) return fromCwd;
+    if (fromCwd && !isParentRelativePath(fromCwd) && !isAbsolute(fromCwd)) return fromCwd;
     if (!fromCwd) return ".";
 
     const home = homedir();
     const fromHome = relative(home, path);
-    if (fromHome && !fromHome.startsWith("..") && !isAbsolute(fromHome)) return `~/${fromHome}`;
+    if (fromHome && !isParentRelativePath(fromHome) && !isAbsolute(fromHome))
+      return `~/${fromHome}`;
     if (!fromHome) return "~";
   }
 
   return path;
+}
+
+function isParentRelativePath(path: string): boolean {
+  return path === ".." || path.startsWith("../") || path.startsWith("..\\");
 }
 
 export function renderDisplayPath(

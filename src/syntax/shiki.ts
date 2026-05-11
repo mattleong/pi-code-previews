@@ -16,8 +16,7 @@ let shikiStatusVersion = 0;
 let renderCacheChars = 0;
 const loadedShikiLanguages = new Set<string>();
 const pendingShikiLanguages = new Set<string>();
-const renderCache = new Map<string, string[]>();
-const renderCacheSizes = new Map<string, number>();
+const renderCache = new Map<string, { value: string[]; size: number }>();
 const languageLoadCallbacks = new Map<string, Set<() => void>>();
 const highlighterReadyCallbacks = new Set<() => void>();
 const shikiThemeTypes = new Map(bundledThemesInfo.map((theme) => [theme.id, theme.type]));
@@ -116,7 +115,7 @@ export function renderWithShiki(
   if (cached) {
     renderCache.delete(cacheKey);
     renderCache.set(cacheKey, cached);
-    return cached;
+    return cached.value;
   }
   try {
     if (!loadedShikiLanguages.has(shikiLang)) requestLanguageLoad(shikiLang, invalidate);
@@ -160,8 +159,7 @@ export function getShikiStatus(): {
 
 function cacheRendered(key: string, value: string[]): void {
   const size = renderedCharSize(value);
-  renderCache.set(key, value);
-  renderCacheSizes.set(key, size);
+  renderCache.set(key, { value, size });
   renderCacheChars += size;
   while (renderCache.size > CACHE_LIMIT || renderCacheChars > CACHE_CHAR_LIMIT) {
     const first = renderCache.keys().next().value as string;
@@ -170,14 +168,13 @@ function cacheRendered(key: string, value: string[]): void {
 }
 
 function deleteCachedRender(key: string): void {
+  const cached = renderCache.get(key);
   renderCache.delete(key);
-  renderCacheChars -= renderCacheSizes.get(key) ?? 0;
-  renderCacheSizes.delete(key);
+  renderCacheChars -= cached?.size ?? 0;
 }
 
 function clearRenderCache(): void {
   renderCache.clear();
-  renderCacheSizes.clear();
   renderCacheChars = 0;
 }
 

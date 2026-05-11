@@ -9,13 +9,13 @@ import {
   type SettingItem,
 } from "@earendil-works/pi-tui";
 import { bundledThemes } from "shiki";
-import { formatToolsSettingValue } from "../index";
 import { SETTINGS_GROUP_ID_PREFIX } from "./registry";
 import {
   ALL_CODE_PREVIEW_TOOLS,
   parseCodePreviewTools,
   type CodePreviewToolName,
 } from "../../tools/names";
+import { formatToolsSettingValue } from "../../tools/policy";
 import {
   formatToolOwner,
   getCodePreviewToolStatuses,

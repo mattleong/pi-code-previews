@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { getBuiltinToolOptions, type BuiltinToolOptions } from "../tools/builtin-options";
-import { TOOL_RENDERERS_BY_NAME } from "./registry";
+import { TOOL_RENDERER_REGISTRATIONS } from "./registry";
 import { ALL_CODE_PREVIEW_TOOLS, type CodePreviewToolName } from "../tools/names";
 import { getEnabledCodePreviewTools } from "../tools/selection";
 import { resetCodePreviewToolStatuses, setCodePreviewToolStatus } from "../tools/status";
@@ -51,7 +51,7 @@ function registerToolRenderer(
   cwd: string,
   options: BuiltinToolOptions,
 ): void {
-  TOOL_RENDERERS_BY_NAME.get(tool)?.register(pi, cwd, options);
+  TOOL_RENDERER_REGISTRATIONS[tool](pi, cwd, options);
 }
 
 function syncActiveCodePreviewTools(

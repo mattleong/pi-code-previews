@@ -10,7 +10,7 @@ import { normalizeShikiLanguage, shouldSkipHighlight } from "../syntax/shiki";
 import { escapeControlChars } from "../preview/terminal-text";
 import { renderHighlightedPreviewText } from "./shared/preview-text";
 import { withSecretWarning } from "./shared/secret-preview";
-import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "./shared/shell";
+import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "../preview/tool-shell";
 
 export function registerRead(pi: ExtensionAPI, cwd: string, options?: ReadToolOptions) {
   const originalRead = createReadToolDefinition(cwd, options);

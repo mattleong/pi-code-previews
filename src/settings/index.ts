@@ -2,6 +2,11 @@ import { bundledThemes } from "shiki";
 import { parsePositiveInteger, positiveEnvInteger } from "../config/env";
 import { getObjectValue } from "../shared/objects";
 import {
+  formatToolsSettingValue,
+  getRequiredCodePreviewTools,
+  orderCodePreviewTools,
+} from "../tools/policy";
+import {
   ALL_CODE_PREVIEW_TOOLS,
   isCodePreviewToolName,
   parseCodePreviewTools,
@@ -83,10 +88,6 @@ export function cloneCodePreviewSettings(settings: CodePreviewSettings): CodePre
   return { ...settings, tools: [...settings.tools] };
 }
 
-export function formatToolsSettingValue(tools: readonly CodePreviewToolName[]): string {
-  return tools.length ? tools.join(", ") : "none";
-}
-
 export function formatSettingValue(
   settings: CodePreviewSettings,
   id: CodePreviewEditableSettingId,
@@ -102,48 +103,47 @@ export function normalizeSettings(
   data: unknown,
   fallback: CodePreviewSettings = codePreviewSettings,
 ): CodePreviewSettings {
-  const shikiTheme = getObjectValue(data, "shikiTheme");
-  const diffIntensity = getObjectValue(data, "diffIntensity");
-  const wordEmphasis = getObjectValue(data, "wordEmphasis");
-  const toolCallBackground = getObjectValue(data, "toolCallBackground");
-  const toolCallTiming = getObjectValue(data, "toolCallTiming");
-  const readContentPreview = getObjectValue(data, "readContentPreview");
-  const writeContentPreview = getObjectValue(data, "writeContentPreview");
-  const editDiffPreview = getObjectValue(data, "editDiffPreview");
-  const grepResultPreview = getObjectValue(data, "grepResultPreview");
-  const findResultPreview = getObjectValue(data, "findResultPreview");
-  const lsResultPreview = getObjectValue(data, "lsResultPreview");
-  const readLineNumbers = getObjectValue(data, "readLineNumbers");
-  const bashResultPreview = getObjectValue(data, "bashResultPreview");
-  const bashWarnings = getObjectValue(data, "bashWarnings");
-  const syntaxHighlighting = getObjectValue(data, "syntaxHighlighting");
-  const secretWarnings = getObjectValue(data, "secretWarnings");
-  const pathIcons = getObjectValue(data, "pathIcons");
   return withRequiredToolRenderers({
-    shikiTheme: isBundledThemeName(shikiTheme) ? shikiTheme : fallback.shikiTheme,
-    diffIntensity: isDiffBackgroundIntensity(diffIntensity)
-      ? diffIntensity
-      : fallback.diffIntensity,
-    wordEmphasis: isDiffWordEmphasis(wordEmphasis) ? wordEmphasis : fallback.wordEmphasis,
+    shikiTheme: coerceSetting(
+      getObjectValue(data, "shikiTheme"),
+      fallback.shikiTheme,
+      isBundledThemeName,
+    ),
+    diffIntensity: coerceSetting(
+      getObjectValue(data, "diffIntensity"),
+      fallback.diffIntensity,
+      isDiffBackgroundIntensity,
+    ),
+    wordEmphasis: coerceSetting(
+      getObjectValue(data, "wordEmphasis"),
+      fallback.wordEmphasis,
+      isDiffWordEmphasis,
+    ),
     toolCallBackground: coerceToolCallBackgroundMode(
-      toolCallBackground,
+      getObjectValue(data, "toolCallBackground"),
       fallback.toolCallBackground,
     ),
-    toolCallTiming: typeof toolCallTiming === "boolean" ? toolCallTiming : fallback.toolCallTiming,
+    toolCallTiming: coerceBoolean(getObjectValue(data, "toolCallTiming"), fallback.toolCallTiming),
     readCollapsedLines: coerceNumber(
       getObjectValue(data, "readCollapsedLines"),
       fallback.readCollapsedLines,
     ),
-    readContentPreview:
-      typeof readContentPreview === "boolean" ? readContentPreview : fallback.readContentPreview,
-    writeContentPreview:
-      typeof writeContentPreview === "boolean" ? writeContentPreview : fallback.writeContentPreview,
+    readContentPreview: coerceBoolean(
+      getObjectValue(data, "readContentPreview"),
+      fallback.readContentPreview,
+    ),
+    writeContentPreview: coerceBoolean(
+      getObjectValue(data, "writeContentPreview"),
+      fallback.writeContentPreview,
+    ),
     writeCollapsedLines: coerceNumber(
       getObjectValue(data, "writeCollapsedLines"),
       fallback.writeCollapsedLines,
     ),
-    editDiffPreview:
-      typeof editDiffPreview === "boolean" ? editDiffPreview : fallback.editDiffPreview,
+    editDiffPreview: coerceBoolean(
+      getObjectValue(data, "editDiffPreview"),
+      fallback.editDiffPreview,
+    ),
     editCollapsedLines: coerceEditPreviewLines(
       getObjectValue(data, "editCollapsedLines"),
       fallback.editCollapsedLines,
@@ -152,25 +152,37 @@ export function normalizeSettings(
       getObjectValue(data, "grepCollapsedLines"),
       fallback.grepCollapsedLines,
     ),
-    grepResultPreview:
-      typeof grepResultPreview === "boolean" ? grepResultPreview : fallback.grepResultPreview,
-    findResultPreview:
-      typeof findResultPreview === "boolean" ? findResultPreview : fallback.findResultPreview,
-    lsResultPreview:
-      typeof lsResultPreview === "boolean" ? lsResultPreview : fallback.lsResultPreview,
+    grepResultPreview: coerceBoolean(
+      getObjectValue(data, "grepResultPreview"),
+      fallback.grepResultPreview,
+    ),
+    findResultPreview: coerceBoolean(
+      getObjectValue(data, "findResultPreview"),
+      fallback.findResultPreview,
+    ),
+    lsResultPreview: coerceBoolean(
+      getObjectValue(data, "lsResultPreview"),
+      fallback.lsResultPreview,
+    ),
     pathListCollapsedLines: coerceNumber(
       getObjectValue(data, "pathListCollapsedLines"),
       fallback.pathListCollapsedLines,
     ),
-    readLineNumbers:
-      typeof readLineNumbers === "boolean" ? readLineNumbers : fallback.readLineNumbers,
-    bashResultPreview:
-      typeof bashResultPreview === "boolean" ? bashResultPreview : fallback.bashResultPreview,
-    bashWarnings: typeof bashWarnings === "boolean" ? bashWarnings : fallback.bashWarnings,
-    syntaxHighlighting:
-      typeof syntaxHighlighting === "boolean" ? syntaxHighlighting : fallback.syntaxHighlighting,
-    secretWarnings: typeof secretWarnings === "boolean" ? secretWarnings : fallback.secretWarnings,
-    pathIcons: isPathIconMode(pathIcons) ? pathIcons : fallback.pathIcons,
+    readLineNumbers: coerceBoolean(
+      getObjectValue(data, "readLineNumbers"),
+      fallback.readLineNumbers,
+    ),
+    bashResultPreview: coerceBoolean(
+      getObjectValue(data, "bashResultPreview"),
+      fallback.bashResultPreview,
+    ),
+    bashWarnings: coerceBoolean(getObjectValue(data, "bashWarnings"), fallback.bashWarnings),
+    syntaxHighlighting: coerceBoolean(
+      getObjectValue(data, "syntaxHighlighting"),
+      fallback.syntaxHighlighting,
+    ),
+    secretWarnings: coerceBoolean(getObjectValue(data, "secretWarnings"), fallback.secretWarnings),
+    pathIcons: coerceSetting(getObjectValue(data, "pathIcons"), fallback.pathIcons, isPathIconMode),
     tools: coerceTools(getObjectValue(data, "tools"), fallback.tools),
   });
 }
@@ -327,6 +339,14 @@ function envPathIconMode(name: string, fallback: PathIconMode): PathIconMode {
   return isPathIconMode(value) ? value : fallback;
 }
 
+function coerceSetting<T>(value: unknown, fallback: T, isValid: (value: unknown) => value is T): T {
+  return isValid(value) ? value : fallback;
+}
+
+function coerceBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function coerceNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.floor(value)
@@ -366,32 +386,12 @@ function coerceTools(value: unknown, fallback: CodePreviewToolName[]): CodePrevi
   return [...new Set(tools)];
 }
 
-export function getRequiredCodePreviewTools(
-  settings: CodePreviewSettings = codePreviewSettings,
-): Set<CodePreviewToolName> {
-  const tools = new Set<CodePreviewToolName>();
-  if (!settings.readContentPreview) tools.add("read");
-  if (!settings.writeContentPreview) tools.add("write");
-  if (!settings.editDiffPreview) tools.add("edit");
-  if (!settings.grepResultPreview) tools.add("grep");
-  if (!settings.findResultPreview) tools.add("find");
-  if (!settings.lsResultPreview) tools.add("ls");
-  if (
-    !settings.bashResultPreview ||
-    !settings.grepResultPreview ||
-    !settings.findResultPreview ||
-    !settings.lsResultPreview
-  )
-    tools.add("bash");
-  return tools;
-}
-
 function withRequiredToolRenderers(settings: CodePreviewSettings): CodePreviewSettings {
   const tools = new Set(settings.tools);
   for (const tool of getRequiredCodePreviewTools(settings)) tools.add(tool);
   return {
     ...settings,
-    tools: ALL_CODE_PREVIEW_TOOLS.filter((tool) => tools.has(tool)),
+    tools: orderCodePreviewTools(tools),
   };
 }
 

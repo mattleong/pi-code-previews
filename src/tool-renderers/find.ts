@@ -5,7 +5,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { renderDisplayPath } from "../paths/display";
 import { codePreviewSettings } from "../settings/index";
 import { escapeControlChars } from "../preview/terminal-text";
-import { createCodePreviewToolShell } from "./shared/shell";
+import { createCodePreviewToolShell } from "../preview/tool-shell";
 import { renderPathListResult } from "./shared/path-list-result";
 
 export function registerFind(pi: ExtensionAPI, cwd: string) {
@@ -36,6 +36,7 @@ export function registerFind(pi: ExtensionAPI, cwd: string) {
           emptyMarker: "No files found matching pattern",
           emptyLabel: (output) => output || "No files found",
           footerNoun: "paths",
+          iconMode: codePreviewSettings.pathIcons,
         }),
       );
     },

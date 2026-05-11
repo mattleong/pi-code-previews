@@ -8,13 +8,6 @@ import { codePreviewSettings } from "../../settings/index";
 import { renderHighlightedText } from "../../syntax/shiki";
 import { escapeControlChars } from "../../preview/terminal-text";
 
-export function countFileLines(content: string): number {
-  if (!content) return 0;
-  const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const withoutFinalTerminator = normalized.endsWith("\n") ? normalized.slice(0, -1) : normalized;
-  return withoutFinalTerminator.split("\n").length;
-}
-
 export function renderHighlightedPreviewText(
   text: string,
   limit: number,

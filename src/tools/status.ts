@@ -1,6 +1,6 @@
 import type { SourceInfo } from "@earendil-works/pi-coding-agent";
-import { formatToolsSettingValue } from "../settings/index";
 import { ALL_CODE_PREVIEW_TOOLS, type CodePreviewToolName } from "./names";
+import { formatToolsSettingValue } from "./policy";
 
 export type CodePreviewToolStatus =
   | { state: "pending" }

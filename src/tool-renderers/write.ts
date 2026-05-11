@@ -6,6 +6,7 @@ import { getPathArg, getTextContent } from "../tool-data";
 import { FullWidthDiffText } from "../diff/index";
 import { createSimpleDiff } from "../diff/structured";
 import { describeDiffShape, diffSummarySeparator, summarizeDiff } from "../diff/summary";
+import { countContentLines } from "../preview/line-counts";
 import { countLabel, formatBytes, metadata, previewFooter, showingFooter } from "../preview/format";
 import { resolvePreviewLanguage } from "../syntax/language";
 import { renderDisplayPath } from "../paths/display";
@@ -18,11 +19,11 @@ import {
   shouldSkipWriteDiffBytes,
 } from "../write/diff";
 import { getObjectValue } from "../shared/objects";
-import { createDiffPreviewText } from "./shared/diff-preview";
+import { createDiffPreviewText, diffPreviewLineLimit } from "./shared/diff-preview";
 import { cachedPreview, previewCacheKey } from "./shared/cache";
-import { countFileLines, renderHighlightedPreviewText } from "./shared/preview-text";
+import { renderHighlightedPreviewText } from "./shared/preview-text";
 import { withSecretWarning } from "./shared/secret-preview";
-import { createCodePreviewToolShell, hiddenPreviewExpandHintForShell } from "./shared/shell";
+import { createCodePreviewToolShell, hiddenPreviewExpandHintForShell } from "../preview/tool-shell";
 
 export function registerWrite(pi: ExtensionAPI, cwd: string) {
   const originalWrite = createWriteToolDefinition(cwd);
@@ -59,7 +60,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
               cwd,
               theme,
               lang,
-              countFileLines(content),
+              countContentLines(content),
             )}${formatOptionalHiddenHint(
               hiddenPreviewExpandHintForShell(renderContext.state, theme),
             )}`,
@@ -152,7 +153,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
         if (typeof beforeContent === "string")
           return new Text(theme.fg("muted", "✓ Write applied · no changes"), 0, 0);
         return new Text(
-          theme.fg("success", `✓ New file (${countLabel(countFileLines(content), "line")})`),
+          theme.fg("success", `✓ New file (${countLabel(countContentLines(content), "line")})`),
           0,
           0,
         );
@@ -239,10 +240,7 @@ function renderWriteDiffPreview(
   const diff = createSimpleDiff(before, content);
   const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
   const summary = summarizeDiff(diff);
-  const limit =
-    expanded || codePreviewSettings.editCollapsedLines === "all"
-      ? summary.totalLines
-      : codePreviewSettings.editCollapsedLines;
+  const limit = diffPreviewLineLimit(summary.totalLines, expanded);
   const header = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeDiffShape(summary))}${diffSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
   return createDiffPreviewText(diff, lang, theme, limit, {
     totalLines: summary.totalLines,

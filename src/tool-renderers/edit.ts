@@ -2,7 +2,7 @@ import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createEditToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
 import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { AsyncPreview, shouldRenderAsync } from "../preview/async";
-import { getEditDiff, getPathArg, getTextContent } from "../tool-data";
+import { getEditDiff, getEditPreviewOperations, getPathArg, getTextContent } from "../tool-data";
 import { FullWidthDiffText } from "../diff/index";
 import { createSimpleDiff } from "../diff/structured";
 import { diffSummarySeparator, summarizeDiff, type DiffSummary } from "../diff/summary";
@@ -11,14 +11,14 @@ import { resolvePreviewLanguage } from "../syntax/language";
 import { renderDisplayPath } from "../paths/display";
 import { codePreviewSettings } from "../settings/index";
 import { escapeControlChars } from "../preview/terminal-text";
-import { getObjectValue } from "../shared/objects";
 import {
   appendDiffPreviewFooters,
   createDiffPreviewText,
+  diffPreviewLineLimit,
   renderDiffPreviewBody,
 } from "./shared/diff-preview";
 import { cachedPreview, previewArgsKey, previewCacheKey } from "./shared/cache";
-import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "./shared/shell";
+import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "../preview/tool-shell";
 
 export function registerEdit(pi: ExtensionAPI, cwd: string) {
   const originalEdit = createEditToolDefinition(cwd);
@@ -120,10 +120,9 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
         });
         const summary = summarizeDiff(diff);
         const hidePreview = !expanded && !codePreviewSettings.editDiffPreview;
-        const limit =
-          expanded || hidePreview || codePreviewSettings.editCollapsedLines === "all"
-            ? summary.totalLines
-            : codePreviewSettings.editCollapsedLines;
+        const limit = hidePreview
+          ? summary.totalLines
+          : diffPreviewLineLimit(summary.totalLines, expanded);
         renderContext.state.editSummaryText = formatEditSummary(summary, limit, theme);
         updateEditHeader(renderContext, cwd, theme);
         if (hidePreview) return renderHiddenPreviewExpandHint(renderContext.state, theme);
@@ -166,24 +165,6 @@ function renderEditDiffPreview(
     skipHighlightLabel: "Syntax highlighting skipped for large diff",
     invalidate,
   });
-}
-
-function getEditPreviewOperations(args: unknown): Array<{ oldText: string; newText: string }> {
-  const edits = getObjectValue(args, "edits");
-  if (Array.isArray(edits)) {
-    return edits.flatMap((edit) => {
-      const oldText = getObjectValue(edit, "oldText") ?? getObjectValue(edit, "old_text");
-      const newText = getObjectValue(edit, "newText") ?? getObjectValue(edit, "new_text");
-      return typeof oldText === "string" && typeof newText === "string" && oldText !== newText
-        ? [{ oldText, newText }]
-        : [];
-    });
-  }
-  const oldText = getObjectValue(args, "oldText") ?? getObjectValue(args, "old_text");
-  const newText = getObjectValue(args, "newText") ?? getObjectValue(args, "new_text");
-  return typeof oldText === "string" && typeof newText === "string" && oldText !== newText
-    ? [{ oldText, newText }]
-    : [];
 }
 
 function editOperationsSource(operations: Array<{ oldText: string; newText: string }>): string {

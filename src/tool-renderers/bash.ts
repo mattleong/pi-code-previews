@@ -16,7 +16,7 @@ import { renderHighlightedText } from "../syntax/shiki";
 import { escapeControlChars } from "../preview/terminal-text";
 import { shouldHideBashResult } from "./shared/bash-preview-policy";
 import { withSecretWarning } from "./shared/secret-preview";
-import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "./shared/shell";
+import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "../preview/tool-shell";
 
 export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOptions) {
   const originalBash = createBashToolDefinition(cwd, options);

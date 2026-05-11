@@ -24,7 +24,7 @@ export function diffLineBg(
   const coloredLine = line
     .replace(/\x1b\[39m/g, `\x1b[39m${bg}`)
     .replace(/\x1b\[49m/g, `\x1b[49m${bg}`);
-  return bg + coloredLine;
+  return `${bg}${coloredLine}\x1b[49m`;
 }
 
 function fallbackDiffBg(kind: DiffLineKind, intensity: "subtle" | "medium"): string {

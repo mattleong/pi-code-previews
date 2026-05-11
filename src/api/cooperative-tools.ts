@@ -8,7 +8,7 @@ import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { getTextContent } from "../tool-data";
 import { codePreviewSettings, type ToolCallBackgroundMode } from "../settings/index";
 import { escapeControlChars } from "../preview/terminal-text";
-import { createCodePreviewToolShell } from "../tool-renderers/shared/shell";
+import { createCodePreviewToolShell } from "../preview/tool-shell";
 
 export interface CodePreviewShellOptions {
   /**

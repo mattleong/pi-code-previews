@@ -14,7 +14,7 @@ import { codePreviewSettings } from "../settings/index";
 import { shouldSkipHighlight } from "../syntax/shiki";
 import { escapeControlChars } from "../preview/terminal-text";
 import { renderSelectedOutputLines } from "./shared/preview-text";
-import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "./shared/shell";
+import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "../preview/tool-shell";
 
 export function registerGrep(pi: ExtensionAPI, cwd: string) {
   const originalGrep = createGrepToolDefinition(cwd);

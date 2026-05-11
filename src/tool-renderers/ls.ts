@@ -4,7 +4,7 @@ import { Text } from "@earendil-works/pi-tui";
 
 import { renderDisplayPath } from "../paths/display";
 import { codePreviewSettings } from "../settings/index";
-import { createCodePreviewToolShell } from "./shared/shell";
+import { createCodePreviewToolShell } from "../preview/tool-shell";
 import { renderPathListResult } from "./shared/path-list-result";
 
 export function registerLs(pi: ExtensionAPI, cwd: string) {
@@ -34,6 +34,7 @@ export function registerLs(pi: ExtensionAPI, cwd: string) {
           emptyMarker: "(empty directory)",
           emptyLabel: () => "Empty directory",
           footerNoun: "entries",
+          iconMode: codePreviewSettings.pathIcons,
         }),
       );
     },
