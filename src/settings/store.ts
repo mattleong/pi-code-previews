@@ -3,13 +3,11 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { isFileNotFound } from "../shared/errors";
-import {
-  CODE_PREVIEW_SETTING_KEYS,
-  cloneCodePreviewSettings,
-  defaultCodePreviewSettings,
-  normalizeSettings,
-  type CodePreviewSettings,
-} from "./index";
+import { CODE_PREVIEW_SETTING_KEYS } from "./definitions";
+import { defaultCodePreviewSettings } from "./defaults";
+import { cloneCodePreviewSettings } from "./state";
+import type { CodePreviewSettings } from "./types";
+import { normalizeSettings } from "./values";
 
 export function getSettingsPath(): string {
   return join(getAgentDir(), "code-previews.json");
@@ -71,7 +69,9 @@ export function extractCodePreviewSettings(data: unknown): Record<string, unknow
     if (!key.startsWith("codePreview")) continue;
     const normalized = key.slice("codePreview".length);
     if (!normalized) continue;
-    extracted[normalized[0]!.toLowerCase() + normalized.slice(1)] = value;
+    const first = normalized[0];
+    if (first === undefined) continue;
+    extracted[first.toLowerCase() + normalized.slice(1)] = value;
   }
   return extracted;
 }

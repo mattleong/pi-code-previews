@@ -59,7 +59,7 @@ function renderDiff(diff: string, options: DiffRenderOptions): string {
   const lang = options.syntaxHighlight ? options.lang : undefined;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+    const line = lines[i] ?? "";
     const parsed = parsedLines[i];
     if (!parsed) {
       out.push(renderSeparator(line, options.theme));

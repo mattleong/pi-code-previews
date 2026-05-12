@@ -12,7 +12,7 @@ import { renderSelectedOutputLines } from "./preview-text";
 import { renderHiddenPreviewPrelude, renderResultPrelude } from "./result-prelude";
 import type { PathIconMode } from "../../settings/types";
 
-interface PathListResultConfig {
+export interface PathListResultConfig {
   cwd: string;
   iconMode: PathIconMode;
   previewEnabled: boolean;

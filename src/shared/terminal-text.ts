@@ -38,7 +38,7 @@ export function injectVisibleRanges(
       i += sgr.sequence.length - 1;
       continue;
     }
-    while (rangeIndex < sorted.length && visible >= sorted[rangeIndex]![1]) {
+    while (rangeIndex < sorted.length && visible >= (sorted[rangeIndex]?.[1] ?? Infinity)) {
       if (active) {
         out += options.close;
         active = false;

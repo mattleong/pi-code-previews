@@ -72,7 +72,8 @@ const WRAPPER_CALL_TOKENS = new Set(["filter", "flatMap", "forEach", "map", "red
 function isWrapperCallNoise(text: string, tokens: string[]): boolean {
   return (
     tokens.length === 1 &&
-    WRAPPER_CALL_TOKENS.has(tokens[0]!) &&
+    tokens[0] !== undefined &&
+    WRAPPER_CALL_TOKENS.has(tokens[0]) &&
     /^[\s.()[\]{};,]*[$_\p{L}][$_\p{L}\p{N}\p{Mark}]*[\s.()[\]{};,]*$/u.test(text)
   );
 }

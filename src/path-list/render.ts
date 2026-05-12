@@ -45,7 +45,8 @@ function renderTreePath(
   const parts = clean.replace(/\/$/, "").split("/").filter(Boolean);
   let prefix = "";
   for (let index = 0; index < parts.length; index++) {
-    const part = parts[index]!;
+    const part = parts[index];
+    if (part === undefined) continue;
     const isLeaf = index === parts.length - 1;
     const key = prefix ? `${prefix}/${part}` : part;
     const indent = "  ".repeat(index);

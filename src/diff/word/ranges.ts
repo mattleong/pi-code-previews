@@ -5,8 +5,10 @@ export type TokenGroup = { start: number; end: number };
 
 export function rangesForTokenGroup(tokens: WordEmphasisToken[], group: TokenGroup): TextRange[] {
   const ranges: TextRange[] = [];
-  for (let index = group.start; index < group.end; index++)
-    appendTokenRange(ranges, tokens[index]!);
+  for (let index = group.start; index < group.end; index++) {
+    const token = tokens[index];
+    if (token) appendTokenRange(ranges, token);
+  }
   return ranges;
 }
 

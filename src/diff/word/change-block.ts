@@ -36,7 +36,8 @@ export function analyzeChangedLineBlock(
   const removed: Array<IndexedChangedLine<RemovedDiffLine>> = [];
   const added: Array<IndexedChangedLine<AddedDiffLine>> = [];
   for (let index = 0; index < block.length; index++) {
-    const line = block[index]!;
+    const line = block[index];
+    if (line === undefined) continue;
     if (isRemovedDiffLine(line)) removed.push(indexedChangedLine(index, line));
     else if (isAddedDiffLine(line)) added.push(indexedChangedLine(index, line));
   }
@@ -46,8 +47,9 @@ export function analyzeChangedLineBlock(
   const ranges: ChangedLineRangePair[] = [];
 
   for (const pair of pairs) {
-    const removedLine = removedByIndex.get(pair.removedIndex)!;
-    const addedLine = addedByIndex.get(pair.addedIndex)!;
+    const removedLine = removedByIndex.get(pair.removedIndex);
+    const addedLine = addedByIndex.get(pair.addedIndex);
+    if (!removedLine || !addedLine) continue;
     ranges.push({
       pair,
       ranges: changedRangesForTokensWithConfidence(

@@ -22,7 +22,7 @@ export function createStructuredDiff(before: string, after: string): StructuredD
   let futureChangeSeen = false;
   for (let index = changes.length - 1; index >= 0; index--) {
     hasChangeAfter[index] = futureChangeSeen;
-    const change = changes[index]!;
+    const change = changeAt(changes, index);
     if (change.added || change.removed) futureChangeSeen = true;
   }
 
@@ -34,7 +34,7 @@ export function createStructuredDiff(before: string, after: string): StructuredD
   let firstChangeLine = 1;
 
   for (let index = 0; index < changes.length; index++) {
-    const change = changes[index]!;
+    const change = changeAt(changes, index);
     const chunkLines = splitDiffLines(change.value);
 
     if (!change.added && !change.removed) {
@@ -63,6 +63,15 @@ export function createStructuredDiff(before: string, after: string): StructuredD
   }
 
   return lines.length ? [{ header: `@@ ${firstChangeLine} @@`, lines }] : [];
+}
+
+function changeAt(
+  changes: ReturnType<typeof diffLines>,
+  index: number,
+): ReturnType<typeof diffLines>[number] {
+  const change = changes[index];
+  if (change === undefined) throw new RangeError(`Missing diff change ${index}`);
+  return change;
 }
 
 function formatStructuredDiff(hunks: StructuredDiffHunk[]): string {

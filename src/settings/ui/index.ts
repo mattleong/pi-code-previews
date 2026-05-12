@@ -30,31 +30,65 @@ import {
 
 type SettingsProvider = () => CodePreviewSettings;
 type SettingChangeHandler = (id: string, value: string) => void;
+type SettingsGroupDefinition = {
+  name: string;
+  label: string;
+  description: string;
+  summarize: (settings: CodePreviewSettings) => string;
+  items: (
+    current: CodePreviewSettings,
+    getCurrent: SettingsProvider,
+    onSettingChange: SettingChangeHandler,
+  ) => SettingItem[];
+};
+
+const SETTINGS_CATEGORY_GROUPS: SettingsGroupDefinition[] = [
+  {
+    name: "appearance",
+    label: "Appearance",
+    description: "Theme, syntax color, tool frames, timing, line numbers, and path icons.",
+    summarize: summarizeAppearance,
+    items: (current) => createSettingListItems(current, APPEARANCE_SETTING_IDS),
+  },
+  {
+    name: "outputPreviews",
+    label: "Output previews",
+    description: "Collapsed output/code visibility and preview lengths by tool family.",
+    summarize: summarizeOutputPreviews,
+    items: (current, getCurrent, onSettingChange) =>
+      createOutputPreviewItems(current, getCurrent, onSettingChange),
+  },
+  {
+    name: "warningsSafety",
+    label: "Warnings & safety",
+    description: "Preview-only safety warnings for shell commands and secret-looking values.",
+    summarize: summarizeWarnings,
+    items: (current) => createSettingListItems(current, WARNING_SETTING_IDS),
+  },
+  {
+    name: "advanced",
+    label: "Advanced",
+    description: "Settings file location and restore defaults.",
+    summarize: () => "file & defaults",
+    items: (current) => createSettingListItems(current, ADVANCED_SETTING_IDS),
+  },
+];
 
 export function createSettingsCategoryItems(
   current: CodePreviewSettings,
   getCurrent: SettingsProvider,
   onSettingChange: SettingChangeHandler,
 ): SettingItem[] {
+  const groupItem = (name: string) =>
+    createSettingsGroupItemFromDefinition(
+      settingsGroupDefinition(name),
+      current,
+      getCurrent,
+      onSettingChange,
+    );
   return [
-    createSettingsGroupItem({
-      name: "appearance",
-      label: "Appearance",
-      description: "Theme, syntax color, tool frames, timing, line numbers, and path icons.",
-      currentValue: summarizeAppearance(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), APPEARANCE_SETTING_IDS),
-      summary: () => summarizeAppearance(getCurrent()),
-    }),
-    createSettingsGroupItem({
-      name: "outputPreviews",
-      label: "Output previews",
-      description: "Collapsed output/code visibility and preview lengths by tool family.",
-      currentValue: summarizeOutputPreviews(current),
-      onSettingChange,
-      items: () => createOutputPreviewItems(getCurrent(), getCurrent, onSettingChange),
-      summary: () => summarizeOutputPreviews(getCurrent()),
-    }),
+    groupItem("appearance"),
+    groupItem("outputPreviews"),
     {
       id: "tools",
       label: "Enabled tools",
@@ -64,25 +98,15 @@ export function createSettingsCategoryItems(
       submenu: (_currentValue, done) =>
         new ToolPreviewSettingsSubmenu(formatSettingValue(getCurrent(), "tools"), done),
     },
-    createSettingsGroupItem({
-      name: "warningsSafety",
-      label: "Warnings & safety",
-      description: "Preview-only safety warnings for shell commands and secret-looking values.",
-      currentValue: summarizeWarnings(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), WARNING_SETTING_IDS),
-      summary: () => summarizeWarnings(getCurrent()),
-    }),
-    createSettingsGroupItem({
-      name: "advanced",
-      label: "Advanced",
-      description: "Settings file location and restore defaults.",
-      currentValue: "file & defaults",
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), ADVANCED_SETTING_IDS),
-      summary: () => "file & defaults",
-    }),
+    groupItem("warningsSafety"),
+    groupItem("advanced"),
   ];
+}
+
+function settingsGroupDefinition(name: string): SettingsGroupDefinition {
+  const definition = SETTINGS_CATEGORY_GROUPS.find((group) => group.name === name);
+  if (definition === undefined) throw new RangeError(`Missing settings group ${name}`);
+  return definition;
 }
 
 type SettingsGroupItemOptions = {
@@ -113,62 +137,73 @@ function createSettingsGroupItem(options: SettingsGroupItemOptions): SettingItem
   };
 }
 
+function createSettingsGroupItemFromDefinition(
+  definition: SettingsGroupDefinition,
+  current: CodePreviewSettings,
+  getCurrent: SettingsProvider,
+  onSettingChange: SettingChangeHandler,
+): SettingItem {
+  return createSettingsGroupItem({
+    name: definition.name,
+    label: definition.label,
+    description: definition.description,
+    currentValue: definition.summarize(current),
+    onSettingChange,
+    items: () => definition.items(getCurrent(), getCurrent, onSettingChange),
+    summary: () => definition.summarize(getCurrent()),
+  });
+}
+
 export function isSettingsGroupItemId(id: string): boolean {
   return id.startsWith(SETTINGS_GROUP_ID_PREFIX);
 }
+
+const OUTPUT_PREVIEW_GROUPS: SettingsGroupDefinition[] = [
+  {
+    name: "readPreviews",
+    label: "Read previews",
+    description: "File content visibility and collapsed read size.",
+    summarize: summarizeReadPreviews,
+    items: (current) => createSettingListItems(current, READ_PREVIEW_SETTING_IDS),
+  },
+  {
+    name: "writePreviews",
+    label: "Write previews",
+    description: "Write content/diff visibility and collapsed write content size.",
+    summarize: summarizeWritePreviews,
+    items: (current) => createSettingListItems(current, WRITE_PREVIEW_SETTING_IDS),
+  },
+  {
+    name: "diffPreviews",
+    label: "Edit diff previews",
+    description: "Edit diff visibility, backgrounds, word emphasis, and collapsed size.",
+    summarize: summarizeDiffPreviews,
+    items: (current) => createSettingListItems(current, DIFF_PREVIEW_SETTING_IDS),
+  },
+  {
+    name: "searchListPreviews",
+    label: "Search/list previews",
+    description: "Grep, find, and ls result visibility plus collapsed sizes.",
+    summarize: summarizeSearchListPreviews,
+    items: (current) => createSettingListItems(current, SEARCH_LIST_PREVIEW_SETTING_IDS),
+  },
+  {
+    name: "bashPreviews",
+    label: "Bash previews",
+    description: "Successful bash output visibility.",
+    summarize: summarizeBashPreviews,
+    items: (current) => createSettingListItems(current, BASH_PREVIEW_SETTING_IDS),
+  },
+];
 
 function createOutputPreviewItems(
   current: CodePreviewSettings,
   getCurrent: SettingsProvider,
   onSettingChange: SettingChangeHandler,
 ): SettingItem[] {
-  return [
-    createSettingsGroupItem({
-      name: "readPreviews",
-      label: "Read previews",
-      description: "File content visibility and collapsed read size.",
-      currentValue: summarizeReadPreviews(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), READ_PREVIEW_SETTING_IDS),
-      summary: () => summarizeReadPreviews(getCurrent()),
-    }),
-    createSettingsGroupItem({
-      name: "writePreviews",
-      label: "Write previews",
-      description: "Write content/diff visibility and collapsed write content size.",
-      currentValue: summarizeWritePreviews(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), WRITE_PREVIEW_SETTING_IDS),
-      summary: () => summarizeWritePreviews(getCurrent()),
-    }),
-    createSettingsGroupItem({
-      name: "diffPreviews",
-      label: "Edit diff previews",
-      description: "Edit diff visibility, backgrounds, word emphasis, and collapsed size.",
-      currentValue: summarizeDiffPreviews(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), DIFF_PREVIEW_SETTING_IDS),
-      summary: () => summarizeDiffPreviews(getCurrent()),
-    }),
-    createSettingsGroupItem({
-      name: "searchListPreviews",
-      label: "Search/list previews",
-      description: "Grep, find, and ls result visibility plus collapsed sizes.",
-      currentValue: summarizeSearchListPreviews(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), SEARCH_LIST_PREVIEW_SETTING_IDS),
-      summary: () => summarizeSearchListPreviews(getCurrent()),
-    }),
-    createSettingsGroupItem({
-      name: "bashPreviews",
-      label: "Bash previews",
-      description: "Successful bash output visibility.",
-      currentValue: summarizeBashPreviews(current),
-      onSettingChange,
-      items: () => createSettingListItems(getCurrent(), BASH_PREVIEW_SETTING_IDS),
-      summary: () => summarizeBashPreviews(getCurrent()),
-    }),
-  ];
+  return OUTPUT_PREVIEW_GROUPS.map((group) =>
+    createSettingsGroupItemFromDefinition(group, current, getCurrent, onSettingChange),
+  );
 }
 
 function createSettingListItems(

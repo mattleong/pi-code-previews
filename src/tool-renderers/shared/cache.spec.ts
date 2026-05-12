@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "vitest";
-import { diffPreviewCacheKey, previewCacheKey, writeCallPreviewCacheKey } from "./cache";
+import {
+  diffPreviewCacheKey,
+  previewCacheKey,
+  writeCallPreviewCacheKey,
+} from "./preview-cache-key";
 import { codePreviewSettings, setCodePreviewSettings } from "../../settings/index";
 import { cloneCodePreviewSettingsForTest, testTheme } from "../../testing/render";
 

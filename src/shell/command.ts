@@ -12,26 +12,32 @@ function getLeadingShellWords(command: string): string[] {
   const words: string[] = [];
   let index = 0;
   while (index < command.length) {
-    while (index < command.length && /\s/.test(command[index]!)) index++;
-    if (index >= command.length || isShellOperator(command[index]!)) break;
+    while (index < command.length && /\s/.test(command.charAt(index))) index++;
+    if (index >= command.length || isShellOperator(command.charAt(index))) break;
 
     let word = "";
     while (index < command.length) {
-      const char = command[index]!;
+      const char = command.charAt(index);
       if (/\s/.test(char) || isShellOperator(char)) break;
       if (char === "'" || char === '"') {
         const quote = char;
         index++;
-        while (index < command.length && command[index] !== quote) {
-          if (quote === '"' && command[index] === "\\") index++;
-          if (index < command.length) word += command[index++]!;
+        while (index < command.length && command.charAt(index) !== quote) {
+          if (quote === '"' && command.charAt(index) === "\\") index++;
+          if (index < command.length) {
+            word += command.charAt(index);
+            index++;
+          }
         }
         if (index < command.length) index++;
         continue;
       }
       if (char === "\\") {
         index++;
-        if (index < command.length) word += command[index++]!;
+        if (index < command.length) {
+          word += command.charAt(index);
+          index++;
+        }
         continue;
       }
       word += char;

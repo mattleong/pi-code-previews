@@ -1,6 +1,6 @@
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createEditToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
-import { Container, Text, type Component } from "@earendil-works/pi-tui";
+import { Container, Text } from "@earendil-works/pi-tui";
 import {
   createSimpleDiff,
   diffSummarySeparator,
@@ -17,7 +17,8 @@ import { escapeControlChars } from "../shared/terminal-text";
 import { resolvePreviewLanguage } from "../syntax/language";
 import { getEditPreviewOperations, getPathArg } from "../tool-data/args";
 import { getEditDiff, getTextContent } from "../tool-data/results";
-import { cachedAsyncPreview, diffPreviewCacheKey, previewArgsKey } from "./shared/cache";
+import { cachedAsyncPreview } from "./shared/cache";
+import { diffPreviewCacheKey, previewArgsKey } from "./shared/preview-cache-key";
 import {
   appendDiffPreviewFooters,
   createDiffPreviewText,
@@ -63,8 +64,12 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
         )
           return text;
 
-        if (!renderContext.expanded && !codePreviewSettings.editDiffPreview)
-          return new HeaderAndBody(text, renderHiddenPreviewExpandHint(renderContext.state, theme));
+        if (!renderContext.expanded && !codePreviewSettings.editDiffPreview) {
+          const preview = new Container();
+          preview.addChild(text);
+          preview.addChild(renderHiddenPreviewExpandHint(renderContext.state, theme));
+          return preview;
+        }
 
         const previewKey = diffPreviewCacheKey(
           "edit-call",
@@ -81,8 +86,9 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
             theme,
             renderContext.invalidate,
           );
-        return new HeaderAndBody(
-          text,
+        const preview = new Container();
+        preview.addChild(text);
+        preview.addChild(
           cachedAsyncPreview(
             renderContext.state,
             "editCallPreviewKey",
@@ -95,6 +101,7 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
             renderContext.invalidate,
           ),
         );
+        return preview;
       });
     },
 
@@ -212,8 +219,9 @@ function renderEditCallPreview(
   const totalRemovals = summaries.reduce((total, summary) => total + summary.removals, 0);
 
   for (let index = 0; index < maxOperations; index++) {
-    const diff = diffs[index]!;
-    const summary = summaries[index]!;
+    const diff = diffs[index];
+    const summary = summaries[index];
+    if (diff === undefined || summary === undefined) continue;
     const limit =
       expanded || codePreviewSettings.editCollapsedLines === "all"
         ? summary.totalLines
@@ -242,22 +250,6 @@ function renderEditCallPreview(
   let text = `${header}\n${sections.join("\n")}`;
   if (remainder > 0) text += showingFooter(theme, maxOperations, operations.length, "edit blocks");
   return new FullWidthDiffText(text, theme);
-}
-
-class HeaderAndBody implements Component {
-  constructor(
-    private readonly header: Component,
-    private readonly body: Component,
-  ) {}
-
-  render(width: number): string[] {
-    return [...this.header.render(width), ...this.body.render(width)];
-  }
-
-  invalidate(): void {
-    this.header.invalidate();
-    this.body.invalidate();
-  }
 }
 
 function formatEditHeader(path: string, cwd: string, theme: Theme, summaryText: unknown): string {

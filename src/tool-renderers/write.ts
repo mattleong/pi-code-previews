@@ -30,12 +30,8 @@ import {
   getCodePreviewBeforeWrite,
   withCodePreviewBeforeWrite,
 } from "../write/preview-execution";
-import {
-  cachedAsyncPreview,
-  cachedPreview,
-  diffPreviewCacheKey,
-  writeCallPreviewCacheKey,
-} from "./shared/cache";
+import { cachedAsyncPreview, cachedPreview } from "./shared/cache";
+import { diffPreviewCacheKey, writeCallPreviewCacheKey } from "./shared/preview-cache-key";
 import { renderContentPreview } from "./shared/content-preview";
 import { createDiffPreviewText, diffPreviewLineLimit } from "./shared/diff-preview";
 
