@@ -1,36 +1,39 @@
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createWriteToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { AsyncPreview, shouldRenderAsync } from "../async-preview";
-import { getObjectValue, getPathArg, getTextContent } from "../data";
-import {
-  createProgressiveSyntaxHighlightedDiffText,
-  FullWidthDiffText,
-  renderPlainDiff,
-  summarizeDiff,
-} from "../diff";
-import { describeDiffShape, diffSummarySeparator } from "../diff-summary";
-import { countLabel, formatBytes, metadata, previewFooter, showingFooter } from "../format";
-import { resolvePreviewLanguage } from "../language";
-import { renderDisplayPath } from "../paths";
-import { codePreviewSettings } from "../settings";
-import { getShikiStatus, normalizeShikiLanguage, shouldSkipHighlight } from "../shiki";
-import { escapeControlChars } from "../terminal-text";
 import {
   createSimpleDiff,
+  describeDiffShape,
+  diffSummarySeparator,
+  FullWidthDiffText,
+  summarizeDiff,
+} from "../diff";
+import { renderDisplayPath } from "../paths/display";
+import { metadata } from "../preview/format";
+import { countContentLines } from "../preview/line-counts";
+import { createCodePreviewToolShell, hiddenPreviewExpandHintForShell } from "../preview/tool-shell";
+import { codePreviewSettings } from "../settings/index";
+import { countLabel, formatBytes } from "../shared/format";
+import { getObjectValue } from "../shared/objects";
+import { escapeControlChars } from "../shared/terminal-text";
+import { resolvePreviewLanguage } from "../syntax/language";
+import { normalizeShikiLanguage } from "../syntax/shiki";
+import { getPathArg } from "../tool-data/args";
+import { getTextContent } from "../tool-data/results";
+import {
   getWriteDiffSkipReason,
   readExistingFileForPreview,
   shouldSkipWriteDiffBytes,
-} from "../write-diff";
+} from "../write/diff";
 import {
-  cachedPreview,
-  createCodePreviewToolShell,
-  countFileLines,
-  hiddenPreviewExpandHintForShell,
-  previewCacheKey,
-  renderHighlightedPreviewText,
-  withSecretWarning,
-} from "./common";
+  executeWriteWithPreview,
+  getCodePreviewBeforeWrite,
+  withCodePreviewBeforeWrite,
+} from "../write/preview-execution";
+import { cachedAsyncPreview, cachedPreview } from "./shared/cache";
+import { diffPreviewCacheKey, writeCallPreviewCacheKey } from "./shared/preview-cache-key";
+import { renderContentPreview } from "./shared/content-preview";
+import { createDiffPreviewText, diffPreviewLineLimit } from "./shared/diff-preview";
 
 export function registerWrite(pi: ExtensionAPI, cwd: string) {
   const originalWrite = createWriteToolDefinition(cwd);
@@ -42,15 +45,18 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const path = getPathArg(params);
-      const content = typeof params.content === "string" ? params.content : "";
-      const before = path ? await readExistingFileForPreview(path, cwd, content) : undefined;
-      const result = await originalWrite.execute(toolCallId, params, signal, onUpdate, ctx);
-      const details = result.details && typeof result.details === "object" ? result.details : {};
-      return { ...result, details: { ...details, codePreviewBeforeWrite: before } };
+      const content = getObjectValue(params, "content");
+      if (!path || typeof content !== "string") {
+        const before = path ? await readExistingFileForPreview(path, cwd, "") : undefined;
+        const result = await originalWrite.execute(toolCallId, params, signal, onUpdate, ctx);
+        return withCodePreviewBeforeWrite(result, before);
+      }
+      return executeWriteWithPreview(path, content, cwd, signal);
     },
 
     renderCall(args, theme, context) {
       return previewShell.renderCall(context, theme, (renderContext) => {
+        if (!renderContext) throw new TypeError("Code preview render context is required.");
         const path = getPathArg(args);
         const content = typeof args.content === "string" ? args.content : "";
         const lang = resolvePreviewLanguage({
@@ -66,20 +72,14 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
               cwd,
               theme,
               lang,
-              countFileLines(content),
+              countContentLines(content),
             )}${formatOptionalHiddenHint(
               hiddenPreviewExpandHintForShell(renderContext.state, theme),
             )}`,
             0,
             0,
           );
-        const previewKey = `${previewCacheKey(
-          "write-call",
-          content,
-          path,
-          renderContext.expanded,
-          theme,
-        )}\0${writeCallPreviewSettingsKey()}`;
+        const previewKey = writeCallPreviewCacheKey(content, path, renderContext.expanded, theme);
         return cachedPreview(
           renderContext.state,
           "writeCallPreviewKey",
@@ -92,6 +92,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
               cwd,
               renderContext.expanded,
               theme,
+              lang,
               renderContext.invalidate,
             ),
         );
@@ -107,7 +108,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
         const path = getPathArg(renderContext.args);
         const content =
           typeof renderContext.args?.content === "string" ? renderContext.args.content : "";
-        const before = getObjectValue(result.details, "codePreviewBeforeWrite");
+        const before = getCodePreviewBeforeWrite(result.details);
         const beforeContent = getObjectValue(before, "content");
         const skipReason = getWriteDiffSkipReason(before, content);
         if (skipReason)
@@ -144,22 +145,23 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
               renderContext.invalidate,
             );
           const source = `${beforeContent}\0${content}`;
-          const previewKey = previewCacheKey("write-result", source, path, expanded, theme);
-          return cachedPreview(
+          const previewKey = diffPreviewCacheKey("write-result", source, path, expanded, theme);
+          return cachedAsyncPreview(
             renderContext.state,
             "writeResultPreviewKey",
             "writeResultPreviewComponent",
             previewKey,
-            () =>
-              shouldRenderAsync(source)
-                ? new AsyncPreview("Rendering write diff…", theme, render, renderContext.invalidate)
-                : render(),
+            source,
+            "Rendering write diff…",
+            theme,
+            render,
+            renderContext.invalidate,
           );
         }
         if (typeof beforeContent === "string")
           return new Text(theme.fg("muted", "✓ Write applied · no changes"), 0, 0);
         return new Text(
-          theme.fg("success", `✓ New file (${countLabel(countFileLines(content), "line")})`),
+          theme.fg("success", `✓ New file (${countLabel(countContentLines(content), "line")})`),
           0,
           0,
         );
@@ -172,50 +174,29 @@ function formatOptionalHiddenHint(hint: string): string {
   return hint ? `\n${hint}` : "";
 }
 
-function writeCallPreviewSettingsKey(): string {
-  const shikiStatus = getShikiStatus();
-  return [
-    String(codePreviewSettings.writeCollapsedLines),
-    codePreviewSettings.writeContentPreview ? "write-preview" : "no-write-preview",
-    codePreviewSettings.secretWarnings ? "secret-warnings" : "no-secret-warnings",
-    shikiStatus.initialized ? "shiki-ready" : "shiki-loading",
-    String(shikiStatus.loadedLanguages),
-    String(shikiStatus.pendingLanguages),
-    String(shikiStatus.statusVersion),
-  ].join("\0");
-}
-
 function renderWriteCallPreview(
   content: string,
   path: string,
   cwd: string,
   expanded: boolean,
   theme: Theme,
+  lang: string | undefined,
   invalidate?: () => void,
 ): Text {
-  const lang = resolvePreviewLanguage({
-    path,
+  const preview = renderContentPreview({
     content,
-    piLanguage: getLanguageFromPath(path),
-  });
-  const limit = expanded ? 0 : codePreviewSettings.writeCollapsedLines;
-  const skipHighlight = shouldSkipHighlight(content);
-  const preview = renderHighlightedPreviewText(
-    content,
-    limit,
-    skipHighlight ? undefined : lang,
+    limit: expanded ? 0 : codePreviewSettings.writeCollapsedLines,
+    lang,
     theme,
     invalidate,
+    emptyLabel: "Empty content",
+    skipHighlightLabel: "Syntax highlighting skipped for large content",
+  });
+  return new Text(
+    `${formatWriteCallHeader(content, path, cwd, theme, lang, preview.total)}\n${preview.text}`,
+    0,
+    0,
   );
-
-  let text = formatWriteCallHeader(content, path, cwd, theme, lang, preview.total);
-  const contentPreview = preview.lines.length
-    ? withSecretWarning(content, theme, preview.lines.join("\n"))
-    : theme.fg("muted", "Empty content");
-  text += `\n${contentPreview}`;
-  if (preview.hidden > 0) text += showingFooter(theme, preview.shown, preview.total, "lines");
-  if (skipHighlight) text += previewFooter(theme, "Syntax highlighting skipped for large content");
-  return new Text(text, 0, 0);
 }
 
 function formatWriteCallHeader(
@@ -243,34 +224,20 @@ function renderWriteDiffPreview(
   theme: Theme,
   invalidate?: () => void,
 ): FullWidthDiffText {
-  if (shouldSkipWriteDiffBytes(before, content)) {
-    return new FullWidthDiffText(
-      theme.fg("success", "✓ Write applied") +
-        theme.fg("muted", " · diff skipped for large content"),
-      theme,
-    );
-  }
   const diff = createSimpleDiff(before, content);
   const lang = resolvePreviewLanguage({ path, content, piLanguage: getLanguageFromPath(path) });
   const summary = summarizeDiff(diff);
-  const limit =
-    expanded || codePreviewSettings.editCollapsedLines === "all"
-      ? summary.totalLines
-      : codePreviewSettings.editCollapsedLines;
+  const limit = diffPreviewLineLimit(
+    summary.totalLines,
+    expanded,
+    codePreviewSettings.editCollapsedLines,
+  );
   const header = `${theme.fg("success", "✓ Write applied")} ${theme.fg("muted", describeDiffShape(summary))}${diffSummarySeparator(theme)}${theme.fg("success", `+${summary.additions}`)} ${theme.fg("error", `-${summary.removals}`)}\n`;
-  const skipSyntaxHighlight = shouldSkipHighlight(diff);
-  const decorate = (body: string) => {
-    let text = header + body;
-    if (summary.totalLines > limit)
-      text += showingFooter(theme, limit, summary.totalLines, "diff lines");
-    if (skipSyntaxHighlight)
-      text += previewFooter(theme, "Syntax highlighting skipped for large diff");
-    return text;
-  };
-  return skipSyntaxHighlight
-    ? new FullWidthDiffText(decorate(renderPlainDiff(diff, theme, limit)), theme)
-    : createProgressiveSyntaxHighlightedDiffText(diff, lang, theme, limit, {
-        decorate,
-        invalidate,
-      });
+  return createDiffPreviewText(diff, lang, theme, limit, {
+    totalLines: summary.totalLines,
+    hiddenLineNoun: "diff lines",
+    skipHighlightLabel: "Syntax highlighting skipped for large diff",
+    decorate: (body) => header + body,
+    invalidate,
+  });
 }

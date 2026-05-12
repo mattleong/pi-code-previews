@@ -1,0 +1,2 @@
+export const DIFF_ADD_MARKER = "\u0000PI_DIFF_ADD\u0000";
+export const DIFF_REMOVE_MARKER = "\u0000PI_DIFF_REMOVE\u0000";

@@ -1,6 +1,6 @@
-import { FullWidthDiffText, renderSyntaxHighlightedDiff } from "../src/diff";
-import { initializeShiki } from "../src/shiki";
-import { codePreviewSettings, setCodePreviewSettings } from "../src/settings";
+import { FullWidthDiffText, renderSyntaxHighlightedDiff } from "../src/diff/index";
+import { initializeShiki } from "../src/syntax/shiki";
+import { codePreviewSettings, setCodePreviewSettings } from "../src/settings/index";
 import {
   benchTheme,
   numberedLines,

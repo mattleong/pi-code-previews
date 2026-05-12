@@ -1,11 +1,19 @@
-import { performance } from "node:perf_hooks";
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { DiffWordEmphasis } from "../src/settings";
+import type { DiffWordEmphasis } from "../src/settings/types";
+import {
+  benchTheme,
+  formatDuration,
+  formatMs,
+  isEnabled,
+  printBenchHeader,
+  runBench as runSharedBench,
+  timeOnce,
+  type BenchResult as SharedBenchResult,
+} from "./helpers";
 
-const { renderSyntaxHighlightedDiff } = await import("../src/diff");
-const { changedRanges } = await import("../src/diff-word-emphasis");
-const { initializeShiki } = await import("../src/shiki");
-const { codePreviewSettings, setCodePreviewSettings } = await import("../src/settings");
+const { renderSyntaxHighlightedDiff } = await import("../src/diff/index");
+const { changedRanges } = await import("../src/diff/word/emphasis");
+const { initializeShiki } = await import("../src/syntax/shiki");
+const { codePreviewSettings, setCodePreviewSettings } = await import("../src/settings/index");
 
 type BenchCase = {
   name: string;
@@ -17,16 +25,11 @@ type BenchCase = {
   limit: number;
 };
 
-type BenchResult = {
-  caseName: string;
-  layer: "render/plain" | "render/highlight" | "word-ranges";
+type BenchLayer = "render/plain" | "render/highlight" | "word-ranges";
+
+type BenchResult = SharedBenchResult & {
+  layer: BenchLayer;
   name: string;
-  mode: string;
-  iterations: number;
-  meanMs: number;
-  medianMs: number;
-  p95Ms: number;
-  opsPerSec: number;
 };
 
 type LargeScenario = {
@@ -36,9 +39,6 @@ type LargeScenario = {
   makePair: (index: number) => { before: string; after: string };
 };
 
-const WARMUP_MS = readPositiveNumber("BENCH_WARMUP_MS", 20);
-const SAMPLE_MS = readPositiveNumber("BENCH_SAMPLE_MS", 80);
-const SAMPLES = Math.floor(readPositiveNumber("BENCH_SAMPLES", 5));
 const MODES: DiffWordEmphasis[] = ["off", "smart", "all"];
 const VERBOSE = isEnabled("BENCH_VERBOSE");
 const LARGE_ACTUAL = isEnabled("BENCH_LARGE_ACTUAL");
@@ -50,11 +50,7 @@ const previousSettings = { ...codePreviewSettings };
 
 await initializeShiki(codePreviewSettings.shikiTheme);
 try {
-  console.log(`pi-code-previews diff rendering benchmark`);
-  console.log(`node=${process.version} platform=${process.platform}/${process.arch}`);
-  console.log(`timestamp=${new Date().toISOString()}`);
-  console.log(`warmupMs=${WARMUP_MS} sampleMs=${SAMPLE_MS} samples=${SAMPLES}`);
-  console.log("");
+  printBenchHeader("diff rendering");
 
   const results: BenchResult[] = [];
   for (const benchCase of cases) {
@@ -97,7 +93,7 @@ try {
       results.push(
         runBench(benchCase.name, "word-ranges", mode, () => {
           for (const pair of benchCase.rangePairs) {
-            const ranges = changedRanges(pair.before, pair.after);
+            const ranges = changedRanges(pair.before, pair.after, mode);
             sink += ranges.removed.length + ranges.added.length;
           }
         }),
@@ -117,47 +113,9 @@ try {
   setCodePreviewSettings(previousSettings);
 }
 
-function runBench(
-  caseName: string,
-  layer: BenchResult["layer"],
-  mode: string,
-  fn: () => void,
-): BenchResult {
-  runFor(WARMUP_MS, fn);
-  const samples: Array<{ iterations: number; ms: number }> = [];
-  for (let sample = 0; sample < SAMPLES; sample++) samples.push(runFor(SAMPLE_MS, fn));
-  const iterations = samples.reduce((total, sample) => total + sample.iterations, 0);
-  const totalMs = samples.reduce((total, sample) => total + sample.ms, 0);
-  const sampleMeans = samples.map((sample) => sample.ms / sample.iterations).sort((a, b) => a - b);
-  const meanMs = totalMs / iterations;
-  return {
-    caseName,
-    layer,
-    name: `${caseName}: ${layer}`,
-    mode,
-    iterations,
-    meanMs,
-    medianMs: percentile(sampleMeans, 0.5),
-    p95Ms: percentile(sampleMeans, 0.95),
-    opsPerSec: 1000 / meanMs,
-  };
-}
-
-function runFor(ms: number, fn: () => void): { iterations: number; ms: number } {
-  const start = performance.now();
-  const deadline = start + ms;
-  let iterations = 0;
-  do {
-    fn();
-    iterations++;
-  } while (performance.now() < deadline);
-  return { iterations, ms: performance.now() - start };
-}
-
-function percentile(sorted: number[], percentileValue: number): number {
-  if (sorted.length === 0) return 0;
-  const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * percentileValue) - 1);
-  return sorted[index] ?? 0;
+function runBench(caseName: string, layer: BenchLayer, mode: string, fn: () => void): BenchResult {
+  const result = runSharedBench(caseName, layer, mode, fn);
+  return { ...result, layer, name: `${caseName}: ${layer}` };
 }
 
 function printSummary(results: BenchResult[], benchCases: BenchCase[]): void {
@@ -238,17 +196,27 @@ function printActualLargeDiffTimings(scenarios: LargeScenario[]): void {
         wordEmphasis: "off",
         syntaxHighlighting: false,
       });
-      const off = timeOnce(() =>
-        renderSyntaxHighlightedDiff(benchCase.diff, undefined, benchTheme(), benchCase.limit),
-      );
+      const off = timeOnce(() => {
+        sink += renderSyntaxHighlightedDiff(
+          benchCase.diff,
+          undefined,
+          benchTheme(),
+          benchCase.limit,
+        ).length;
+      });
       setCodePreviewSettings({
         ...codePreviewSettings,
         wordEmphasis: "smart",
         syntaxHighlighting: false,
       });
-      const smart = timeOnce(() =>
-        renderSyntaxHighlightedDiff(benchCase.diff, undefined, benchTheme(), benchCase.limit),
-      );
+      const smart = timeOnce(() => {
+        sink += renderSyntaxHighlightedDiff(
+          benchCase.diff,
+          undefined,
+          benchTheme(),
+          benchCase.limit,
+        ).length;
+      });
       rows.push({
         scenario: scenario.name,
         pairs: pairCount,
@@ -262,12 +230,6 @@ function printActualLargeDiffTimings(scenarios: LargeScenario[]): void {
   console.log("Actual large diff one-shot timings");
   console.table(rows);
   console.log("");
-}
-
-function timeOnce(fn: () => string): number {
-  const start = performance.now();
-  sink += fn().length;
-  return performance.now() - start;
 }
 
 function findResult(
@@ -289,15 +251,6 @@ function verdict(ms: number): string {
   if (ms > 8) return "problem";
   if (ms >= 1) return "watch";
   return "fine";
-}
-
-function formatMs(ms: number): string {
-  return ms.toFixed(ms >= 10 ? 1 : 3);
-}
-
-function formatDuration(ms: number): string {
-  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 1 : 2)}s`;
-  return `${formatMs(ms)}ms`;
 }
 
 function printResults(results: BenchResult[]): void {
@@ -454,20 +407,4 @@ function veryLongSharedPair(index: number): { before: string; after: string } {
     before: `${shared} oldValue ${shared}`,
     after: `${shared} newValue ${shared}`,
   };
-}
-
-function benchTheme(): Theme {
-  return {
-    bold: (text: string) => text,
-    fg: (_key: string, text: string) => text,
-  } as Theme;
-}
-
-function readPositiveNumber(name: string, fallback: number): number {
-  const value = Number(process.env[name]);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-function isEnabled(name: string): boolean {
-  return /^(?:1|true|yes|on)$/i.test(process.env[name] ?? "");
 }

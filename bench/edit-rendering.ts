@@ -12,9 +12,9 @@ import {
 process.env.CODE_PREVIEW_TOOLS = "edit";
 process.env.CODE_PREVIEW_ASYNC_RENDER_CHARS ??= "100000000";
 
-const { codePreviewSettings, setCodePreviewSettings } = await import("../src/settings");
-const { initializeShiki } = await import("../src/shiki");
-const { registerToolRenderers } = await import("../src/renderers");
+const { codePreviewSettings, setCodePreviewSettings } = await import("../src/settings/index");
+const { initializeShiki } = await import("../src/syntax/shiki");
+const { registerToolRenderers } = await import("../src/tool-renderers/registration");
 
 const WIDTH = 120;
 let sink = 0;

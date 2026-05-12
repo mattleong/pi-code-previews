@@ -1,0 +1,156 @@
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { codePreviewSettings } from "../settings/index";
+import type { DiffWordEmphasis } from "../settings/types";
+import { expandPreviewTabs } from "../shared/preview-tabs";
+import { escapeControlChars } from "../shared/terminal-text";
+import { splitLinesLimited } from "../shared/text-lines";
+import { renderWithShiki } from "../syntax/shiki";
+import { collectChangedDiffBlock } from "./changed-blocks";
+import { changedLineEmphasis, emphasizeChangedSpans } from "./word/line-emphasis";
+import { DIFF_ADD_MARKER, DIFF_REMOVE_MARKER } from "./markers";
+import {
+  diffLineNumberWidth,
+  formatDiffLineNumber,
+  isChangedDiffLine,
+  parseDiffLine,
+  type ParsedDiffLine,
+} from "./parse";
+
+export function renderSyntaxHighlightedDiff(
+  diff: string,
+  lang: string | undefined,
+  theme: Theme,
+  limit: number,
+  invalidate?: () => void,
+): string {
+  return renderDiff(diff, {
+    lang,
+    theme,
+    limit,
+    invalidate,
+    syntaxHighlight: true,
+    wordEmphasis: codePreviewSettings.wordEmphasis,
+  });
+}
+
+export function renderPlainDiff(diff: string, theme: Theme, limit: number): string {
+  return renderDiff(diff, {
+    theme,
+    limit,
+    syntaxHighlight: false,
+    wordEmphasis: "off",
+  });
+}
+
+type DiffRenderOptions = {
+  lang?: string;
+  theme: Theme;
+  limit: number;
+  invalidate?: () => void;
+  syntaxHighlight: boolean;
+  wordEmphasis: DiffWordEmphasis;
+};
+
+function renderDiff(diff: string, options: DiffRenderOptions): string {
+  const lines = splitLinesLimited(diff, options.limit);
+  const parsedLines = lines.map(parseDiffLine);
+  const lineNumberWidth = diffLineNumberWidth(parsedLines);
+  const out: string[] = [];
+  const lang = options.syntaxHighlight ? options.lang : undefined;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const parsed = parsedLines[i];
+    if (!parsed) {
+      out.push(renderSeparator(line, options.theme));
+      continue;
+    }
+
+    if (options.wordEmphasis !== "off" && isChangedDiffLine(parsed)) {
+      const { block, end } = collectChangedDiffBlock(parsedLines, i);
+      out.push(
+        ...renderChangeBlock(
+          block,
+          lang,
+          options.theme,
+          lineNumberWidth,
+          options.wordEmphasis,
+          options.invalidate,
+        ),
+      );
+      i = end - 1;
+      continue;
+    }
+
+    out.push(
+      renderDiffParsedLine(parsed, lang, options.theme, lineNumberWidth, options.invalidate),
+    );
+  }
+
+  return out.join("\n");
+}
+
+function renderSeparator(line: string, theme: Theme): string {
+  const safeLine = escapeControlChars(line);
+  const trimmed = safeLine.trim();
+  if (trimmed === "...") return theme.fg("muted", "      --- unchanged lines hidden ---");
+  if (trimmed.startsWith("@@")) return theme.fg("accent", theme.bold(safeLine));
+  if (trimmed.startsWith("---") || trimmed.startsWith("+++")) return theme.fg("muted", safeLine);
+  if (trimmed.startsWith("diff ") || trimmed.startsWith("index "))
+    return theme.fg("muted", safeLine);
+  return theme.fg("toolDiffContext", safeLine);
+}
+
+function renderDiffParsedLine(
+  parsed: ParsedDiffLine,
+  lang: string | undefined,
+  theme: Theme,
+  lineNumberWidth: number,
+  invalidate?: () => void,
+): string {
+  const highlighted = highlightSingleLine(
+    expandPreviewTabs(parsed.content),
+    lang,
+    theme,
+    invalidate,
+  );
+  const lineNumber = formatDiffLineNumber(parsed.lineNumber, lineNumberWidth);
+  if (parsed.kind === "+")
+    return `${DIFF_ADD_MARKER}${theme.fg("toolDiffAdded", `+${lineNumber} │ `)}${highlighted}`;
+  if (parsed.kind === "-")
+    return `${DIFF_REMOVE_MARKER}${theme.fg("toolDiffRemoved", `-${lineNumber} │ `)}${highlighted}`;
+  return dimAnsi(
+    `${theme.fg("toolDiffContext", ` ${lineNumber} │ `)}${highlighted || theme.fg("toolDiffContext", "")}`,
+  );
+}
+
+function renderChangeBlock(
+  block: ParsedDiffLine[],
+  lang: string | undefined,
+  theme: Theme,
+  lineNumberWidth: number,
+  wordEmphasis: DiffWordEmphasis,
+  invalidate?: () => void,
+): string[] {
+  const emphasis = changedLineEmphasis(block, wordEmphasis);
+  return block.map((line, index) => {
+    const rendered = renderDiffParsedLine(line, lang, theme, lineNumberWidth, invalidate);
+    const match = emphasis.get(index);
+    return match ? emphasizeChangedSpans(rendered, match.ranges, match.kind) : rendered;
+  });
+}
+
+function dimAnsi(text: string): string {
+  return `\x1b[2m${text}\x1b[22m`;
+}
+
+function highlightSingleLine(
+  line: string,
+  lang: string | undefined,
+  theme: Theme,
+  invalidate?: () => void,
+): string {
+  return (
+    renderWithShiki(line, lang, invalidate)?.[0] ?? theme.fg("toolOutput", escapeControlChars(line))
+  );
+}

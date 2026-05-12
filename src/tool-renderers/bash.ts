@@ -1,23 +1,28 @@
 import type { BashToolOptions, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createBashToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { getBashWarnings } from "../bash-warnings";
-import { getObjectValue, getTextContent, isTruncated } from "../data";
-import {
-  countLabel,
-  previewFooter,
-  previewLines,
-  showingFooter,
-  trimSingleTrailingNewline,
-} from "../format";
-import { codePreviewSettings } from "../settings";
-import { renderHighlightedText } from "../shiki";
-import { escapeControlChars } from "../terminal-text";
-import {
-  createCodePreviewToolShell,
-  renderHiddenPreviewExpandHint,
-  withSecretWarning,
-} from "./common";
+import { previewFooter, showingFooter, trimSingleTrailingNewline } from "../preview/format";
+import { createCodePreviewToolShell } from "../preview/tool-shell";
+import { codePreviewSettings } from "../settings/index";
+import { countLabel } from "../shared/format";
+import { getObjectValue } from "../shared/objects";
+import { escapeControlChars } from "../shared/terminal-text";
+import { getFirstShellCommandName } from "../shell/command";
+import { renderHighlightedText } from "../syntax/shiki";
+import { getTextContent, isTruncated } from "../tool-data/results";
+import { shouldHideShellResultByCommand } from "../tools/shell-result-policy";
+import { getBashWarnings } from "../warnings/bash";
+import { renderSelectedOutputLines } from "./shared/preview-text";
+import { renderHiddenPreviewPrelude, renderResultPrelude } from "./shared/result-prelude";
+import { withSecretWarning } from "./shared/secret-preview";
+
+function shouldHideBashResult(args: unknown): boolean {
+  const command = getObjectValue(args, "command");
+  return shouldHideShellResultByCommand(
+    typeof command === "string" ? getFirstShellCommandName(command) : undefined,
+    codePreviewSettings,
+  );
+}
 
 export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOptions) {
   const originalBash = createBashToolDefinition(cwd, options);
@@ -29,6 +34,7 @@ export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOp
 
     renderCall(args, theme, context) {
       return previewShell.renderCall(context, theme, (renderContext) => {
+        if (!renderContext) throw new TypeError("Code preview render context is required.");
         const command = typeof args.command === "string" ? args.command : "";
         const timeout =
           typeof args.timeout === "number" ? theme.fg("muted", ` (timeout ${args.timeout}s)`) : "";
@@ -52,9 +58,19 @@ export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOp
 
     renderResult(result, { expanded, isPartial }, theme, context) {
       return previewShell.renderResult(context, theme, (renderContext) => {
-        if (isPartial) return new Text(theme.fg("warning", "Running…"), 0, 0);
-        if (!expanded && !renderContext.isError && shouldHideBashResult(renderContext.args))
-          return renderHiddenPreviewExpandHint(renderContext.state, theme);
+        const prelude = renderResultPrelude({
+          isPartial,
+          theme,
+          loadingLabel: "Running…",
+        });
+        if (prelude) return prelude;
+        const hiddenPrelude = renderHiddenPreviewPrelude({
+          expanded,
+          state: renderContext.state,
+          theme,
+          hidePreview: !renderContext.isError && shouldHideBashResult(renderContext.args),
+        });
+        if (hiddenPrelude) return hiddenPrelude;
         const output = trimSingleTrailingNewline(getTextContent(result.content));
         const lines = output
           ? output
@@ -64,7 +80,7 @@ export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOp
               )
           : [];
         const limit = expanded ? lines.length : 8;
-        const preview = previewLines(lines, limit, theme);
+        const preview = renderSelectedOutputLines(lines, limit, theme, (chunk) => chunk);
         let text = preview.lines.length
           ? withSecretWarning(output, theme, preview.lines.join("\n"))
           : theme.fg("muted", "No output");
@@ -78,68 +94,4 @@ export function registerBash(pi: ExtensionAPI, cwd: string, options?: BashToolOp
       });
     },
   });
-}
-
-function shouldHideBashResult(args: unknown): boolean {
-  if (!codePreviewSettings.bashResultPreview) return true;
-  const command = getObjectValue(args, "command");
-  if (typeof command !== "string") return false;
-  const shellCommand = getFirstShellCommandName(command);
-  if (
-    (shellCommand === "grep" || shellCommand === "egrep" || shellCommand === "fgrep") &&
-    !codePreviewSettings.grepResultPreview
-  )
-    return true;
-  if (shellCommand === "find" && !codePreviewSettings.findResultPreview) return true;
-  if (shellCommand === "ls" && !codePreviewSettings.lsResultPreview) return true;
-  return false;
-}
-
-function getFirstShellCommandName(command: string): string | undefined {
-  const words = getLeadingShellWords(command);
-  const commandWord = words.find((word) => !isShellAssignment(word));
-  return commandWord?.split("/").pop();
-}
-
-function getLeadingShellWords(command: string): string[] {
-  const words: string[] = [];
-  let index = 0;
-  while (index < command.length) {
-    while (index < command.length && /\s/.test(command[index]!)) index++;
-    if (index >= command.length || isShellOperator(command[index]!)) break;
-
-    let word = "";
-    while (index < command.length) {
-      const char = command[index]!;
-      if (/\s/.test(char) || isShellOperator(char)) break;
-      if (char === "'" || char === '"') {
-        const quote = char;
-        index++;
-        while (index < command.length && command[index] !== quote) {
-          if (quote === '"' && command[index] === "\\") index++;
-          if (index < command.length) word += command[index++]!;
-        }
-        if (index < command.length) index++;
-        continue;
-      }
-      if (char === "\\") {
-        index++;
-        if (index < command.length) word += command[index++]!;
-        continue;
-      }
-      word += char;
-      index++;
-    }
-    if (word) words.push(word);
-    if (words.length >= 8) break;
-  }
-  return words;
-}
-
-function isShellAssignment(word: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(word);
-}
-
-function isShellOperator(char: string): boolean {
-  return "|&;()<>{}".includes(char);
 }

@@ -1,30 +1,30 @@
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { createEditToolDefinition, getLanguageFromPath } from "@earendil-works/pi-coding-agent";
-import { Container, Text, type Component } from "@earendil-works/pi-tui";
-import { AsyncPreview, shouldRenderAsync } from "../async-preview";
-import { getEditDiff, getObjectValue, getPathArg, getTextContent } from "../data";
+import { Container, Text } from "@earendil-works/pi-tui";
 import {
-  createProgressiveSyntaxHighlightedDiffText,
+  createSimpleDiff,
+  diffSummarySeparator,
   FullWidthDiffText,
-  renderPlainDiff,
-  renderSyntaxHighlightedDiff,
   summarizeDiff,
+  type DiffSummary,
 } from "../diff";
-import { diffSummarySeparator, type DiffSummary } from "../diff-summary";
-import { countLabel, previewFooter, showingFooter } from "../format";
-import { resolvePreviewLanguage } from "../language";
-import { renderDisplayPath } from "../paths";
-import { codePreviewSettings } from "../settings";
-import { shouldSkipHighlight } from "../shiki";
-import { escapeControlChars } from "../terminal-text";
-import { createSimpleDiff } from "../write-diff";
+import { renderDisplayPath } from "../paths/display";
+import { showingFooter } from "../preview/format";
+import { createCodePreviewToolShell, renderHiddenPreviewExpandHint } from "../preview/tool-shell";
+import { codePreviewSettings } from "../settings/index";
+import { countLabel } from "../shared/format";
+import { escapeControlChars } from "../shared/terminal-text";
+import { resolvePreviewLanguage } from "../syntax/language";
+import { getEditPreviewOperations, getPathArg } from "../tool-data/args";
+import { getEditDiff, getTextContent } from "../tool-data/results";
+import { cachedAsyncPreview } from "./shared/cache";
+import { diffPreviewCacheKey, previewArgsKey } from "./shared/preview-cache-key";
 import {
-  cachedPreview,
-  createCodePreviewToolShell,
-  previewArgsKey,
-  previewCacheKey,
-  renderHiddenPreviewExpandHint,
-} from "./common";
+  appendDiffPreviewFooters,
+  createDiffPreviewText,
+  diffPreviewLineLimit,
+  renderDiffPreviewBody,
+} from "./shared/diff-preview";
 
 export function registerEdit(pi: ExtensionAPI, cwd: string) {
   const originalEdit = createEditToolDefinition(cwd);
@@ -38,6 +38,7 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
 
     renderCall(args, theme, context) {
       return previewShell.renderCall(context, theme, (renderContext) => {
+        if (!renderContext) throw new TypeError("Code preview render context is required.");
         const path = getPathArg(args);
         const operations = getEditPreviewOperations(args);
         const operationsSource = editOperationsSource(operations);
@@ -63,36 +64,44 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
         )
           return text;
 
-        if (!renderContext.expanded && !codePreviewSettings.editDiffPreview)
-          return new HeaderAndBody(text, renderHiddenPreviewExpandHint(renderContext.state, theme));
+        if (!renderContext.expanded && !codePreviewSettings.editDiffPreview) {
+          const preview = new Container();
+          preview.addChild(text);
+          preview.addChild(renderHiddenPreviewExpandHint(renderContext.state, theme));
+          return preview;
+        }
 
-        const previewKey = previewCacheKey(
+        const previewKey = diffPreviewCacheKey(
           "edit-call",
           operationsSource,
           path,
           renderContext.expanded,
           theme,
         );
-        if (renderContext.state.editCallPreviewKey !== previewKey) {
-          renderContext.state.editCallPreviewKey = previewKey;
-          const render = () =>
-            renderEditCallPreview(
-              operations,
-              path,
-              renderContext.expanded,
-              theme,
-              renderContext.invalidate,
-            );
-          renderContext.state.editCallPreviewComponent = shouldRenderAsync(operationsSource)
-            ? new AsyncPreview(
-                "Rendering proposed edit diff…",
-                theme,
-                render,
-                renderContext.invalidate,
-              )
-            : render();
-        }
-        return new HeaderAndBody(text, renderContext.state.editCallPreviewComponent as Component);
+        const render = () =>
+          renderEditCallPreview(
+            operations,
+            path,
+            renderContext.expanded,
+            theme,
+            renderContext.invalidate,
+          );
+        const preview = new Container();
+        preview.addChild(text);
+        preview.addChild(
+          cachedAsyncPreview(
+            renderContext.state,
+            "editCallPreviewKey",
+            "editCallPreviewComponent",
+            previewKey,
+            operationsSource,
+            "Rendering proposed edit diff…",
+            theme,
+            render,
+            renderContext.invalidate,
+          ),
+        );
+        return preview;
       });
     },
 
@@ -125,10 +134,13 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
         });
         const summary = summarizeDiff(diff);
         const hidePreview = !expanded && !codePreviewSettings.editDiffPreview;
-        const limit =
-          expanded || hidePreview || codePreviewSettings.editCollapsedLines === "all"
-            ? summary.totalLines
-            : codePreviewSettings.editCollapsedLines;
+        const limit = hidePreview
+          ? summary.totalLines
+          : diffPreviewLineLimit(
+              summary.totalLines,
+              expanded,
+              codePreviewSettings.editCollapsedLines,
+            );
         renderContext.state.editSummaryText = formatEditSummary(summary, limit, theme);
         updateEditHeader(renderContext, cwd, theme);
         if (hidePreview) return renderHiddenPreviewExpandHint(renderContext.state, theme);
@@ -141,16 +153,17 @@ export function registerEdit(pi: ExtensionAPI, cwd: string) {
             theme,
             renderContext.invalidate,
           );
-        const previewKey = previewCacheKey("edit-result", diff, filePath, expanded, theme);
-        return cachedPreview(
+        const previewKey = diffPreviewCacheKey("edit-result", diff, filePath, expanded, theme);
+        return cachedAsyncPreview(
           renderContext.state,
           "editResultPreviewKey",
           "editResultPreviewComponent",
           previewKey,
-          () =>
-            shouldRenderAsync(diff)
-              ? new AsyncPreview("Rendering edit diff…", theme, render, renderContext.invalidate)
-              : render(),
+          diff,
+          "Rendering edit diff…",
+          theme,
+          render,
+          renderContext.invalidate,
         );
       });
     },
@@ -165,38 +178,12 @@ function renderEditDiffPreview(
   theme: Theme,
   invalidate?: () => void,
 ): FullWidthDiffText {
-  const skipSyntaxHighlight = shouldSkipHighlight(diff);
-  const footer = (body: string) => {
-    let text = body;
-    if (totalLines > limit) text += showingFooter(theme, limit, totalLines, "diff lines");
-    if (skipSyntaxHighlight)
-      text += previewFooter(theme, "Syntax highlighting skipped for large diff");
-    return text;
-  };
-  return skipSyntaxHighlight
-    ? new FullWidthDiffText(footer(renderPlainDiff(diff, theme, limit)), theme)
-    : createProgressiveSyntaxHighlightedDiffText(diff, lang, theme, limit, {
-        decorate: footer,
-        invalidate,
-      });
-}
-
-function getEditPreviewOperations(args: unknown): Array<{ oldText: string; newText: string }> {
-  const edits = getObjectValue(args, "edits");
-  if (Array.isArray(edits)) {
-    return edits.flatMap((edit) => {
-      const oldText = getObjectValue(edit, "oldText") ?? getObjectValue(edit, "old_text");
-      const newText = getObjectValue(edit, "newText") ?? getObjectValue(edit, "new_text");
-      return typeof oldText === "string" && typeof newText === "string" && oldText !== newText
-        ? [{ oldText, newText }]
-        : [];
-    });
-  }
-  const oldText = getObjectValue(args, "oldText") ?? getObjectValue(args, "old_text");
-  const newText = getObjectValue(args, "newText") ?? getObjectValue(args, "new_text");
-  return typeof oldText === "string" && typeof newText === "string" && oldText !== newText
-    ? [{ oldText, newText }]
-    : [];
+  return createDiffPreviewText(diff, lang, theme, limit, {
+    totalLines,
+    hiddenLineNoun: "diff lines",
+    skipHighlightLabel: "Syntax highlighting skipped for large diff",
+    invalidate,
+  });
 }
 
 function editOperationsSource(operations: Array<{ oldText: string; newText: string }>): string {
@@ -232,20 +219,27 @@ function renderEditCallPreview(
   const totalRemovals = summaries.reduce((total, summary) => total + summary.removals, 0);
 
   for (let index = 0; index < maxOperations; index++) {
-    const diff = diffs[index]!;
-    const summary = summaries[index]!;
+    const diff = diffs[index];
+    const summary = summaries[index];
+    if (diff === undefined || summary === undefined) continue;
     const limit =
       expanded || codePreviewSettings.editCollapsedLines === "all"
         ? summary.totalLines
         : (perOperationLimit ?? codePreviewSettings.editCollapsedLines);
-    const skipSyntaxHighlight = shouldSkipHighlight(diff);
-    let rendered = skipSyntaxHighlight
-      ? renderPlainDiff(diff, theme, limit)
-      : renderSyntaxHighlightedDiff(diff, lang, theme, limit, invalidate);
-    if (summary.totalLines > limit)
-      rendered += showingFooter(theme, limit, summary.totalLines, "proposed diff lines");
-    if (skipSyntaxHighlight)
-      rendered += previewFooter(theme, "Syntax highlighting skipped for large proposed diff");
+    const { body, syntaxHighlightSkipped } = renderDiffPreviewBody(
+      diff,
+      lang,
+      theme,
+      limit,
+      invalidate,
+    );
+    const rendered = appendDiffPreviewFooters(body, theme, {
+      totalLines: summary.totalLines,
+      limit,
+      hiddenLineNoun: "proposed diff lines",
+      syntaxHighlightSkipped,
+      skipHighlightLabel: "Syntax highlighting skipped for large proposed diff",
+    });
     if (operations.length > 1)
       sections.push(theme.fg("muted", `Proposed edit ${index + 1}/${operations.length}`));
     sections.push(rendered);
@@ -256,22 +250,6 @@ function renderEditCallPreview(
   let text = `${header}\n${sections.join("\n")}`;
   if (remainder > 0) text += showingFooter(theme, maxOperations, operations.length, "edit blocks");
   return new FullWidthDiffText(text, theme);
-}
-
-class HeaderAndBody implements Component {
-  constructor(
-    private readonly header: Component,
-    private readonly body: Component,
-  ) {}
-
-  render(width: number): string[] {
-    return [...this.header.render(width), ...this.body.render(width)];
-  }
-
-  invalidate(): void {
-    this.header.invalidate();
-    this.body.invalidate();
-  }
 }
 
 function formatEditHeader(path: string, cwd: string, theme: Theme, summaryText: unknown): string {
