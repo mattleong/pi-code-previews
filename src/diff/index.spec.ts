@@ -9,6 +9,7 @@ import {
   renderSyntaxHighlightedDiff,
   summarizeDiff,
 } from "./index";
+import { createDiffBackgroundResolver, diffLineBg } from "./background";
 import { wordEmphasisTelemetry } from "../testing/word-emphasis-telemetry";
 import { changedRanges, changedRangesWithConfidence } from "./word/emphasis";
 
@@ -87,12 +88,38 @@ test("diff background reaches box right padding without exceeding child width", 
   assert.match(line, /\x1b\[48;2;10;42;26m[^\n]* \x1b\[49m/);
 });
 
-test("diff background rows reset their own background", () => {
+test("diff background rows do NOT reset their own background", () => {
   const row = new FullWidthDiffText(
     renderPlainDiff("+1 short", testTheme(), 1),
     testTheme(),
   ).render(20)[0];
-  assert.match(row ?? "", /\x1b\[48;2;10;42;26m[^\n]*\x1b\[49m$/);
+  // diff bg extends to end without trailing \x1b[49m; parent containers handle bg reset
+  assert.match(row ?? "", /\x1b\[48;2;10;42;26m[^\n]*$/);
+  assert.doesNotMatch(row ?? "", /\x1b\[49m$/);
+});
+
+test("diff background reaches right padding even after truncateToWidth reset", () => {
+  const theme: ReturnType<typeof testTheme> = {
+    bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
+    fg: (key: string, text: string) => {
+      const colors: Record<string, string> = {
+        toolDiffAdded: "\x1b[38;2;100;200;100m",
+      };
+      const c = colors[key] ?? "";
+      return c ? `${c}${text}\x1b[39m` : text;
+    },
+  };
+  const bg = createDiffBackgroundResolver(theme)("add")!;
+
+  // Simulate what happens when truncateToWidth appends 0m then the line is boxed
+  const line = theme.fg("toolDiffAdded", "+ 33 │ ") + `\x1b[38;2;180;120;50msome code\x1b[39m`;
+  const withBg = diffLineBg("add", line, createDiffBackgroundResolver(theme));
+  const truncated = withBg + "\x1b[0m";
+  const padding = " ".repeat(Math.max(0, 76 - visibleWidth(truncated)));
+  const framed = `${theme.fg("borderMuted", "│")} ${truncated}${padding} ${theme.fg("borderMuted", "│")}`;
+
+  // No uncolored gap before the border
+  assert.doesNotMatch(framed, /\x1b\[49m\x1b\[0m \x1b\[38/, "there should be no uncolored gap");
 });
 
 test("word emphasis pairs the most similar lines inside change blocks", () => {

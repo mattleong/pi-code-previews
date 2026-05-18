@@ -22,9 +22,10 @@ export function diffLineBg(
   const bg = diffBackground(kind);
   if (!bg) return line;
   const coloredLine = line
+    .replace(/\x1b\[0m/g, `\x1b[0m${bg}`)
     .replace(/\x1b\[39m/g, `\x1b[39m${bg}`)
     .replace(/\x1b\[49m/g, `\x1b[49m${bg}`);
-  return `${bg}${coloredLine}\x1b[49m`;
+  return `${bg}${coloredLine}`;
 }
 
 function fallbackDiffBg(kind: DiffLineKind, intensity: "subtle" | "medium"): string {
