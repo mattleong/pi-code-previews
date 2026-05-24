@@ -16,9 +16,10 @@ export async function codePreviews(pi: ExtensionAPI) {
   registerSettingsCommand(pi);
 
   pi.on("session_start", async (_event, ctx) => {
-    await loadCodePreviewSettings(ctx.cwd);
-    if (codePreviewSettings.syntaxHighlighting)
-      void initializeShiki(codePreviewSettings.shikiTheme);
+    loadCodePreviewSettings(ctx.cwd).then(() => {
+      if (codePreviewSettings.syntaxHighlighting)
+        void initializeShiki(codePreviewSettings.shikiTheme);
+    });
     registerToolRenderers(pi, ctx.cwd, { registeredTools, activatedTools });
   });
 }
