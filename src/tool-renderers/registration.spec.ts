@@ -33,8 +33,61 @@ test("renderer registration activates enabled preview tool overrides", () => {
   assert.equal(formatActiveCodePreviewTools(), "grep, find, ls");
 });
 
+test("renderer registration does not duplicate same cwd and option signature", () => {
+  process.env.CODE_PREVIEW_TOOLS = "read";
+  const registered: Array<{ name: string }> = [];
+  const registeredToolSignatures = new Map<CodePreviewToolName, string>();
+  const pi = { registerTool: (tool: unknown) => registered.push(tool as { name: string }) };
+  const toolOptions = { read: { autoResizeImages: false } };
+
+  registerToolRenderers(pi as never, "/tmp/project", { registeredToolSignatures, toolOptions });
+  registerToolRenderers(pi as never, "/tmp/project", { registeredToolSignatures, toolOptions });
+
+  assert.deepEqual(
+    registered.map((tool) => tool.name),
+    ["read"],
+  );
+});
+
+test("renderer registration refreshes wrappers when cwd changes", () => {
+  process.env.CODE_PREVIEW_TOOLS = "read";
+  const registered: Array<{ name: string }> = [];
+  const registeredToolSignatures = new Map<CodePreviewToolName, string>();
+  const pi = { registerTool: (tool: unknown) => registered.push(tool as { name: string }) };
+  const toolOptions = { read: { autoResizeImages: false } };
+
+  registerToolRenderers(pi as never, "/tmp/project-a", { registeredToolSignatures, toolOptions });
+  registerToolRenderers(pi as never, "/tmp/project-b", { registeredToolSignatures, toolOptions });
+
+  assert.deepEqual(
+    registered.map((tool) => tool.name),
+    ["read", "read"],
+  );
+});
+
+test("renderer registration refreshes wrappers when builtin options change", () => {
+  process.env.CODE_PREVIEW_TOOLS = "bash";
+  const registered: Array<{ name: string }> = [];
+  const registeredToolSignatures = new Map<CodePreviewToolName, string>();
+  const pi = { registerTool: (tool: unknown) => registered.push(tool as { name: string }) };
+
+  registerToolRenderers(pi as never, "/tmp/project", {
+    registeredToolSignatures,
+    toolOptions: { bash: { shellPath: "/bin/sh" } },
+  });
+  registerToolRenderers(pi as never, "/tmp/project", {
+    registeredToolSignatures,
+    toolOptions: { bash: { shellPath: "/bin/zsh" } },
+  });
+
+  assert.deepEqual(
+    registered.map((tool) => tool.name),
+    ["bash", "bash"],
+  );
+});
+
 test("renderer registration removes previously activated previews when disabled", () => {
-  const registeredTools = new Set<CodePreviewToolName>();
+  const registeredToolSignatures = new Map<CodePreviewToolName, string>();
   const activatedTools = new Set<CodePreviewToolName>();
   let activeTools = ["read", "bash"];
   const pi = {
@@ -47,7 +100,7 @@ test("renderer registration removes previously activated previews when disabled"
 
   process.env.CODE_PREVIEW_TOOLS = "grep";
   registerToolRenderers(pi as never, "/tmp/project", {
-    registeredTools,
+    registeredToolSignatures,
     activatedTools,
     toolOptions: {},
   });
@@ -56,7 +109,7 @@ test("renderer registration removes previously activated previews when disabled"
 
   process.env.CODE_PREVIEW_TOOLS = "none";
   registerToolRenderers(pi as never, "/tmp/project", {
-    registeredTools,
+    registeredToolSignatures,
     activatedTools,
     toolOptions: {},
   });
@@ -86,6 +139,7 @@ test("renderer registration does not remove tools that were already active", () 
 test("renderer registration skips tools already owned by another extension", () => {
   process.env.CODE_PREVIEW_TOOLS = "read,grep,write";
   const registered: Array<{ name: string }> = [];
+  const registeredToolSignatures = new Map<CodePreviewToolName, string>();
   registerToolRenderers(
     {
       getAllTools: () => [
@@ -126,6 +180,7 @@ test("renderer registration skips tools already owned by another extension", () 
       registerTool: (tool: unknown) => registered.push(tool as { name: string }),
     } as never,
     "/tmp/project",
+    { registeredToolSignatures },
   );
 
   assert.deepEqual(

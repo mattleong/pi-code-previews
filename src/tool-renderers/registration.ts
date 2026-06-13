@@ -12,7 +12,7 @@ import { registerRead } from "./read";
 import { registerWrite } from "./write";
 
 export interface RegisterToolRenderersOptions {
-  registeredTools?: Set<CodePreviewToolName>;
+  registeredToolSignatures?: Map<CodePreviewToolName, string>;
   activatedTools?: Set<CodePreviewToolName>;
   toolOptions?: BuiltinToolOptions;
 }
@@ -33,6 +33,19 @@ const TOOL_RENDERER_REGISTRATIONS = {
   ls: (pi, cwd) => registerLs(pi, cwd),
 } satisfies Record<CodePreviewToolName, ToolRendererRegistration>;
 
+function registrationSignature(
+  tool: CodePreviewToolName,
+  cwd: string,
+  options: BuiltinToolOptions,
+): string {
+  return JSON.stringify({
+    tool,
+    cwd,
+    bash: options.bash ?? null,
+    read: options.read ?? null,
+  });
+}
+
 export function registerToolRenderers(
   pi: ExtensionAPI,
   cwd: string,
@@ -46,20 +59,23 @@ export function registerToolRenderers(
 
   for (const tool of ALL_CODE_PREVIEW_TOOLS) {
     if (!enabledTools.has(tool)) continue;
-    if (options.registeredTools?.has(tool)) {
+
+    const signature = registrationSignature(tool, cwd, toolOptions);
+    const previousSignature = options.registeredToolSignatures?.get(tool);
+    if (previousSignature === signature) {
       setCodePreviewToolStatus(tool, { state: "active" });
       activePreviewTools.add(tool);
       continue;
     }
 
     const existing = existingTools.get(tool);
-    if (existing && existing.sourceInfo.source !== "builtin") {
+    if (!previousSignature && existing && existing.sourceInfo.source !== "builtin") {
       setCodePreviewToolStatus(tool, { state: "skipped-conflict", owner: existing.sourceInfo });
       continue;
     }
 
     TOOL_RENDERER_REGISTRATIONS[tool](pi, cwd, toolOptions);
-    options.registeredTools?.add(tool);
+    options.registeredToolSignatures?.set(tool, signature);
     activePreviewTools.add(tool);
     setCodePreviewToolStatus(tool, { state: "active" });
   }
