@@ -29,49 +29,40 @@ export async function executeWriteWithPreview(
   );
 }
 
-function executeWriteWithPreviewLock(
+function throwIfAborted(signal: AbortSignal | undefined, aborted: boolean): void {
+  if (aborted || signal?.aborted) throw new Error("Operation aborted");
+}
+
+async function executeWriteWithPreviewLock(
   path: string,
   content: string,
   cwd: string,
   absolutePath: string,
   signal: AbortSignal | undefined,
-) {
-  return new Promise<{
-    content: Array<{ type: "text"; text: string }>;
-    details: CodePreviewBeforeWriteDetails;
-  }>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new Error("Operation aborted"));
-      return;
-    }
-    let aborted = false;
-    const onAbort = () => {
-      aborted = true;
-      reject(new Error("Operation aborted"));
+): Promise<{
+  content: Array<{ type: "text"; text: string }>;
+  details: CodePreviewBeforeWriteDetails;
+}> {
+  if (signal?.aborted) throw new Error("Operation aborted");
+  let aborted = false;
+  const onAbort = () => {
+    aborted = true;
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    const before = await readExistingFileForPreview(path, cwd, content);
+    throwIfAborted(signal, aborted);
+    await mkdir(dirname(absolutePath), { recursive: true });
+    throwIfAborted(signal, aborted);
+    await writeFile(absolutePath, content, "utf-8");
+    throwIfAborted(signal, aborted);
+    return {
+      content: [{ type: "text", text: `Successfully wrote ${content.length} bytes to ${path}` }],
+      details: { codePreviewBeforeWrite: before },
     };
-    signal?.addEventListener("abort", onAbort, { once: true });
-
-    (async () => {
-      try {
-        const before = await readExistingFileForPreview(path, cwd, content);
-        if (aborted) return;
-        await mkdir(dirname(absolutePath), { recursive: true });
-        if (aborted) return;
-        await writeFile(absolutePath, content, "utf-8");
-        if (aborted) return;
-        signal?.removeEventListener("abort", onAbort);
-        resolve({
-          content: [
-            { type: "text", text: `Successfully wrote ${content.length} bytes to ${path}` },
-          ],
-          details: { codePreviewBeforeWrite: before },
-        });
-      } catch (error) {
-        signal?.removeEventListener("abort", onAbort);
-        if (!aborted) reject(error);
-      }
-    })();
-  });
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 export function withCodePreviewBeforeWrite<T extends { details?: unknown }>(
