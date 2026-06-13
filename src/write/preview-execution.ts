@@ -6,18 +6,31 @@ import { getObjectValue } from "../shared/objects";
 import { readExistingFileForPreview, type ExistingFilePreview } from "./diff";
 
 const CODE_PREVIEW_BEFORE_WRITE_DETAIL = "codePreviewBeforeWrite";
+const MAX_BEFORE_WRITE_CACHE_ENTRIES = 64;
 
 export type CodePreviewBeforeWrite = ExistingFilePreview | undefined;
 
+type RedactedCodePreviewBeforeWrite =
+  | Exclude<ExistingFilePreview, { kind: "content" }>
+  | { kind: "content"; byteLength: number }
+  | undefined;
+
 export type CodePreviewBeforeWriteDetails = {
-  codePreviewBeforeWrite: CodePreviewBeforeWrite;
+  codePreviewBeforeWrite: RedactedCodePreviewBeforeWrite;
 };
 
-export function getCodePreviewBeforeWrite(details: unknown): unknown {
+const beforeWriteCache = new Map<string, CodePreviewBeforeWrite>();
+
+export function getCodePreviewBeforeWrite(
+  toolCallId: string | undefined,
+  details: unknown,
+): unknown {
+  if (toolCallId && beforeWriteCache.has(toolCallId)) return beforeWriteCache.get(toolCallId);
   return getObjectValue(details, CODE_PREVIEW_BEFORE_WRITE_DETAIL);
 }
 
 export async function executeWriteWithPreview(
+  toolCallId: string,
   path: string,
   content: string,
   cwd: string,
@@ -25,8 +38,23 @@ export async function executeWriteWithPreview(
 ) {
   const absolutePath = resolvePreviewPath(path, cwd);
   return withFileMutationQueue(absolutePath, () =>
-    executeWriteWithPreviewLock(path, content, cwd, absolutePath, signal),
+    executeWriteWithPreviewLock(toolCallId, path, content, cwd, absolutePath, signal),
   );
+}
+
+function rememberCodePreviewBeforeWrite(toolCallId: string, before: CodePreviewBeforeWrite): void {
+  beforeWriteCache.delete(toolCallId);
+  if (before !== undefined) beforeWriteCache.set(toolCallId, before);
+  while (beforeWriteCache.size > MAX_BEFORE_WRITE_CACHE_ENTRIES) {
+    const oldest = beforeWriteCache.keys().next().value;
+    if (oldest === undefined) break;
+    beforeWriteCache.delete(oldest);
+  }
+}
+
+function redactedBeforeWriteDetail(before: CodePreviewBeforeWrite): RedactedCodePreviewBeforeWrite {
+  if (!before || before.kind !== "content") return before;
+  return { kind: "content", byteLength: Buffer.byteLength(before.content, "utf8") };
 }
 
 function throwIfAborted(signal: AbortSignal | undefined, aborted: boolean): void {
@@ -34,6 +62,7 @@ function throwIfAborted(signal: AbortSignal | undefined, aborted: boolean): void
 }
 
 async function executeWriteWithPreviewLock(
+  toolCallId: string,
   path: string,
   content: string,
   cwd: string,
@@ -56,9 +85,10 @@ async function executeWriteWithPreviewLock(
     throwIfAborted(signal, aborted);
     await writeFile(absolutePath, content, "utf-8");
     throwIfAborted(signal, aborted);
+    rememberCodePreviewBeforeWrite(toolCallId, before);
     return {
       content: [{ type: "text", text: `Successfully wrote ${content.length} bytes to ${path}` }],
-      details: { codePreviewBeforeWrite: before },
+      details: { codePreviewBeforeWrite: redactedBeforeWriteDetail(before) },
     };
   } finally {
     signal?.removeEventListener("abort", onAbort);
@@ -70,5 +100,8 @@ export function withCodePreviewBeforeWrite<T extends { details?: unknown }>(
   before: CodePreviewBeforeWrite,
 ): T & { details: Record<string, unknown> } {
   const details = result.details && typeof result.details === "object" ? result.details : {};
-  return { ...result, details: { ...details, [CODE_PREVIEW_BEFORE_WRITE_DETAIL]: before } };
+  return {
+    ...result,
+    details: { ...details, [CODE_PREVIEW_BEFORE_WRITE_DETAIL]: redactedBeforeWriteDetail(before) },
+  };
 }
