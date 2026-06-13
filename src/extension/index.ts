@@ -15,16 +15,14 @@ export async function codePreviews(pi: ExtensionAPI) {
   registerHealthCommand(pi);
   registerSettingsCommand(pi);
 
-  pi.on("session_start", (_event, ctx) => {
-    void loadCodePreviewSettings(ctx.cwd)
-      .then(() => {
-        if (codePreviewSettings.syntaxHighlighting)
-          void initializeShiki(codePreviewSettings.shikiTheme);
-        registerToolRenderers(pi, ctx.cwd, { registeredTools, activatedTools });
-      })
-      .catch((error) => {
-        console.warn("[pi-code-previews] Failed to load settings.", error);
-        registerToolRenderers(pi, ctx.cwd, { registeredTools, activatedTools });
-      });
+  pi.on("session_start", async (_event, ctx) => {
+    try {
+      await loadCodePreviewSettings(ctx.cwd);
+      if (codePreviewSettings.syntaxHighlighting)
+        void initializeShiki(codePreviewSettings.shikiTheme);
+    } catch (error) {
+      console.warn("[pi-code-previews] Failed to load settings.", error);
+    }
+    registerToolRenderers(pi, ctx.cwd, { registeredTools, activatedTools });
   });
 }
