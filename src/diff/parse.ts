@@ -15,10 +15,16 @@ function normalizedDiffLineNumber(line: ParsedDiffLine | null): string {
 }
 
 export function parseDiffLine(line: string): ParsedDiffLine | null {
-  const match = line.match(/^([+\- ])(\s*\d*)\s(.*)$/);
-  if (!match) return null;
-  const kind = match[1] as ParsedDiffLine["kind"];
-  return { kind, lineNumber: match[2], content: match[3] };
+  const numbered = line.match(/^([+\- ])(\s*\d+)\s(.*)$/);
+  if (numbered) {
+    const kind = numbered[1] as ParsedDiffLine["kind"];
+    return { kind, lineNumber: numbered[2], content: numbered[3] };
+  }
+
+  if (line.startsWith("+++") || line.startsWith("---")) return null;
+  const prefix = line[0];
+  if (prefix !== "+" && prefix !== "-" && prefix !== " ") return null;
+  return { kind: prefix, lineNumber: "", content: line.slice(1) };
 }
 
 export function isAddedDiffLine(line: ParsedDiffLine | null): line is AddedDiffLine {

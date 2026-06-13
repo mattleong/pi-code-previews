@@ -279,17 +279,26 @@ test("registered edit renderer hides diff previews until expanded", () => {
     assert.match(collapsedResult, /expand/);
     assert.doesNotMatch(collapsedResult, /const value = 2/);
 
+    const diffTheme = {
+      ...testTheme(),
+      fg: (key: string, text: string) => {
+        if (key === "toolDiffRemoved") return `REMOVED<${text}>`;
+        if (key === "toolDiffAdded") return `ADDED<${text}>`;
+        return text;
+      },
+    };
     const expandedResult = stripAnsi(
       renderComponent(
         edit.renderResult(
           result,
           { expanded: true, isPartial: false },
-          testTheme(),
+          diffTheme,
           createToolRenderContext({ args: { path: "src/a.ts" } }),
         ),
       ),
     );
-    assert.match(expandedResult, /const value = 2/);
+    assert.match(expandedResult, /REMOVED<-\s*│ >const value = 1;/);
+    assert.match(expandedResult, /ADDED<\+\s*│ >const value = 2;/);
   } finally {
     setCodePreviewSettings(previousSettings);
   }

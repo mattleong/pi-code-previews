@@ -11,6 +11,7 @@ import {
   summarizeDiff,
 } from "./index";
 import { createDiffBackgroundResolver, diffLineBg } from "./background";
+import { parseDiffLine } from "./parse";
 import { wordEmphasisTelemetry } from "../testing/word-emphasis-telemetry";
 import { changedRanges, changedRangesWithConfidence } from "./word/emphasis";
 
@@ -42,6 +43,23 @@ test("summarizeDiff classifies replacements, insertions, and deletions by change
   assert.equal(withExtraLines.insertions, 1);
   assert.equal(withExtraLines.deletions, 1);
   assert.equal(withExtraLines.hunks, 2);
+});
+
+test("parseDiffLine accepts standard body lines but not file headers", () => {
+  assert.deepEqual(parseDiffLine("-old"), { kind: "-", lineNumber: "", content: "old" });
+  assert.deepEqual(parseDiffLine("+new"), { kind: "+", lineNumber: "", content: "new" });
+  assert.deepEqual(parseDiffLine(" context"), {
+    kind: " ",
+    lineNumber: "",
+    content: "context",
+  });
+  assert.deepEqual(parseDiffLine("+  indented"), {
+    kind: "+",
+    lineNumber: "",
+    content: "  indented",
+  });
+  assert.equal(parseDiffLine("--- a/file.ts"), null);
+  assert.equal(parseDiffLine("+++ b/file.ts"), null);
 });
 
 test("plain diff escapes terminal control characters", () => {
