@@ -42,7 +42,13 @@ test("aborted writes keep the file mutation queue locked until in-flight writes 
     });
 
     const controller = new AbortController();
-    const firstPromise = executeWriteWithPreview("target.txt", "after", dir, controller.signal);
+    const firstPromise = executeWriteWithPreview(
+      "tool-1",
+      "target.txt",
+      "after",
+      dir,
+      controller.signal,
+    );
 
     await writeStarted;
     controller.abort();

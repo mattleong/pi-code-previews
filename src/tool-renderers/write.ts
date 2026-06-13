@@ -51,7 +51,7 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
         const result = await originalWrite.execute(toolCallId, params, signal, onUpdate, ctx);
         return withCodePreviewBeforeWrite(result, before);
       }
-      return executeWriteWithPreview(path, content, cwd, signal);
+      return executeWriteWithPreview(toolCallId, path, content, cwd, signal);
     },
 
     renderCall(args, theme, context) {
@@ -108,8 +108,9 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
         const path = getPathArg(renderContext.args);
         const content =
           typeof renderContext.args?.content === "string" ? renderContext.args.content : "";
-        const before = getCodePreviewBeforeWrite(result.details);
+        const before = getCodePreviewBeforeWrite(renderContext.toolCallId, result.details);
         const beforeContent = getObjectValue(before, "content");
+        const beforeKind = getObjectValue(before, "kind");
         const skipReason = getWriteDiffSkipReason(before, content);
         if (skipReason)
           return new Text(
@@ -160,6 +161,13 @@ export function registerWrite(pi: ExtensionAPI, cwd: string) {
         }
         if (typeof beforeContent === "string")
           return new Text(theme.fg("muted", "✓ Write applied · no changes"), 0, 0);
+        if (beforeKind === "content")
+          return new Text(
+            theme.fg("success", "✓ Write applied") +
+              theme.fg("muted", " · previous content unavailable"),
+            0,
+            0,
+          );
         return new Text(
           theme.fg("success", `✓ New file (${countLabel(countContentLines(content), "line")})`),
           0,

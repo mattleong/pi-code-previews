@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { test } from "vitest";
-import { injectVisibleRanges, wrapAnsiToWidth } from "./terminal-text";
+import { escapeControlChars, injectVisibleRanges, wrapAnsiToWidth } from "./terminal-text";
 import { stripAnsi } from "../testing/render";
+
+test("control escaping neutralizes C1 terminal controls", () => {
+  assert.equal(escapeControlChars("ok \u009b31mred"), "ok �31mred");
+  assert.equal(escapeControlChars("title\u009dafter"), "title�after");
+});
 
 test("visible-range injection preserves SGR foreground resets", () => {
   const highlighted = injectVisibleRanges("ab\x1b[31mc\x1b[39mde", [[1, 4]], {

@@ -171,6 +171,32 @@ test("registered write renderer hides code previews until expanded", () => {
   }
 });
 
+test("registered write renderer does not label redacted previous content as a new file", () => {
+  process.env.CODE_PREVIEW_TOOLS = "write";
+  const write = findRenderer(registerRenderers(), "write");
+  assert.ok(write.renderResult);
+
+  const rendered = stripAnsi(
+    renderComponent(
+      write.renderResult(
+        {
+          content: [{ type: "text", text: "ok" }],
+          details: { codePreviewBeforeWrite: { kind: "content", byteLength: 6 } },
+        },
+        { expanded: true, isPartial: false },
+        testTheme(),
+        createToolRenderContext({
+          args: { path: "src/a.ts", content: "after" },
+          toolCallId: "tool-redacted-missing-cache",
+        }),
+      ),
+    ),
+  );
+
+  assert.match(rendered, /previous content unavailable/);
+  assert.doesNotMatch(rendered, /New file/);
+});
+
 test("registered write renderer distinguishes blank-only content from empty content", () => {
   process.env.CODE_PREVIEW_TOOLS = "write";
   const write = findRenderer(registerRenderers(), "write");
@@ -214,8 +240,9 @@ test("registered write execute snapshots previous content inside the file mutati
     });
     await acquiredPromise;
 
+    const toolCallId = "tool-queue";
     const executePromise = write.execute(
-      "tool-1",
+      toolCallId,
       { path: "target.txt", content: "final" },
       undefined,
       undefined,
@@ -224,10 +251,26 @@ test("registered write execute snapshots previous content inside the file mutati
     await delay(10);
     release();
     const [result] = await Promise.all([executePromise, queuedMutation]);
-    const details = (result as { details?: Record<string, unknown> }).details;
-    const before = details?.codePreviewBeforeWrite as { content?: string } | undefined;
+    const details = (result as { details?: unknown }).details;
 
-    assert.equal(before?.content, "queued");
+    assert.doesNotMatch(JSON.stringify(details), /queued/);
+
+    const rendered = stripAnsi(
+      renderComponent(
+        write.renderResult!(
+          result as never,
+          { expanded: true, isPartial: false },
+          testTheme(),
+          createToolRenderContext({
+            args: { path: "target.txt", content: "final" },
+            isPartial: false,
+            toolCallId,
+          }),
+        ),
+      ),
+    );
+    assert.match(rendered, /queued/);
+    assert.match(rendered, /final/);
     assert.equal(await readFile(file, "utf8"), "final");
   } finally {
     await rm(dir, { recursive: true, force: true });
