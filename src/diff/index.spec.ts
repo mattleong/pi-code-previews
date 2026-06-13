@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Box, visibleWidth } from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, test } from "vitest";
 import { codePreviewSettings, setCodePreviewSettings } from "../settings/index";
@@ -99,8 +100,8 @@ test("diff background rows do NOT reset their own background", () => {
 });
 
 test("diff background reaches right padding even after truncateToWidth reset", () => {
-  const theme: ReturnType<typeof testTheme> = {
-    bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
+  const theme = {
+    ...testTheme(),
     fg: (key: string, text: string) => {
       const colors: Record<string, string> = {
         toolDiffAdded: "\x1b[38;2;100;200;100m",
@@ -108,8 +109,7 @@ test("diff background reaches right padding even after truncateToWidth reset", (
       const c = colors[key] ?? "";
       return c ? `${c}${text}\x1b[39m` : text;
     },
-  };
-  const bg = createDiffBackgroundResolver(theme)("add")!;
+  } as Theme;
 
   // Simulate what happens when truncateToWidth appends 0m then the line is boxed
   const line = theme.fg("toolDiffAdded", "+ 33 │ ") + `\x1b[38;2;180;120;50msome code\x1b[39m`;
