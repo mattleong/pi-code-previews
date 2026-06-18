@@ -127,15 +127,24 @@ test("word emphasis pairs the most similar lines inside change blocks", () => {
     "-1 const trimmed = line.trim();\n+1 const safeLine = escapeControlChars(line);\n+2 const trimmed = safeLine.trim();";
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 3).split("\n");
   assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;64;132;82m/);
-  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1msafeLine/);
-  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mline/);
+  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82msafeLine/);
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70mline/);
+});
+
+test("word emphasis uses readable backgrounds with light syntax themes", () => {
+  setCodePreviewSettings({ ...codePreviewSettings, shikiTheme: "github-light" });
+  const diff = "-1 const value = oldValue;\n+1 const value = newValue;";
+  const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2);
+  assert.match(rendered, /\x1b\[48;2;216;182;182mold/);
+  assert.match(rendered, /\x1b\[48;2;194;209;194mnew/);
+  assert.doesNotMatch(rendered, /\x1b\[48;2;(?:148;62;70|64;132;82)m/);
 });
 
 test("word emphasis marks low-overlap one-to-one changed pairs instead of skipping them", () => {
   const diff = "-1 out.push(pair.removed, pair.added);\n+1 block.push(next);";
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
-  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mout/);
-  assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mblock/);
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70mout/);
+  assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82mblock/);
 });
 
 test("word emphasis uses compound identifier parts when pairing changed lines", () => {
@@ -145,8 +154,8 @@ test("word emphasis uses compound identifier parts when pairing changed lines", 
     "+2 return renderPreview(input);",
   ].join("\n");
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 3).split("\n");
-  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mread/);
-  assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1medit/);
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70mread/);
+  assert.match(rendered[1] ?? "", /\x1b\[48;2;64;132;82medit/);
   assert.doesNotMatch(rendered[2] ?? "", /\x1b\[48;2;64;132;82m/);
 });
 
@@ -195,10 +204,10 @@ test("word emphasis pairs high-confidence reordered lines", () => {
     "+2 const alphaResult = computeAlpha(next);",
   ].join("\n");
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 4).split("\n");
-  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1minput/);
-  assert.match(rendered[1] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mprevious/);
-  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mcurrent/);
-  assert.match(rendered[3] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mnext/);
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70minput/);
+  assert.match(rendered[1] ?? "", /\x1b\[48;2;148;62;70mprevious/);
+  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82mcurrent/);
+  assert.match(rendered[3] ?? "", /\x1b\[48;2;64;132;82mnext/);
 });
 
 test("word emphasis narrows compound identifier changes to changed segments", () => {
@@ -269,9 +278,9 @@ test("word emphasis skips low-confidence positional pairs inside larger blocks",
     "+2 renderCompletelyDifferentScreen();",
   ].join("\n");
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 4).split("\n");
-  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70m\x1b\[1mitems/);
+  assert.match(rendered[0] ?? "", /\x1b\[48;2;148;62;70mitems/);
   assert.doesNotMatch(rendered[1] ?? "", /\x1b\[48;2;148;62;70m/);
-  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82m\x1b\[1mnext/);
+  assert.match(rendered[2] ?? "", /\x1b\[48;2;64;132;82mnext/);
   assert.doesNotMatch(rendered[3] ?? "", /\x1b\[48;2;64;132;82m/);
 });
 
@@ -306,7 +315,7 @@ test("smart word emphasis suppresses low-signal wrapper syntax", () => {
 
   setCodePreviewSettings({ ...codePreviewSettings, wordEmphasis: "all" });
   const all = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2);
-  assert.match(all, /\x1b\[48;2;148;62;70m\x1b\[1m\.map/);
+  assert.match(all, /\x1b\[48;2;148;62;70m\.map/);
 });
 
 test("word emphasis can be disabled", () => {
@@ -331,8 +340,8 @@ test("word emphasis ranges stay aligned when indentation changes", () => {
   const diff =
     "-1 \tconst next = parseDiffLine(lines[i + 1]!);\n+1 \t\tconst next = parseDiffLine(lines[end]!);";
   const rendered = renderSyntaxHighlightedDiff(diff, undefined, testTheme(), 2).split("\n");
-  assert.match(rendered[0] ?? "", /lines\[\x1b\[48;2;148;62;70m\x1b\[1mi \+ 1/);
-  assert.match(rendered[1] ?? "", /lines\[\x1b\[48;2;64;132;82m\x1b\[1mend/);
+  assert.match(rendered[0] ?? "", /lines\[\x1b\[48;2;148;62;70mi \+ 1/);
+  assert.match(rendered[1] ?? "", /lines\[\x1b\[48;2;64;132;82mend/);
 });
 
 test("word emphasis highlights long shared lines with appended text", () => {
@@ -342,7 +351,7 @@ test("word emphasis highlights long shared lines with appended text", () => {
   assert.doesNotMatch(rendered[0] ?? "", /\x1b\[48;2;148;62;70m/);
   assert.match(
     rendered[1] ?? "",
-    /\x1b\[48;2;64;132;82m\x1b\[1m\. Project settings override global settings/,
+    /\x1b\[48;2;64;132;82m\. Project settings override global settings/,
   );
 });
 
@@ -358,8 +367,8 @@ test("word emphasis is applied synchronously for large changed lines", () => {
     () => invalidations++,
   );
   assert.equal(invalidations, 0);
-  assert.match(rendered, /\x1b\[48;2;148;62;70m\x1b\[1mold/);
-  assert.match(rendered, /\x1b\[48;2;64;132;82m\x1b\[1mnew/);
+  assert.match(rendered, /\x1b\[48;2;148;62;70mold/);
+  assert.match(rendered, /\x1b\[48;2;64;132;82mnew/);
 });
 
 test("word range emphasis returns changed spans for unrelated token-heavy lines", () => {
