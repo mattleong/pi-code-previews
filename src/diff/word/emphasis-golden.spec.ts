@@ -5,8 +5,8 @@ import { codePreviewSettings, setCodePreviewSettings } from "../../settings/inde
 import { stripAnsi, testTheme } from "../../testing/render";
 import { wordEmphasisGoldenCases } from "./fixtures/emphasis-golden";
 
-const WORD_EMPHASIS_OPEN = /\x1b\[48;2;(?:64;132;82|148;62;70)m\x1b\[1m/g;
-const WORD_EMPHASIS_CLOSE = "\x1b[22m\x1b[49m";
+const WORD_EMPHASIS_OPEN = /\x1b\[48;2;(?:64;132;82|148;62;70)m/g;
+const WORD_EMPHASIS_CLOSE = "\x1b[49m";
 
 let previousCodePreviewSettings = { ...codePreviewSettings };
 
